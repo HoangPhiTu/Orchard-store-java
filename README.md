@@ -535,6 +535,7 @@ orchard-store-admin/
 - **[DATABASE_SCHEMA_ENHANCED.md](./docs/DATABASE_SCHEMA_ENHANCED.md)** - Chi tiết database schema (38 tables)
 - **[ROADMAP_ENHANCED.md](./docs/ROADMAP_ENHANCED.md)** - Lộ trình phát triển 8 phases
 - **[GITHUB_SETUP.md](./GITHUB_SETUP.md)** - Hướng dẫn đẩy dự án lên GitHub
+- **[GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** - Workflow làm việc hàng ngày với Git
 - **[README_SCRIPTS.md](./README_SCRIPTS.md)** - Hướng dẫn sử dụng PowerShell scripts
 
 ### External Resources
