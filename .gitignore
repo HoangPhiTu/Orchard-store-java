@@ -40,3 +40,19 @@ dist/
 *.temp
 .cache/
 
+# Documentation files (except README.md and docs/)
+*.md
+!README.md
+!docs/**/*.md
+
+# Test files
+**/test/
+**/*Test.java
+**/*Tests.java
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/__tests__/
+**/__mocks__/
+
