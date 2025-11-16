@@ -536,6 +536,7 @@ orchard-store-admin/
 - **[ROADMAP_ENHANCED.md](./docs/ROADMAP_ENHANCED.md)** - Lộ trình phát triển 8 phases
 - **[GITHUB_SETUP.md](./GITHUB_SETUP.md)** - Hướng dẫn đẩy dự án lên GitHub
 - **[GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** - Workflow làm việc hàng ngày với Git
+- **[GIT_RESTORE_CODE.md](./GIT_RESTORE_CODE.md)** - Cách lấy lại code cũ từ GitHub
 - **[README_SCRIPTS.md](./README_SCRIPTS.md)** - Hướng dẫn sử dụng PowerShell scripts
 
 ### External Resources
