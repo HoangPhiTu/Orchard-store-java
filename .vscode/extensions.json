@@ -1,0 +1,23 @@
+{
+  "recommendations": [
+    // Java
+    "vscjava.vscode-java-pack",
+    "vscjava.vscode-spring-boot-dashboard",
+    "vscjava.vscode-spring-initializr",
+    
+    // TypeScript/JavaScript
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    
+    // React/Next.js
+    "dsznajder.es7-react-js-snippets",
+    "bradlc.vscode-tailwindcss",
+    
+    // General
+    "ms-vscode.vscode-typescript-next",
+    "formulahendry.auto-rename-tag",
+    "christian-kohler.path-intellisense",
+    "usernamehw.errorlens"
+  ]
+}
+

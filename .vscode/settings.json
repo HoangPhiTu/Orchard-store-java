@@ -1,0 +1,42 @@
+{
+  "java.configuration.updateBuildConfiguration": "interactive",
+  
+  // Java Settings
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.runtimes": [],
+  
+  // TypeScript/JavaScript Settings
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  
+  // Editor Settings
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  
+  // File Associations
+  "files.associations": {
+    "*.properties": "properties"
+  },
+  
+  // Exclude patterns
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/target": true,
+    "**/.next": true,
+    "**/logs": true,
+    "**/*.log": true
+  },
+  
+  // Search exclude
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/target": true,
+    "**/.next": true,
+    "**/logs": true,
+    "**/*.log": true,
+    "**/package-lock.json": true
+  }
+}

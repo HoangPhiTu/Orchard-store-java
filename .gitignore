@@ -1,0 +1,42 @@
+# Logs
+logs/
+*.log
+*.log.*
+*.gz
+
+# VS Code (giữ settings.json và extensions.json)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Application Properties (chứa credentials)
+orchard-store-backend/src/main/resources/application.properties
+!orchard-store-backend/src/main/resources/application.properties.example
+
+# Dependencies
+node_modules/
+target/
+build/
+dist/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
