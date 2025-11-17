@@ -2,6 +2,7 @@ package com.orchard.orchard_store_backend.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -43,9 +44,35 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
     
+    /**
+     * Xử lý Authentication Errors (Bad Credentials, etc.)
+     */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleBadCredentialsException(BadCredentialsException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.UNAUTHORIZED.value());
+        errorResponse.put("error", "Authentication Failed");
+        errorResponse.put("message", "Email hoặc mật khẩu không đúng");
+        errorResponse.put("path", "/api");
+        
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+    
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
         Map<String, Object> errorResponse = new HashMap<>();
+        
+        // Check if it's a password-related error
+        if (ex.getMessage() != null && ex.getMessage().contains("password")) {
+            errorResponse.put("timestamp", LocalDateTime.now());
+            errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
+            errorResponse.put("error", "Password Error");
+            errorResponse.put("message", ex.getMessage());
+            errorResponse.put("path", "/api");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+        
         errorResponse.put("timestamp", LocalDateTime.now());
         errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
         errorResponse.put("error", "Bad Request");

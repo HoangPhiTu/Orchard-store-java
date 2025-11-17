@@ -50,7 +50,14 @@ app.jwt.secret=YOUR_JWT_SECRET
 app.jwt.anon-public=YOUR_ANON_PUBLIC_KEY
 app.jwt.service-role=YOUR_SERVICE_ROLE_KEY
 app.jwt.expiration-ms=3600000
+app.jwt.long-lived-expiration-ms=2592000000
 app.jwt.refresh-token.expiration-ms=604800000
+
+# Password Reset Configuration
+app.password-reset.token-expiration-hours=24
+app.password-reset.max-requests-per-day=5
+app.password-reset.cleanup-cron=0 0 * * * *
+app.frontend.url=http://localhost:3001
 
 # =============================================================================
 # CORS & FRONTEND CONFIGURATION
@@ -71,12 +78,12 @@ logging.file.name=logs/orchard-backend.log
 # =============================================================================
 # EMAIL CONFIGURATION (Thêm nếu cần)
 # =============================================================================
-spring.mail.host=smtp.gmail.com
-spring.mail.port=587
-spring.mail.username=your-email@gmail.com
-spring.mail.password=your-app-password
-spring.mail.properties.mail.smtp.auth=true
-spring.mail.properties.mail.smtp.starttls.enable=true
+#spring.mail.host=smtp.gmail.com
+#spring.mail.port=587
+#spring.mail.username=your-email@gmail.com
+#spring.mail.password=your-app-password
+#spring.mail.properties.mail.smtp.auth=true
+#spring.mail.properties.mail.smtp.starttls.enable=true
 
 # =============================================================================
 # FILE UPLOAD CONFIGURATION
