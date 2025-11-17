@@ -13,6 +13,7 @@ Nền tảng thương mại điện tử bán nước hoa và mỹ phẩm chính
 - [Chức Năng Đã Hoàn Thành](#-chức-năng-đã-hoàn-thành)
 - [API Endpoints](#-api-endpoints)
 - [Hướng Dẫn Setup](#-hướng-dẫn-setup)
+- [Git & GitHub](#-git--github)
 - [Tài Liệu Tham Khảo](#-tài-liệu-tham-khảo)
 
 ---
@@ -55,6 +56,7 @@ Xây dựng nền tảng e-commerce với **95% tính năng** so với Orchard.v
 
 ### Development Tools
 - **Lombok**: Giảm boilerplate code
+- **MapStruct**: Tự động map Entity ↔ DTO theo từng module
 - **Spring DevTools**: Hot reload
 - **Maven**: Dependency management
 
@@ -62,45 +64,171 @@ Xây dựng nền tảng e-commerce với **95% tính năng** so với Orchard.v
 
 ## 📁 Cấu Trúc Project
 
+### 📁 Thư Mục Gốc (`JAVA-ORCHARD-STORE/`)
+
 ```
 JAVA-ORCHARD-STORE/
-├── .vscode/                        # VS Code workspace settings
-│   ├── settings.json
-│   └── extensions.json
-│
-├── orchard-store-backend/          # Spring Boot Backend
-│   ├── logs/                       # Backend logs
-│   ├── src/
-│   │   ├── main/java/com/orchard/orchard_store_backend/
-│   │   │   ├── entity/             # JPA Entities
-│   │   │   ├── repository/         # JPA Repositories
-│   │   │   ├── service/            # Business Logic
-│   │   │   ├── controller/         # REST Controllers
-│   │   │   ├── dto/                # Data Transfer Objects
-│   │   │   ├── exception/          # Exception Handlers
-│   │   │   └── config/             # Configuration
-│   │   └── resources/
-│   │       └── application.properties
-│   └── pom.xml
-│
-├── orchard-store-admin/            # Admin Panel (Next.js)
-│   ├── app/                        # Next.js App Router
-│   ├── components/                 # React Components
-│   ├── lib/                        # Utilities & API clients
-│   ├── types/                      # TypeScript types
-│   ├── package.json
-│   └── ...
-│
-├── orchard-store-frontend/         # User Frontend (sẽ có)
-│   └── ...
-│
-├── docs/                           # 📚 Documentation
-│   ├── DOCUMENTATION.md            # Tài liệu kỹ thuật (Bean Validation, etc.)
-│   ├── DATABASE_SCHEMA_ENHANCED.md # Database schema (38 tables)
-│   └── ROADMAP_ENHANCED.md         # Lộ trình phát triển
-│
-├── .gitignore
-└── README.md                       # This file
+├── README.md                         # Tài liệu tổng quan & hướng dẫn setup
+├── docs/                             # Bộ tài liệu kỹ thuật chuyên sâu
+│   ├── DOCUMENTATION.md              # Bean Validation, Auth features, module hóa, API endpoints, Backend status
+│   ├── DATABASE_SCHEMA_ENHANCED.md   # Thiết kế CSDL (38 bảng, function, trigger)
+│   ├── ROADMAP_ENHANCED.md           # Lộ trình phát triển theo phase
+│   └── ADMIN_PANEL_DEVELOPMENT_PLAN.md # Kế hoạch phát triển Admin Panel
+├── logs/                             # Nhật ký chạy ứng dụng (backend/admin)
+├── orchard-store-backend/            # Monolithic Spring Boot backend
+├── orchard-store-admin/              # Next.js 14 Admin Panel
+├── push-to-github.ps1                # Script PowerShell tự động push GitHub
+├── push-to-github-simple.ps1         # Phiên bản rút gọn (không hỏi nhiều)
+└── setup-github-repo.ps1             # Script khởi tạo repo + remote
+```
+
+### ☕ Backend – `orchard-store-backend/`
+
+```
+orchard-store-backend/
+├── pom.xml                           # Khai báo dependency: Spring Boot, JPA, Security, MapStruct, Mail, JWT...
+├── mvnw*, .mvn/                      # Maven Wrapper
+├── logs/                             # Log file khi chạy backend
+└── src/
+    ├── main/java/com/orchard/orchard_store_backend/
+    │   ├── OrchardStoreBackendApplication.java   # Điểm vào Spring Boot (main method)
+    │   │
+    │   ├── config/                   # Cấu hình lõi ứng dụng
+    │   │   ├── DataInitializer.java          # Khởi tạo admin mặc định khi app start
+    │   │   ├── SecurityConfig.java          # Định nghĩa filter chain, CORS, route public/protected
+    │   │   ├── SchedulerConfig.java         # Bật @EnableScheduling cho cron jobs
+    │   │   └── properties/
+    │   │       ├── AppProperties.java               # map app.frontend.url
+    │   │       ├── JwtProperties.java               # map app.jwt.*
+    │   │       └── PasswordResetProperties.java     # map app.password-reset.*
+    │   │
+    │   ├── exception/
+    │   │   └── GlobalExceptionHandler.java  # Bắt validation error, auth error, chuẩn hoá response
+    │   │
+    │   ├── security/
+    │   │   ├── JwtTokenProvider.java        # Sinh/verify JWT (short-lived & long-lived)
+    │   │   ├── JwtAuthenticationFilter.java # Filter đọc token từ header
+    │   │   └── CustomUserDetailsService.java# Load UserDetails cho Spring Security
+    │   │
+    │   ├── util/
+    │   │   └── UserAgentParser.java         # Phân tích User-Agent (device/browser/OS/IP)
+    │   │
+    │   └── modules/
+    │       ├── auth/                        # Toàn bộ chức năng đăng nhập admin
+    │       │   ├── controller/AuthController.java          # REST API: login, /me, change password, login history...
+    │       │   ├── dto/                             # DTO request/response (AuthRequestDTO, LoginHistoryDTO,...)
+    │       │   ├── entity/                          # User, LoginHistory, PasswordResetToken
+    │       │   ├── mapper/                          # MapStruct map Entity <-> DTO
+    │       │   ├── repository/                      # JPA repositories tương ứng
+    │       │   ├── scheduler/PasswordResetTokenCleanupJob.java # Cron xoá token reset hết hạn
+    │       │   └── service/                         # AuthService, LoginHistoryService, PasswordResetService, EmailService (+ implementations)
+    │       │
+    │       └── catalog/                   # Domain quản lý sản phẩm
+    │           ├── brand/                 # Module hoá theo thương hiệu
+    │           │   ├── controller/BrandController.java   # CRUD REST cho thương hiệu
+    │           │   ├── dto/BrandDTO.java                # DTO validate bằng Bean Validation
+    │           │   ├── entity/Brand.java                # Entity + enum Status
+    │           │   ├── mapper/BrandMapper.java          # MapStruct cho Brand
+    │           │   ├── repository/BrandRepository.java  # Query slug, active list
+    │           │   └── service/BrandService(.impl).java # Business logic & validation
+    │           │
+    │           ├── category/              # Quản lý danh mục dạng cây
+    │           │   ├── controller/CategoryController.java
+    │           │   ├── dto/CategoryDTO.java            # Có children, SEO fields
+    │           │   ├── entity/Category.java            # Parent-child self reference
+    │           │   ├── mapper/CategoryMapper.java
+    │           │   ├── repository/CategoryRepository.java # Lấy root/children theo level
+    │           │   └── service/CategoryService(.impl).java # Tính level, cập nhật quan hệ cha-con
+    │           │
+    │           ├── product/               # Sản phẩm + biến thể + ảnh
+    │           │   ├── controller/ProductController.java
+    │           │   ├── dto/ProductDTO.java, ProductVariantDTO.java, ProductImageDTO.java
+    │           │   ├── entity/Product.java, ProductVariant.java, ProductImage.java
+    │           │   ├── mapper/ProductMapper, ProductVariantMapper, ProductImageMapper
+    │           │   ├── repository/ProductRepository với search, featured, bestseller
+    │           │   └── service/ProductService(.impl).java  # CRUD + mapping variant/image + attributeValues
+    │           │
+    │           ├── attribute/             # Dynamic Attributes System
+    │           │   ├── controller/        # ProductAttributeController, CategoryAttributeController, ProductAttributeValueController
+    │           │   ├── dto/               # ProductAttributeDTO, AttributeValueDTO, CategoryAttributeDTO, ProductAttributeValueDTO
+    │           │   ├── entity/            # ProductAttribute, AttributeValue, CategoryAttribute, ProductAttributeValue
+    │           │   ├── mapper/            # MapStruct mappers cho attributes
+    │           │   ├── repository/        # JPA repositories với query methods
+    │           │   └── service/           # Service interfaces + implementations
+    │           │
+    │           ├── bundle/                # Product Bundling (Gói sản phẩm)
+    │           │   ├── controller/ProductBundleController.java  # CRUD bundles, filter theo type/status
+    │           │   ├── dto/ProductBundleDTO.java, BundleItemDTO.java
+    │           │   ├── entity/ProductBundle.java, BundleItem.java
+    │           │   ├── mapper/ProductBundleMapper.java, BundleItemMapper.java
+    │           │   ├── repository/ProductBundleRepository.java, BundleItemRepository.java
+    │           │   └── service/ProductBundleService(.impl).java  # Auto tính giá bundle, discount calculation
+    │           │
+    │           ├── pricing/               # Pricing Strategy (Chiến lược giá)
+    │           │   ├── controller/ProductPriceHistoryController.java  # Track lịch sử giá
+    │           │   ├── dto/ProductPriceHistoryDTO.java
+    │           │   ├── entity/ProductPriceHistory.java  # Track price changes, promotions
+    │           │   ├── mapper/ProductPriceHistoryMapper.java
+    │           │   ├── repository/ProductPriceHistoryRepository.java
+    │           │   └── service/ProductPriceHistoryService(.impl).java  # Auto record khi giá thay đổi
+    │           │
+    │           └── review/                # Product Reviews System
+    │               ├── controller/ReviewController.java  # Review management, moderation
+    │               ├── dto/ReviewDTO.java, ReviewImageDTO.java, ReviewHelpfulDTO.java
+    │               ├── entity/Review.java, ReviewImage.java, ReviewHelpful.java
+    │               ├── mapper/ReviewMapper.java, ReviewImageMapper.java
+    │               ├── repository/ReviewRepository.java, ReviewImageRepository.java, ReviewHelpfulRepository.java
+    │               └── service/ReviewService(.impl).java  # Auto update product rating
+    │       │
+    │       └── inventory/                 # Inventory Intelligence (Quản lý kho thông minh)
+    │           ├── controller/            # InventoryTransactionController, StockAlertController, PreOrderAdminController, PreOrderPublicController
+    │           ├── dto/                   # InventoryTransactionDTO, StockAlertDTO, PreOrderDTO
+    │           ├── entity/                # InventoryTransaction, StockAlert, PreOrder
+    │           ├── mapper/                # MapStruct mappers
+    │           ├── repository/            # JPA repositories
+    │           └── service/               # InventoryService, StockAlertService, PreOrderService (+ implementations)
+    │
+    └── main/resources/
+        ├── application.properties           # Config mẫu (DB, JWT, Mail, password reset cron...)
+        ├── application.properties.example   # Mẫu copy khi setup
+        └── data/, db/migration/, static/    # Dự phòng (chưa dùng)
+```
+
+### ⚡ Frontend Admin – `orchard-store-admin/`
+
+```
+orchard-store-admin/
+├── package.json, tsconfig.json, next.config.js  # Cấu hình dự án Next.js 14 + TypeScript
+├── app/                                        # App Router cấu trúc trang
+│   ├── layout.tsx                              # Root layout, import Tailwind & Providers
+│   ├── providers.tsx                           # Khởi tạo React Query Client
+│   ├── (auth)/                                 # Nhóm trang public (login/forgot/reset)
+│   │   ├── login/page.tsx                      # Form đăng nhập admin + Remember Me
+│   │   ├── forgot-password/page.tsx            # Form yêu cầu reset password
+│   │   └── reset-password/page.tsx             # Submit token + mật khẩu mới
+│   └── (admin)/                                # Nhóm trang bảo vệ cần auth
+│       ├── layout.tsx                          # Kiểm tra Zustand authStore, redirect nếu chưa đăng nhập
+│       ├── dashboard/page.tsx                  # Placeholder dashboard (stats cards)
+│       ├── products/                           # Quản lý sản phẩm (CRUD)
+│       ├── brands/                             # Quản lý thương hiệu (CRUD)
+│       ├── categories/                         # Quản lý danh mục (CRUD)
+│       └── settings/page.tsx                   # Form đổi mật khẩu (gọi API change-password)
+├── components/
+│   ├── admin/Header.tsx                        # Header hiển thị user + dropdown logout
+│   ├── admin/Sidebar.tsx                       # Navigation sidebar (responsive)
+│   ├── admin/ProductVariantManager.tsx         # Quản lý variants trong form sản phẩm
+│   └── ui/                                     # Bộ UI cơ bản (button/card/input/checkbox/dialog/table/select/textarea/label/badge)
+├── lib/
+│   ├── api/axios.ts                            # Axios instance + interceptor gắn JWT & xử lý 401
+│   ├── api/auth.ts                             # Wrapper call API auth (login, me, change pw, forgot/reset)
+│   ├── api/products.ts                         # API client cho products
+│   ├── api/brands.ts                           # API client cho brands
+│   ├── api/categories.ts                       # API client cho categories
+│   └── utils/cn.ts                             # Helper gộp class Tailwind
+├── middleware.ts                               # Định nghĩa route public (login/forgot/reset)
+├── store/authStore.ts                          # Zustand + persist quản lý token/user/isAuthenticated
+├── types/                                      # TypeScript interface dùng chung (AuthResponseDTO, ProductDTO, BrandDTO, CategoryDTO)
+└── app/globals.css + tailwind.config.ts        # Styling (Tailwind + shadcn/ui theme)
 ```
 
 ### 📂 Tổ Chức Thư Mục
@@ -115,6 +243,10 @@ JAVA-ORCHARD-STORE/
 - **Backend**: `orchard-store-backend/logs/`
 - **Admin**: `orchard-store-admin/logs/` (nếu cần)
 - **Lý do**: Dễ debug, tránh conflict, dễ cleanup
+
+#### **`docs/` - Documentation**
+- **Vị trí**: ✅ **ROOT** (`JAVA-ORCHARD-STORE/docs/`)
+- **Nội dung**: Tài liệu kỹ thuật chuyên sâu, database schema, roadmap, development plans
 
 ---
 
@@ -151,6 +283,25 @@ JAVA-ORCHARD-STORE/
 - [x] Bean Validation cho tất cả DTOs
 - [x] GlobalExceptionHandler
 - [x] Validation error messages (tiếng Việt)
+
+#### 1.6 Admin Authentication
+- [x] Spring Security với JWT
+- [x] User entity & repository
+- [x] JWT Token Provider (short-lived & long-lived)
+- [x] AuthService & AuthController
+- [x] Login với Remember Me
+- [x] Account Lockout mechanism
+- [x] Change Password
+- [x] Auto-create default admin account
+- [x] Protected admin routes
+- [x] Frontend login page
+- [x] Settings page với Change Password
+
+#### 1.7 Service Layer Refactor (Interface + Implementation)
+- [x] Tách `AuthService`, `LoginHistoryService`, `PasswordResetService`, `BrandService`, `CategoryService`, `ProductService` thành interface riêng
+- [x] Tạo `*ServiceImpl` tương ứng với `@Service` để giữ business logic
+- [x] Controllers & schedulers (PasswordResetTokenCleanupJob) inject qua interface → dễ mock/test
+- [x] Đảm bảo cấu trúc module hóa hoàn chỉnh, chuẩn bị tốt cho bước viết test theo domain
 
 ---
 
@@ -292,11 +443,73 @@ JAVA-ORCHARD-STORE/
 
 ---
 
-### 6. **Bean Validation** (Xác Thực Dữ Liệu)
+### 6. **Admin Authentication** (Xác Thực Admin/Staff)
+
+#### Entities & Repositories
+- ✅ `User` entity cho Admin/Staff:
+  - Email, password, fullName, phone
+  - Role (ADMIN, STAFF)
+  - Status (ACTIVE, INACTIVE, BANNED)
+  - Failed login attempts tracking
+  - Account lockout mechanism
+- ✅ `UserRepository` với queries:
+  - Tìm theo email
+  - Kiểm tra email tồn tại
+
+#### Security
+- ✅ Spring Security với JWT authentication
+- ✅ JWT Token Provider (short-lived & long-lived tokens)
+- ✅ JWT Authentication Filter
+- ✅ Custom UserDetailsService
+- ✅ Password encryption (BCrypt)
+- ✅ Role-based access control (RBAC)
+
+#### Services & Controllers
+- ✅ `AuthService` với:
+  - Login với remember me support
+  - Account lockout sau 5 lần sai
+  - Change password
+- ✅ `AuthController` với endpoints:
+  - `POST /api/admin/auth/login` - Đăng nhập
+  - `GET /api/admin/auth/me` - Lấy thông tin user hiện tại
+  - `PUT /api/admin/auth/change-password` - Đổi mật khẩu
+  - `GET /api/admin/auth/login-history` - Lấy lịch sử đăng nhập (pagination)
+  - `GET /api/admin/auth/login-history/recent` - Lấy 10 lần đăng nhập gần nhất
+  - `GET /api/admin/auth/login-history/stats` - Thống kê đăng nhập
+  - `POST /api/admin/auth/forgot-password` - Yêu cầu đặt lại mật khẩu
+  - `POST /api/admin/auth/reset-password` - Đặt lại mật khẩu với token
+  - `GET /api/admin/auth/validate-reset-token` - Xác thực reset token
+
+#### Features
+- ✅ Login với email/password
+- ✅ Remember Me (30 ngày token)
+- ✅ Account Lockout (5 lần sai → lock 30 phút)
+- ✅ Change Password với validation
+- ✅ JWT token-based authentication
+- ✅ Protected admin routes
+- ✅ Auto-create default admin account
+- ✅ Login History tracking (IP, device, browser, OS, location)
+- ✅ Forgot/Reset Password với email token (cần cấu hình email service)
+
+#### Frontend (Admin Panel)
+- ✅ Login page với form validation
+- ✅ Remember Me checkbox
+- ✅ Protected routes middleware
+- ✅ Auth store (Zustand) với persistence
+- ✅ Settings page với Change Password form
+- ✅ Header với user menu & logout
+- ✅ Forgot Password page
+- ✅ Reset Password page với token validation
+
+---
+
+### 7. **Bean Validation** (Xác Thực Dữ Liệu)
 
 #### Implementation
 - ✅ Validation cho tất cả DTOs:
   - `BrandDTO`: name, slug, URLs, status
+  - `AuthRequestDTO`: email, password, rememberMe
+  - `ChangePasswordDTO`: password strength validation
   - `CategoryDTO`: name, slug, URLs, status
   - `ProductDTO`: name, slug, prices, brandId, categoryId
   - `ProductVariantDTO`: SKU, price, stock, dimensions
@@ -350,6 +563,51 @@ JAVA-ORCHARD-STORE/
 ```
 http://localhost:8080/api
 ```
+
+### Admin Authentication API
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/admin/auth/login` | Đăng nhập Admin/Staff | ❌ No |
+| GET | `/admin/auth/me` | Lấy thông tin user hiện tại | ✅ Yes |
+| PUT | `/admin/auth/change-password` | Đổi mật khẩu | ✅ Yes |
+
+**Login Request:**
+```json
+{
+  "email": "tuhoang.170704@gmail.com",
+  "password": "admin123",
+  "rememberMe": false
+}
+```
+
+**Login Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "type": "Bearer",
+  "id": 1,
+  "email": "tuhoang.170704@gmail.com",
+  "fullName": "Administrator",
+  "role": "ADMIN"
+}
+```
+
+**Change Password Request:**
+```json
+{
+  "currentPassword": "admin123",
+  "newPassword": "NewPassword123",
+  "confirmPassword": "NewPassword123"
+}
+```
+
+**Lưu ý:**
+- Default admin account: `tuhoang.170704@gmail.com` / `admin123`
+- Token expiration: 1 giờ (default) hoặc 30 ngày (nếu rememberMe = true)
+- Account lockout: Sau 5 lần đăng nhập sai → Lock 30 phút
+
+---
 
 ### Brands API
 
@@ -434,6 +692,27 @@ spring.datasource.url=jdbc:postgresql://db.YOUR_PROJECT.supabase.co:5432/postgre
 spring.datasource.username=postgres
 spring.datasource.password=YOUR_PASSWORD
 ```
+
+### Bước 2.1: Cấu Hình Email (Forgot Password)
+Forgot/Reset Password sử dụng SMTP để gửi email. Bạn có thể dùng Gmail (App Password) hoặc dịch vụ khác (SendGrid, Mailgun, AWS SES, ...).
+
+```properties
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=your-email@gmail.com
+spring.mail.password=your-app-password
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+# Cấu hình frontend/url để generate link reset
+app.frontend.url=http://localhost:3001
+app.password-reset.token-expiration-hours=24
+app.password-reset.max-requests-per-day=5
+app.password-reset.cleanup-cron=0 0 * * * *
+```
+
+> **Lưu ý:** Nếu dùng Gmail bạn phải bật 2FA và tạo App Password. Đối với các nhà cung cấp SMTP khác chỉ cần thay host/port/username/password tương ứng.
+
 
 ### Bước 3: Build Project
 ```bash
@@ -528,11 +807,313 @@ orchard-store-admin/
 
 ---
 
+## 🔧 Git & GitHub
+
+### ⚡ Quick Start - Push Lên GitHub (3 Bước Nhanh)
+
+#### 1. Tạo Repository Trên GitHub
+1. Vào https://github.com/new
+2. Đặt tên: `orchard-store` (hoặc tên bạn muốn)
+3. Chọn **Private** (khuyến nghị)
+4. **KHÔNG** tích "Initialize with README"
+5. Click **Create repository**
+
+#### 2. Add Remote và Push
+```bash
+# Thay YOUR_USERNAME và YOUR_REPO_NAME
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+
+# Add tất cả files
+git add .
+
+# Commit
+git commit -m "Initial commit: Orchard Store E-Commerce Platform
+
+- Spring Boot backend với Product, Brand, Category management
+- Next.js admin panel setup
+- Database schema design (38 tables)
+- Bean Validation implementation"
+
+# Push lên GitHub
+git branch -M main
+git push -u origin main
+```
+
+**Lưu ý:** Nếu hỏi username/password:
+- Username: GitHub username của bạn
+- Password: **Personal Access Token** (không phải password GitHub)
+
+#### 3. Tạo Personal Access Token (Nếu Cần)
+1. GitHub > Settings > Developer settings > Personal access tokens > Tokens (classic)
+2. Generate new token (classic)
+3. Chọn scope: `repo`
+4. Generate và copy token
+5. Dùng token này khi push (thay vì password)
+
+---
+
+### 🚀 Setup Repository Lần Đầu (Chi Tiết)
+
+#### Bước 1: Tạo GitHub Repository
+1. Đăng nhập vào [GitHub](https://github.com)
+2. Click **New repository** (hoặc vào: https://github.com/new)
+3. Điền thông tin:
+   - **Repository name**: `orchard-store` (hoặc tên bạn muốn)
+   - **Description**: `E-Commerce Platform for Perfumes & Cosmetics - Orchard Store`
+   - **Visibility**: Private (khuyến nghị) hoặc Public
+   - **Không** tích "Initialize with README" (vì đã có README.md)
+4. Click **Create repository**
+
+#### Bước 2: Khởi Tạo Git Repository (Local)
+```powershell
+# Di chuyển vào thư mục project
+cd C:\xampp\htdocs\JAVA-ORCHARD-STORE
+
+# Khởi tạo git repository
+git init
+
+# Thêm remote repository (thay YOUR_USERNAME và YOUR_REPO_NAME)
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+```
+
+#### Bước 3: Push Code Lên GitHub
+```powershell
+# Add files
+git add .
+
+# Commit
+git commit -m "Initial commit: Orchard Store E-Commerce Platform"
+
+# Push
+git branch -M main
+git push -u origin main
+```
+
+**Lưu ý:** Nếu gặp lỗi authentication, sử dụng **Personal Access Token** (PAT) thay vì password.
+
+---
+
+### 📋 Git Workflow Hàng Ngày
+
+#### Khi Bắt Đầu Làm Việc:
+```powershell
+# Pull code mới nhất (nếu làm việc nhóm)
+git pull origin main
+
+# Kiểm tra status
+git status
+```
+
+#### Khi Làm Xong Một Tính Năng:
+```powershell
+# Xem thay đổi
+git status
+git diff
+
+# Add files
+git add .
+
+# Commit với message rõ ràng
+git commit -m "feat: Add product search functionality"
+
+# Push lên GitHub
+git push origin main
+```
+
+#### Commit Message Format:
+```
+<type>: <subject>
+
+<body>
+```
+
+**Types:**
+- `feat`: Tính năng mới
+- `fix`: Sửa lỗi
+- `docs`: Cập nhật documentation
+- `style`: Formatting, không ảnh hưởng code
+- `refactor`: Refactor code
+- `test`: Thêm/sửa tests
+- `chore`: Cập nhật build, dependencies
+
+**Ví dụ:**
+```bash
+git commit -m "feat: Add product search with filters
+
+- Implement search by brand, category, price range
+- Add pagination support
+- Add sorting functionality"
+```
+
+---
+
+### 🔄 Lấy Lại Code Cũ Từ GitHub
+
+#### 1. Xem Code Cũ Trên GitHub
+- Vào repository > Click vào số commits > Chọn commit bạn muốn xem
+- Hoặc vào file > Click "History" > Chọn commit
+
+#### 2. Xem Code Cũ Bằng Git (Local)
+```powershell
+# Xem lịch sử commits
+git log --oneline
+
+# Xem file tại commit cụ thể
+git show <commit-hash>:<file-path>
+
+# Ví dụ
+git show d8a32df:README.md
+```
+
+#### 3. Restore File Từ Commit Cũ
+```powershell
+# Lấy lại 1 file từ commit cũ
+git checkout <commit-hash> -- <file-path>
+
+# Ví dụ: Lấy lại README.md từ commit d8a32df
+git checkout d8a32df -- README.md
+
+# Commit lại
+git add README.md
+git commit -m "restore: Restore README.md from previous commit"
+git push origin main
+```
+
+#### 4. Revert Commit (Undo Thay Đổi)
+```powershell
+# Revert commit cuối cùng (an toàn)
+git revert HEAD
+git push origin main
+
+# Revert commit cụ thể
+git revert <commit-hash>
+```
+
+**Lưu ý:** `revert` tạo commit mới để undo thay đổi, **KHÔNG xóa** commit cũ (an toàn).
+
+#### 5. Tạo Branch Từ Commit Cũ
+```powershell
+# Tạo branch mới từ commit cũ
+git checkout -b <branch-name> <commit-hash>
+
+# Ví dụ
+git checkout -b old-version d8a32df
+
+# Push branch lên GitHub
+git push -u origin old-version
+```
+
+---
+
+### 📜 PowerShell Scripts
+
+#### 1. `setup-github-repo.ps1` - Setup Repository Lần Đầu
+```powershell
+.\setup-github-repo.ps1 -GitHubUsername "YOUR_USERNAME" -RepositoryName "orchard-store"
+```
+
+**Tính năng:**
+- ✅ Kiểm tra và khởi tạo Git repository
+- ✅ Cấu hình Git user.name và user.email
+- ✅ Thêm remote origin
+- ✅ Kiểm tra .gitignore
+
+#### 2. `push-to-github.ps1` - Push Code (Đầy Đủ)
+```powershell
+# Sử dụng mặc định
+.\push-to-github.ps1
+
+# Với tham số
+.\push-to-github.ps1 -CommitMessage "feat: Your feature"
+```
+
+**Tính năng:**
+- ✅ Kiểm tra Git đã cài đặt
+- ✅ Tự động thêm remote (nếu chưa có)
+- ✅ Cảnh báo nếu application.properties bị commit
+- ✅ Preview files sẽ commit
+- ✅ Error handling đầy đủ
+
+#### 3. `push-to-github-simple.ps1` - Push Code (Đơn Giản)
+```powershell
+.\push-to-github-simple.ps1
+```
+
+**Phù hợp cho:** Người đã quen với Git, muốn push nhanh.
+
+---
+
+### 🔒 Bảo Mật
+
+#### Files Đã Được Bảo Vệ
+✅ **Đã ignore:**
+- `application.properties` (chứa database password, JWT secrets)
+- `.env.local` (chứa API keys)
+- `logs/`, `node_modules/`, `target/`
+
+✅ **Đã tạo file example:**
+- `application.properties.example` (template không có credentials)
+- `.env.local.example` (template không có credentials)
+
+#### Hướng Dẫn Cho Team Members
+Khi clone project:
+
+1. **Backend:**
+```bash
+cd orchard-store-backend/src/main/resources
+cp application.properties.example application.properties
+# Sau đó điền credentials thực tế vào application.properties
+```
+
+2. **Admin Panel:**
+```bash
+cd orchard-store-admin
+cp .env.local.example .env.local
+# Sau đó điền API URL vào .env.local
+```
+
+---
+
+### 🆘 Troubleshooting
+
+#### Lỗi: "Authentication failed"
+- Sử dụng Personal Access Token thay vì password
+- Tạo token: GitHub > Settings > Developer settings > Personal access tokens
+
+#### Lỗi: "Updates were rejected"
+```powershell
+# Pull code mới nhất
+git pull origin main
+
+# Resolve conflicts (nếu có)
+# Sau đó push lại
+git push origin main
+```
+
+#### Lỗi: "application.properties bị commit"
+```powershell
+# Xóa khỏi Git (nhưng giữ file local)
+git rm --cached orchard-store-backend/src/main/resources/application.properties
+git commit -m "Remove application.properties from Git"
+git push origin main
+```
+
+---
+
 ## 📚 Tài Liệu Tham Khảo
 
 ### Documentation Files
-- **[DATABASE_SCHEMA_ENHANCED.md](./docs/DATABASE_SCHEMA_ENHANCED.md)** - Chi tiết database schema (38 tables)
-- **[ROADMAP_ENHANCED.md](./docs/ROADMAP_ENHANCED.md)** - Lộ trình phát triển 8 phases
+- **[docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md)** - Tài liệu kỹ thuật chi tiết:
+  - Bean Validation
+  - Module hóa & Mapper Layer
+  - Database Schema overview
+  - API Endpoints Summary
+  - Backend Status & Modules
+  - Product Features Review
+  - Admin Authentication Features
+- **[docs/DATABASE_SCHEMA_ENHANCED.md](./docs/DATABASE_SCHEMA_ENHANCED.md)** - Chi tiết database schema (38 tables, functions, triggers)
+- **[docs/ROADMAP_ENHANCED.md](./docs/ROADMAP_ENHANCED.md)** - Lộ trình phát triển 8 phases
+- **[docs/ADMIN_PANEL_DEVELOPMENT_PLAN.md](./docs/ADMIN_PANEL_DEVELOPMENT_PLAN.md)** - Kế hoạch phát triển Admin Panel
 
 ### External Resources
 - [Spring Boot Documentation](https://spring.io/projects/spring-boot)
@@ -567,17 +1148,19 @@ orchard-store-admin/
 
 ## 🔄 Tiếp Theo
 
-### Phase 2: Dynamic Attributes System (Chưa Bắt Đầu)
-- [ ] Product attributes management
-- [ ] Attribute values management
-- [ ] Dynamic filtering
-- [ ] Attribute-based search
+### Phase 2: Dynamic Attributes System (✅ Hoàn Thành)
+- [x] Product attributes management
+- [x] Attribute values management
+- [x] Category attributes assignment
+- [x] Product attribute values assignment
+- [x] Integration vào ProductDTO (attributeValues field)
 
-### Phase 3: Inventory Intelligence (Chưa Bắt Đầu)
-- [ ] Stock tracking
-- [ ] Low stock alerts
-- [ ] Pre-orders
-- [ ] Restock notifications
+### Phase 3: Inventory Intelligence (✅ Hoàn Thành)
+- [x] Stock tracking (InventoryTransaction)
+- [x] Low stock alerts (StockAlert)
+- [x] Pre-orders (PreOrder)
+- [x] Restock notifications
+- [x] Integration vào ProductVariantDTO (stockStatus field)
 
 ### Phase 4: Shopping Cart & Checkout (Chưa Bắt Đầu)
 - [ ] Shopping cart
@@ -606,7 +1189,29 @@ This project is private and proprietary.
 
 ---
 
-**Last Updated**: 2024-01-20  
-**Version**: 0.0.1-SNAPSHOT  
-**Status**: 🟢 In Development (Phase 1 Complete)
+**Last Updated**: 2025-11-18  
+**Version**: 0.1.0-SNAPSHOT  
+**Status**: 🟢 In Development (Phase 1-3 Complete)
+
+### ✅ Recent Completions (2025-11-18)
+
+#### Product Bundling Module
+- ✅ Entity, Repository, DTO, Mapper, Service, Controller hoàn chỉnh
+- ✅ CRUD operations, tự động tính giá bundle và discount
+- ✅ Hỗ trợ 4 loại bundle: CURATED_SET, GIFT_PACKAGE, COMBO_DEAL, SEASONAL_SET
+- ✅ API: `/api/admin/bundles`
+
+#### Product Price History
+- ✅ Track lịch sử thay đổi giá, tự động record khi giá thay đổi
+- ✅ Query theo variant, promotion, change type
+- ✅ API: `/api/admin/price-history`
+
+#### Product Reviews System
+- ✅ Review management với moderation, images, helpful votes
+- ✅ Auto update product rating, verified purchase reviews
+- ✅ API: `/api/reviews`
+
+#### ProductDTO Enhancements
+- ✅ Dynamic Attributes integration: ProductDTO có `attributeValues` list
+- ✅ Inventory integration: ProductVariantDTO có `stockStatus` (IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
 
