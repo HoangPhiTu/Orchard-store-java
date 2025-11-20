@@ -271,15 +271,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private void updateProductRating(Long productId) {
-        Double avgRating = reviewRepository.calculateAverageRating(productId, Review.Status.APPROVED);
-        long count = reviewRepository.countByProductIdAndStatus(productId, Review.Status.APPROVED);
-
-        Product product = productRepository.findById(productId).orElse(null);
-        if (product != null) {
-            product.setRatingAverage(avgRating != null ? java.math.BigDecimal.valueOf(avgRating) : java.math.BigDecimal.ZERO);
-            product.setRatingCount((int) count);
-            productRepository.save(product);
-        }
+        // Product base no longer stores aggregate rating; aggregation handled at variant or analytics layer.
     }
 }
 

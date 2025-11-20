@@ -14,7 +14,7 @@ public interface BundleItemMapper {
     @Mapping(target = "bundleId", expression = "java(entity.getBundle() != null ? entity.getBundle().getId() : null)")
     @Mapping(target = "productId", expression = "java(entity.getProduct() != null ? entity.getProduct().getId() : null)")
     @Mapping(target = "productName", expression = "java(entity.getProduct() != null ? entity.getProduct().getName() : null)")
-    @Mapping(target = "productSlug", expression = "java(entity.getProduct() != null ? entity.getProduct().getSlug() : null)")
+    @Mapping(target = "productSlug", expression = "java(entity.getProductVariant() != null ? entity.getProductVariant().getSlug() : null)")
     @Mapping(target = "productVariantId", expression = "java(entity.getProductVariant() != null ? entity.getProductVariant().getId() : null)")
     @Mapping(target = "productVariantName", expression = "java(entity.getProductVariant() != null ? entity.getProductVariant().getVariantName() : null)")
     @Mapping(target = "productVariantSku", expression = "java(entity.getProductVariant() != null ? entity.getProductVariant().getSku() : null)")

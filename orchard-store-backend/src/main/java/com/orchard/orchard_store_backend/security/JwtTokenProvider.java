@@ -5,14 +5,20 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
+/**
+ * JWT Token Provider for generating and validating JWT tokens
+ * Embeds userId, email, and authorities (roles + permissions) into token claims
+ */
 @Component
 public class JwtTokenProvider {
     
@@ -23,16 +29,71 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes());
     }
     
-    public String generateToken(String email, String role) {
+    /**
+     * Generate access token with userId, email, and authorities
+     * 
+     * @param userId User ID
+     * @param email User email
+     * @param authorities Collection of authorities (roles + permissions)
+     * @return JWT access token
+     */
+    public String generateAccessToken(Long userId, String email, Collection<? extends GrantedAuthority> authorities) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("role", role);
+        claims.put("userId", userId);
+        
+        // Extract roles (ROLE_*) and permissions (resource:action)
+        List<String> roles = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> auth.startsWith("ROLE_"))
+                .collect(Collectors.toList());
+        
+        List<String> permissions = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> !auth.startsWith("ROLE_"))
+                .collect(Collectors.toList());
+        
+        claims.put("roles", roles);
+        claims.put("authorities", permissions);
+        
         return createToken(claims, email, jwtProperties.getExpirationMs());
     }
     
-    public String generateLongLivedToken(String email, String role) {
+    /**
+     * Generate refresh token (long-lived, minimal claims)
+     * 
+     * @param userId User ID
+     * @param email User email
+     * @return JWT refresh token
+     */
+    public String generateRefreshToken(Long userId, String email) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("role", role);
+        claims.put("userId", userId);
+        claims.put("type", "refresh");
+        
+        return createToken(claims, email, jwtProperties.getLongLivedExpirationMs());
+    }
+    
+    /**
+     * Generate token with remember me (long-lived access token)
+     */
+    public String generateLongLivedToken(Long userId, String email, Collection<? extends GrantedAuthority> authorities) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
         claims.put("rememberMe", true);
+        
+        List<String> roles = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> auth.startsWith("ROLE_"))
+                .collect(Collectors.toList());
+        
+        List<String> permissions = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> !auth.startsWith("ROLE_"))
+                .collect(Collectors.toList());
+        
+        claims.put("roles", roles);
+        claims.put("authorities", permissions);
+        
         return createToken(claims, email, jwtProperties.getLongLivedExpirationMs());
     }
     
@@ -53,8 +114,30 @@ public class JwtTokenProvider {
         return getClaimFromToken(token, Claims::getSubject);
     }
     
-    public String getRoleFromToken(String token) {
-        return getClaimFromToken(token, claims -> claims.get("role", String.class));
+    public Long getUserIdFromToken(String token) {
+        return getClaimFromToken(token, claims -> claims.get("userId", Long.class));
+    }
+    
+    @SuppressWarnings("unchecked")
+    public List<String> getRolesFromToken(String token) {
+        return getClaimFromToken(token, claims -> {
+            Object roles = claims.get("roles");
+            if (roles instanceof List) {
+                return (List<String>) roles;
+            }
+            return Collections.emptyList();
+        });
+    }
+    
+    @SuppressWarnings("unchecked")
+    public List<String> getAuthoritiesFromToken(String token) {
+        return getClaimFromToken(token, claims -> {
+            Object authorities = claims.get("authorities");
+            if (authorities instanceof List) {
+                return (List<String>) authorities;
+            }
+            return Collections.emptyList();
+        });
     }
     
     public Date getExpirationDateFromToken(String token) {
@@ -74,6 +157,9 @@ public class JwtTokenProvider {
                 .getPayload();
     }
     
+    /**
+     * Validate token signature and expiration
+     */
     public Boolean validateToken(String token) {
         try {
             getAllClaimsFromToken(token);
@@ -81,6 +167,27 @@ public class JwtTokenProvider {
         } catch (Exception e) {
             return false;
         }
+    }
+    
+    /**
+     * Get Authentication object from token
+     * Used by JwtAuthenticationFilter to set SecurityContext
+     */
+    public Authentication getAuthentication(String token) {
+        String email = getEmailFromToken(token);
+        List<String> roles = getRolesFromToken(token);
+        List<String> permissions = getAuthoritiesFromToken(token);
+        
+        // Combine roles and permissions into authorities
+        Collection<GrantedAuthority> authorities = new ArrayList<>();
+        roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role)));
+        permissions.forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission)));
+        
+        return new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                email,
+                null,
+                authorities
+        );
     }
     
     private Boolean isTokenExpired(String token) {

@@ -59,15 +59,26 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
-                .requestMatchers("/api/admin/auth/**").permitAll()
+                // Public endpoints - Authentication
+                .requestMatchers("/api/auth/**").permitAll()
+                
+                // Public endpoints - Customer Auth (OTP)
+                .requestMatchers("/api/store/auth/**").permitAll()
+                
+                // Public endpoints - Product Catalog (GET only)
                 .requestMatchers("/api/products/**").permitAll()
                 .requestMatchers("/api/brands/**").permitAll()
                 .requestMatchers("/api/categories/**").permitAll()
-                // Admin endpoints require authentication
+                .requestMatchers("/api/concentrations/**").permitAll()
+                
+                // Protected endpoints - Customer Profile (requires ROLE_CUSTOMER)
+                .requestMatchers("/api/store/profile/**").hasRole("CUSTOMER")
+                
+                // Protected endpoints - Admin (requires authentication + role)
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
+                
                 // All other requests require authentication
-                .anyRequest().permitAll()
+                .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

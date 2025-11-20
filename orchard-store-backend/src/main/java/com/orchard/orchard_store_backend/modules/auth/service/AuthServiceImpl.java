@@ -7,6 +7,7 @@ import com.orchard.orchard_store_backend.modules.auth.entity.LoginHistory;
 import com.orchard.orchard_store_backend.modules.auth.entity.User;
 import com.orchard.orchard_store_backend.modules.auth.mapper.UserMapper;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
+import com.orchard.orchard_store_backend.security.CustomUserDetailsService;
 import com.orchard.orchard_store_backend.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private JwtTokenProvider tokenProvider;
+
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -70,9 +74,12 @@ public class AuthServiceImpl implements AuthService {
                 loginHistoryService.saveLoginHistory(user, httpRequest, LoginHistory.LoginStatus.SUCCESS, null);
             }
 
+            // Get authorities from user
+            var authorities = userDetailsService.getAuthorities(user);
+            
             String token = Boolean.TRUE.equals(request.getRememberMe())
-                    ? tokenProvider.generateLongLivedToken(user.getEmail(), user.getRole().name())
-                    : tokenProvider.generateToken(user.getEmail(), user.getRole().name());
+                    ? tokenProvider.generateLongLivedToken(user.getId(), user.getEmail(), authorities)
+                    : tokenProvider.generateAccessToken(user.getId(), user.getEmail(), authorities);
 
             return AuthResponseDTO.builder()
                     .token(token)

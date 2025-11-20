@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,5 +23,7 @@ public class ProductAttributeValueDTO {
     private String customValue;
     private Boolean primary;
     private Integer displayOrder;
+    private String scope;
+    private BigDecimal numericValue;
 }
 

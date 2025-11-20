@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "product_attributes")
+@Table(name = "attribute_types")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

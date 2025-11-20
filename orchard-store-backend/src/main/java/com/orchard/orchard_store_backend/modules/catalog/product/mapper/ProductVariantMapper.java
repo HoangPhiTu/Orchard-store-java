@@ -9,28 +9,24 @@ import org.mapstruct.Mapping;
 public interface ProductVariantMapper {
 
     @Mapping(target = "productId", source = "product.id")
+    @Mapping(target = "concentrationId", source = "concentration.id")
+    @Mapping(target = "concentrationName", source = "concentration.name")
+    @Mapping(target = "categoryId", source = "category.id")
+    @Mapping(target = "categoryName", source = "category.name")
     @Mapping(target = "status", expression = "java(variant.getStatus().name())")
-    @Mapping(target = "stockStatus", expression = "java(calculateStockStatus(variant))")
+    @Mapping(target = "stockStatus", expression = "java(variant.getStockStatus() != null ? variant.getStockStatus().name() : null)")
+    @Mapping(target = "cachedAttributes", source = "cachedAttributes")
     ProductVariantDTO toDTO(ProductVariant variant);
 
-    default String calculateStockStatus(ProductVariant variant) {
-        if (variant == null || variant.getAvailableQuantity() == null) {
-            return "UNKNOWN";
-        }
-        int available = variant.getAvailableQuantity();
-        int threshold = variant.getLowStockThreshold() != null ? variant.getLowStockThreshold() : 10;
-        
-        if (available == 0) {
-            return "OUT_OF_STOCK";
-        } else if (available <= threshold) {
-            return "LOW_STOCK";
-        } else {
-            return "IN_STOCK";
-        }
-    }
-
     @Mapping(target = "product", ignore = true)
-    @Mapping(target = "status", expression = "java(dto.getStatus() != null ? ProductVariant.Status.valueOf(dto.getStatus()) : ProductVariant.Status.ACTIVE)")
+    @Mapping(target = "category", ignore = true)
+    @Mapping(target = "concentration", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "images", ignore = true)
+    @Mapping(target = "cachedAttributes", source = "cachedAttributes")
+    @Mapping(target = "status", expression = "java(dto.getStatus() != null ? ProductVariant.Status.valueOf(dto.getStatus().toUpperCase()) : ProductVariant.Status.ACTIVE)")
+    @Mapping(target = "stockStatus", expression = "java(dto.getStockStatus() != null ? ProductVariant.StockStatus.valueOf(dto.getStockStatus().toUpperCase()) : ProductVariant.StockStatus.IN_STOCK)")
     ProductVariant toEntity(ProductVariantDTO dto);
 }
 

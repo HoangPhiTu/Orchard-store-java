@@ -1,178 +1,203 @@
 package com.orchard.orchard_store_backend.modules.auth.controller;
 
-import com.orchard.orchard_store_backend.modules.auth.dto.AuthRequestDTO;
-import com.orchard.orchard_store_backend.modules.auth.dto.AuthResponseDTO;
-import com.orchard.orchard_store_backend.modules.auth.dto.ChangePasswordDTO;
-import com.orchard.orchard_store_backend.modules.auth.dto.ForgotPasswordDTO;
-import com.orchard.orchard_store_backend.modules.auth.dto.LoginHistoryDTO;
-import com.orchard.orchard_store_backend.modules.auth.dto.ResetPasswordDTO;
-import com.orchard.orchard_store_backend.modules.auth.dto.UserDTO;
-import com.orchard.orchard_store_backend.modules.auth.entity.LoginHistory;
+import com.orchard.orchard_store_backend.modules.auth.dto.LoginRequestDTO;
+import com.orchard.orchard_store_backend.modules.auth.dto.LoginResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.entity.User;
+import com.orchard.orchard_store_backend.modules.auth.entity.UserRole;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
-import com.orchard.orchard_store_backend.modules.auth.service.AuthService;
-import com.orchard.orchard_store_backend.modules.auth.service.LoginHistoryService;
-import com.orchard.orchard_store_backend.modules.auth.service.PasswordResetService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.orchard.orchard_store_backend.security.CustomUserDetailsService;
+import com.orchard.orchard_store_backend.security.JwtTokenProvider;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     @Autowired
-    private AuthService authService;
+    private AuthenticationManager authenticationManager;
 
     @Autowired
-    private LoginHistoryService loginHistoryService;
+    private JwtTokenProvider tokenProvider;
+
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
 
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private PasswordResetService passwordResetService;
-
+    /**
+     * Login endpoint
+     * POST /api/auth/login
+     * 
+     * Request body:
+     * {
+     *   "email": "admin@example.com",
+     *   "password": "password123",
+     *   "rememberMe": false
+     * }
+     * 
+     * Response:
+     * {
+     *   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+     *   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+     *   "tokenType": "Bearer",
+     *   "expiresIn": 3600,
+     *   "user": {
+     *     "id": 1,
+     *     "email": "admin@example.com",
+     *     "fullName": "Admin User",
+     *     "roles": ["ROLE_ADMIN"],
+     *     "authorities": ["product:view", "product:create", "order:view"]
+     *   }
+     * }
+     */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(
-            @Valid @RequestBody AuthRequestDTO request,
-            HttpServletRequest httpRequest
-    ) {
-        AuthResponseDTO response = authService.login(request, httpRequest);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/me")
-    public ResponseEntity<UserDTO> getCurrentUser() {
-        UserDTO user = authService.getCurrentUser();
-        return ResponseEntity.ok(user);
-    }
-
-    @PutMapping("/change-password")
-    public ResponseEntity<Map<String, String>> changePassword(@Valid @RequestBody ChangePasswordDTO request) {
-        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            Map<String, String> error = new HashMap<>();
-            error.put("message", "New password and confirm password do not match");
-            return ResponseEntity.badRequest().body(error);
-        }
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-
-        authService.changePassword(email, request.getCurrentPassword(), request.getNewPassword());
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Password changed successfully");
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/login-history")
-    public ResponseEntity<Page<LoginHistoryDTO>> getLoginHistory(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String status
-    ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "loginAt"));
-
-        Page<LoginHistoryDTO> history;
-        if (status != null && !status.isEmpty()) {
-            try {
-                LoginHistory.LoginStatus loginStatus = LoginHistory.LoginStatus.valueOf(status.toUpperCase());
-                history = loginHistoryService.getLoginHistoryByStatus(user, loginStatus, pageable);
-            } catch (IllegalArgumentException e) {
-                history = loginHistoryService.getLoginHistory(user, pageable);
-            }
-        } else {
-            history = loginHistoryService.getLoginHistory(user, pageable);
-        }
-
-        return ResponseEntity.ok(history);
-    }
-
-    @GetMapping("/login-history/recent")
-    public ResponseEntity<List<LoginHistoryDTO>> getRecentLoginHistory() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        List<LoginHistoryDTO> history = loginHistoryService.getRecentLoginHistory(user, 10);
-        return ResponseEntity.ok(history);
-    }
-
-    @GetMapping("/login-history/stats")
-    public ResponseEntity<Map<String, Object>> getLoginStats() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        long successfulCount = loginHistoryService.getSuccessfulLoginCount(user);
-        long failedCount = loginHistoryService.getFailedLoginCount(user);
-        LoginHistoryDTO lastSuccessful = loginHistoryService.getLastSuccessfulLogin(user);
-
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("successfulCount", successfulCount);
-        stats.put("failedCount", failedCount);
-        stats.put("lastSuccessfulLogin", lastSuccessful);
-
-        return ResponseEntity.ok(stats);
-    }
-
-    @PostMapping("/forgot-password")
-    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordDTO request) {
+    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
         try {
-            passwordResetService.requestPasswordReset(request);
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "If the email exists, a password reset link has been sent.");
+            // Authenticate user
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getEmail(),
+                            loginRequest.getPassword()
+                    )
+            );
+
+            // Get user details with authorities
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            User user = userRepository.findByEmail(loginRequest.getEmail())
+                    .orElseThrow(() -> new BadCredentialsException("User not found"));
+
+            // Check if account is locked
+            if (user.isAccountLocked()) {
+                throw new BadCredentialsException("Account is locked. Please try again later.");
+            }
+
+            // Check if account is active
+            if (user.getStatus() != User.Status.ACTIVE) {
+                throw new BadCredentialsException("Account is not active");
+            }
+
+            // Get authorities
+            var authorities = userDetailsService.getAuthorities(user);
+
+            // Generate tokens
+            String accessToken;
+            if (Boolean.TRUE.equals(loginRequest.getRememberMe())) {
+                // Long-lived token (30 days)
+                accessToken = tokenProvider.generateLongLivedToken(
+                        user.getId(),
+                        user.getEmail(),
+                        authorities
+                );
+            } else {
+                // Standard access token (1 hour)
+                accessToken = tokenProvider.generateAccessToken(
+                        user.getId(),
+                        user.getEmail(),
+                        authorities
+                );
+            }
+
+            // Generate refresh token
+            String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
+
+            // Update last login
+            user.setLastLogin(LocalDateTime.now());
+            user.resetFailedLoginAttempts();
+            userRepository.save(user);
+
+            // Extract roles and permissions for response
+            List<String> roles = authorities.stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .filter(auth -> auth.startsWith("ROLE_"))
+                    .collect(Collectors.toList());
+
+            List<String> permissions = authorities.stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .filter(auth -> !auth.startsWith("ROLE_"))
+                    .collect(Collectors.toList());
+
+            // Build response
+            LoginResponseDTO response = LoginResponseDTO.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .tokenType("Bearer")
+                    .expiresIn(loginRequest.getRememberMe() 
+                            ? tokenProvider.getExpirationDateFromToken(accessToken).getTime() / 1000
+                            : 3600L) // 1 hour in seconds
+                    .user(LoginResponseDTO.UserInfo.builder()
+                            .id(user.getId())
+                            .email(user.getEmail())
+                            .fullName(user.getFullName())
+                            .roles(roles)
+                            .authorities(permissions)
+                            .build())
+                    .build();
+
             return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "If the email exists, a password reset link has been sent.");
-            return ResponseEntity.ok(response);
+
+        } catch (BadCredentialsException e) {
+            // Handle failed login attempts
+            User user = userRepository.findByEmail(loginRequest.getEmail()).orElse(null);
+            if (user != null) {
+                user.incrementFailedLoginAttempts();
+                userRepository.save(user);
+            }
+            throw e;
         }
     }
 
-    @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordDTO request) {
-        passwordResetService.resetPassword(request);
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Password has been reset successfully. Please login with your new password.");
-        return ResponseEntity.ok(response);
-    }
+    /**
+     * Get current user info
+     * GET /api/auth/me
+     */
+    @GetMapping("/me")
+    public ResponseEntity<LoginResponseDTO.UserInfo> getCurrentUser() {
+        Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
+                .getContext()
+                .getAuthentication();
 
-    @GetMapping("/validate-reset-token")
-    public ResponseEntity<Map<String, Object>> validateResetToken(@RequestParam String token) {
-        boolean isValid = passwordResetService.validateResetToken(token);
-        Map<String, Object> response = new HashMap<>();
-        response.put("valid", isValid);
-        if (!isValid) {
-            response.put("message", "Invalid or expired reset token");
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(response);
+
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadCredentialsException("User not found"));
+
+        var authorities = userDetailsService.getAuthorities(user);
+
+        List<String> roles = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> auth.startsWith("ROLE_"))
+                .collect(Collectors.toList());
+
+        List<String> permissions = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> !auth.startsWith("ROLE_"))
+                .collect(Collectors.toList());
+
+        LoginResponseDTO.UserInfo userInfo = LoginResponseDTO.UserInfo.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .roles(roles)
+                .authorities(permissions)
+                .build();
+
+        return ResponseEntity.ok(userInfo);
     }
 }
-

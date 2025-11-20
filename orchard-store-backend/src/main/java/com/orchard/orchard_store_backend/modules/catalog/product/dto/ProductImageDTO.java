@@ -16,6 +16,7 @@ public class ProductImageDTO {
 
     private Long id;
     private Long productId;
+    private Long productVariantId;
 
     @NotBlank(message = "URL hình ảnh không được để trống")
     @Size(max = 500, message = "URL hình ảnh không được vượt quá 500 ký tự")
@@ -30,6 +31,13 @@ public class ProductImageDTO {
 
     @Size(max = 255, message = "Alt text không được vượt quá 255 ký tự")
     private String altText;
+
+    @Size(max = 50, message = "Loại hình ảnh không được vượt quá 50 ký tự")
+    private String imageType;
+
+    private Long fileSizeBytes;
+    private Integer width;
+    private Integer height;
 
     @Min(value = 0, message = "Thứ tự hiển thị phải >= 0")
     @Max(value = 9999, message = "Thứ tự hiển thị phải <= 9999")

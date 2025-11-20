@@ -88,7 +88,7 @@ public class InventoryServiceImpl implements InventoryService {
             case RETURN -> variant.setStockQuantity(variant.getStockQuantity() + quantity);
             default -> throw new IllegalArgumentException("Unsupported transaction type");
         }
-        variant.calculateAvailableQuantity();
+        variant.recalculateStockStatus();
         productVariantRepository.save(variant);
         return new int[]{stockBefore, variant.getStockQuantity()};
     }

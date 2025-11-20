@@ -80,8 +80,10 @@ public class ProductAttributeValueServiceImpl implements ProductAttributeValueSe
                     .attribute(attribute)
                     .attributeValue(attributeValue)
                     .customValue(dto.getCustomValue())
+                    .numericValue(dto.getNumericValue())
                     .displayOrder(dto.getDisplayOrder() == null ? 0 : dto.getDisplayOrder())
                     .primary(Boolean.TRUE.equals(dto.getPrimary()))
+                    .scope(variant != null ? ProductAttributeValue.Scope.VARIANT : ProductAttributeValue.Scope.PRODUCT)
                     .build();
             entities.add(entity);
         }

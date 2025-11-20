@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -14,8 +13,11 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
 
+/**
+ * JWT Authentication Filter
+ * Intercepts requests and validates JWT tokens, setting authentication in SecurityContext
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
@@ -30,16 +32,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
             
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                String email = tokenProvider.getEmailFromToken(jwt);
-                String role = tokenProvider.getRoleFromToken(jwt);
+                // Get authentication from token (includes authorities)
+                var authentication = tokenProvider.getAuthentication(jwt);
                 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        email,
-                        null,
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                // Set details if it's a UsernamePasswordAuthenticationToken
+                if (authentication instanceof UsernamePasswordAuthenticationToken) {
+                    ((UsernamePasswordAuthenticationToken) authentication)
+                            .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                }
                 
+                // Set authentication in SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {

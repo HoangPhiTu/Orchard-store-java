@@ -54,7 +54,7 @@ public interface ProductBundleMapper {
         dto.setBundleId(item.getBundle() != null ? item.getBundle().getId() : null);
         dto.setProductId(item.getProduct() != null ? item.getProduct().getId() : null);
         dto.setProductName(item.getProduct() != null ? item.getProduct().getName() : null);
-        dto.setProductSlug(item.getProduct() != null ? item.getProduct().getSlug() : null);
+        dto.setProductSlug(item.getProductVariant() != null ? item.getProductVariant().getSlug() : null);
         dto.setProductVariantId(item.getProductVariant() != null ? item.getProductVariant().getId() : null);
         dto.setProductVariantName(item.getProductVariant() != null ? item.getProductVariant().getVariantName() : null);
         dto.setProductVariantSku(item.getProductVariant() != null ? item.getProductVariant().getSku() : null);

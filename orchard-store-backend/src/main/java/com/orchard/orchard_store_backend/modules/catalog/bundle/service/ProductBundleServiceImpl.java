@@ -229,9 +229,6 @@ public class ProductBundleServiceImpl implements ProductBundleService {
                 itemPrice = item.getProductVariant().getSalePrice() != null
                         ? item.getProductVariant().getSalePrice()
                         : item.getProductVariant().getPrice();
-            } else if (item.getProduct() != null) {
-                // Lấy giá từ product
-                itemPrice = item.getProduct().getBasePrice();
             }
 
             // Tính tổng: giá * số lượng

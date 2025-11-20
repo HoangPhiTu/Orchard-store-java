@@ -58,7 +58,41 @@ public class EmailServiceImpl implements EmailService {
                 <p>Mật khẩu tài khoản quản trị Orchard Store của bạn đã được thay đổi thành công.</p>
                 <p>Nếu bạn không thực hiện hành động này, hãy liên hệ ngay với quản trị viên để được hỗ trợ.</p>
                 <p>Trân trọng,<br/>Orchard Store Team</p>
-                """.formatted(name);
+""".formatted(name);
+
+        sendHtmlEmail(to, subject, content);
+    }
+
+    @Override
+    public void sendOtpEmail(String to, String otpCode, String customerName) {
+        String subject = "Orchard Store - Mã OTP đăng nhập";
+        String name = (customerName == null || customerName.isBlank()) ? "bạn" : customerName;
+
+        String content = """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #111827; margin-bottom: 20px;">Xin chào %s,</h2>
+                    <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+                        Bạn vừa yêu cầu đăng nhập vào Orchard Store. Mã OTP của bạn là:
+                    </p>
+                    <div style="background-color: #f3f4f6; border: 2px dashed #9ca3af; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
+                        <h1 style="color: #111827; font-size: 36px; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">
+                            %s
+                        </h1>
+                    </div>
+                    <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+                        <strong>Lưu ý:</strong>
+                    </p>
+                    <ul style="color: #6b7280; font-size: 14px; line-height: 1.8; padding-left: 20px;">
+                        <li>Mã OTP có hiệu lực trong <strong>5 phút</strong></li>
+                        <li>Không chia sẻ mã OTP với bất kỳ ai</li>
+                        <li>Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email</li>
+                    </ul>
+                    <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                        Trân trọng,<br/>
+                        <strong>Orchard Store Team</strong>
+                    </p>
+                </div>
+                """.formatted(name, otpCode);
 
         sendHtmlEmail(to, subject, content);
     }

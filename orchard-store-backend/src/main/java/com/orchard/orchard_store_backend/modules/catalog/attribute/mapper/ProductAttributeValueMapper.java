@@ -15,6 +15,7 @@ public interface ProductAttributeValueMapper {
     @Mapping(target = "attributeName", source = "attribute.attributeName")
     @Mapping(target = "attributeValueId", source = "attributeValue.id")
     @Mapping(target = "attributeValueDisplay", source = "attributeValue.displayValue")
+    @Mapping(target = "scope", expression = "java(entity.getScope() != null ? entity.getScope().name() : null)")
     ProductAttributeValueDTO toDTO(ProductAttributeValue entity);
 }
 

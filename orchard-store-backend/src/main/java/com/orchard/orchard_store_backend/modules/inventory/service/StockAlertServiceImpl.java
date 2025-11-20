@@ -42,7 +42,7 @@ public class StockAlertServiceImpl implements StockAlertService {
     @Override
     @Transactional
     public void evaluateVariantStock(ProductVariant variant) {
-        int currentQty = variant.getStockQuantity();
+        int currentQty = variant.getAvailableQuantity();
         int threshold = Optional.ofNullable(variant.getLowStockThreshold()).orElse(10);
 
         Optional<StockAlert> existingAlertOpt = stockAlertRepository

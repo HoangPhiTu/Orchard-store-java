@@ -21,7 +21,9 @@ Nền tảng thương mại điện tử bán nước hoa và mỹ phẩm chính
 ## 🎯 Tổng Quan Dự Án
 
 ### Mục Tiêu
+
 Xây dựng nền tảng e-commerce với **95% tính năng** so với Orchard.vn, bao gồm:
+
 - 🎯 Product Discovery với advanced filtering
 - 📦 Inventory Intelligence (real-time stock tracking)
 - 🎁 Product Bundling
@@ -31,16 +33,27 @@ Xây dựng nền tảng e-commerce với **95% tính năng** so với Orchard.v
 - ⚡ High Performance
 
 ### Đặc Điểm Nổi Bật
+
 - ✅ **Simplified Authentication**: Khách hàng không cần đăng ký, xác thực đơn hàng qua email
 - ✅ **VIP Customer System**: Tự động nâng cấp VIP tier dựa trên tổng giá trị đơn hàng
 - ✅ **Dynamic Attributes**: Hệ thống thuộc tính động cho sản phẩm
 - ✅ **Monolithic Architecture**: Cấu trúc đơn giản, dễ phát triển
+
+### 🔄 Product Data Architecture (Nov 2025)
+
+- `products` chỉ giữ thông tin “gốc” (brand, category, concentration, SEO chung, thống kê).
+- `product_variants` trở thành sản phẩm hoàn chỉnh với slug riêng, tên đầy đủ (ví dụ “Dior Sauvage EDP”), mã nồng độ (`concentration_code`), mô tả/SEO riêng, cờ quản lý tồn kho (`manage_inventory`, `allow_backorder`, `allow_out_of_stock_purchase`).
+- Bảng `concentrations` chuẩn hóa nồng độ (EDP, EDT, Parfum…) để gợi ý sản phẩm liên quan.
+- `product_attributes` bổ sung `scope` (PRODUCT/VARIANT) + trigger đảm bảo attribute_value khớp attribute_type.
+- Bộ chỉ số real-time lưu ở `product_analytics` và `product_daily_sales` để phục vụ dashboard.
+- 👉 Chi tiết SQL & migration plan: xem `docs/DATABASE_SCHEMA_ENHANCED.md`.
 
 ---
 
 ## 🛠️ Công Nghệ Sử Dụng
 
 ### Backend
+
 - **Framework**: Spring Boot 3.5.7
 - **Java Version**: 21
 - **Build Tool**: Maven
@@ -50,11 +63,13 @@ Xây dựng nền tảng e-commerce với **95% tính năng** so với Orchard.v
 - **Security**: Spring Security + JWT (cho Admin/Staff)
 
 ### Database
+
 - **Provider**: Supabase (PostgreSQL)
 - **Connection Pool**: HikariCP
 - **DDL Mode**: Update (development)
 
 ### Development Tools
+
 - **Lombok**: Giảm boilerplate code
 - **MapStruct**: Tự động map Entity ↔ DTO theo từng module
 - **Spring DevTools**: Hot reload
@@ -234,17 +249,20 @@ orchard-store-admin/
 ### 📂 Tổ Chức Thư Mục
 
 #### **`.vscode/` - VS Code Settings**
+
 - **Vị trí**: ✅ **ROOT** (`JAVA-ORCHARD-STORE/.vscode/`)
 - **Lý do**: Workspace settings áp dụng cho toàn bộ project
 - **Nội dung**: Java, TypeScript, ESLint configurations
 
 #### **`logs/` - Log Files**
+
 - **Vị trí**: ✅ **Tách riêng cho từng module**
 - **Backend**: `orchard-store-backend/logs/`
 - **Admin**: `orchard-store-admin/logs/` (nếu cần)
 - **Lý do**: Dễ debug, tránh conflict, dễ cleanup
 
 #### **`docs/` - Documentation**
+
 - **Vị trí**: ✅ **ROOT** (`JAVA-ORCHARD-STORE/docs/`)
 - **Nội dung**: Tài liệu kỹ thuật chuyên sâu, database schema, roadmap, development plans
 
@@ -255,6 +273,7 @@ orchard-store-admin/
 ### ✅ Phase 1: Foundation & Core Setup (Hoàn Thành)
 
 #### 1.1 Project Setup
+
 - [x] Tạo Spring Boot project với Maven
 - [x] Cấu hình dependencies (JPA, PostgreSQL, Validation)
 - [x] Setup Supabase PostgreSQL connection
@@ -262,12 +281,14 @@ orchard-store-admin/
 - [x] Setup logging configuration
 
 #### 1.2 Database Schema Design
+
 - [x] Thiết kế database schema (38 tables)
 - [x] ERD documentation
 - [x] Database functions & triggers (VIP system)
 - [x] Indexes optimization
 
 #### 1.3 Core Entities & Repositories
+
 - [x] Brand entity & repository
 - [x] Category entity & repository (hierarchical)
 - [x] Product entity & repository
@@ -275,16 +296,19 @@ orchard-store-admin/
 - [x] ProductImage entity & repository
 
 #### 1.4 Services & Controllers
+
 - [x] BrandService & BrandController
 - [x] CategoryService & CategoryController
 - [x] ProductService & ProductController
 
 #### 1.5 Validation & Exception Handling
+
 - [x] Bean Validation cho tất cả DTOs
 - [x] GlobalExceptionHandler
 - [x] Validation error messages (tiếng Việt)
 
 #### 1.6 Admin Authentication
+
 - [x] Spring Security với JWT
 - [x] User entity & repository
 - [x] JWT Token Provider (short-lived & long-lived)
@@ -298,6 +322,7 @@ orchard-store-admin/
 - [x] Settings page với Change Password
 
 #### 1.7 Service Layer Refactor (Interface + Implementation)
+
 - [x] Tách `AuthService`, `LoginHistoryService`, `PasswordResetService`, `BrandService`, `CategoryService`, `ProductService` thành interface riêng
 - [x] Tạo `*ServiceImpl` tương ứng với `@Service` để giữ business logic
 - [x] Controllers & schedulers (PasswordResetTokenCleanupJob) inject qua interface → dễ mock/test
@@ -310,6 +335,7 @@ orchard-store-admin/
 ### 1. **Brand Management** (Quản Lý Thương Hiệu)
 
 #### Entities & Repositories
+
 - ✅ `Brand` entity với đầy đủ fields (name, slug, description, logo, country, website)
 - ✅ `BrandRepository` với các query methods:
   - Tìm theo slug
@@ -317,14 +343,17 @@ orchard-store-admin/
   - Kiểm tra slug tồn tại
 
 #### Services
+
 - ✅ `BrandService` với đầy đủ CRUD operations
 - ✅ Business logic validation (slug unique, etc.)
 
 #### Controllers & APIs
+
 - ✅ `BrandController` với REST endpoints
 - ✅ Validation với Bean Validation
 
 #### Features
+
 - ✅ CRUD operations (Create, Read, Update, Delete)
 - ✅ Tìm kiếm theo slug
 - ✅ Filter theo status (ACTIVE/INACTIVE)
@@ -335,6 +364,7 @@ orchard-store-admin/
 ### 2. **Category Management** (Quản Lý Danh Mục)
 
 #### Entities & Repositories
+
 - ✅ `Category` entity với hierarchical structure (parent-child)
 - ✅ `CategoryRepository` với các query methods:
   - Lấy root categories
@@ -343,15 +373,18 @@ orchard-store-admin/
   - Filter theo level
 
 #### Services
+
 - ✅ `CategoryService` với đầy đủ CRUD operations
 - ✅ Hierarchical operations (add/remove children)
 - ✅ Auto-calculate level
 
 #### Controllers & APIs
+
 - ✅ `CategoryController` với REST endpoints
 - ✅ Support hierarchical queries
 
 #### Features
+
 - ✅ CRUD operations
 - ✅ Hierarchical structure (parent-child)
 - ✅ Auto-calculate level
@@ -364,6 +397,7 @@ orchard-store-admin/
 ### 3. **Product Management** (Quản Lý Sản Phẩm)
 
 #### Entities & Repositories
+
 - ✅ `Product` entity với đầy đủ fields:
   - Basic info (name, slug, description)
   - Pricing (basePrice, salePrice)
@@ -377,17 +411,20 @@ orchard-store-admin/
   - Top viewed/selling products
 
 #### Services
+
 - ✅ `ProductService` với đầy đủ CRUD operations
 - ✅ Search & filter functionality
 - ✅ Auto-increment viewCount khi xem chi tiết
 - ✅ Load variants & images
 
 #### Controllers & APIs
+
 - ✅ `ProductController` với REST endpoints
 - ✅ Advanced search & filtering
 - ✅ Pagination support
 
 #### Features
+
 - ✅ CRUD operations
 - ✅ Advanced search (brand, category, price, keyword)
 - ✅ Pagination & sorting
@@ -400,6 +437,7 @@ orchard-store-admin/
 ### 4. **Product Variant Management** (Quản Lý Biến Thể Sản Phẩm)
 
 #### Entities & Repositories
+
 - ✅ `ProductVariant` entity với:
   - Pricing (price, salePrice, costPrice)
   - Inventory (stockQuantity, reservedQuantity, availableQuantity)
@@ -411,10 +449,12 @@ orchard-store-admin/
   - Low stock & out of stock alerts
 
 #### Services
+
 - ✅ Auto-calculate availableQuantity
 - ✅ Stock management
 
 #### Features
+
 - ✅ CRUD operations
 - ✅ SKU management
 - ✅ Inventory tracking
@@ -426,6 +466,7 @@ orchard-store-admin/
 ### 5. **Product Image Management** (Quản Lý Hình Ảnh)
 
 #### Entities & Repositories
+
 - ✅ `ProductImage` entity với:
   - imageUrl, thumbnailUrl
   - altText
@@ -436,6 +477,7 @@ orchard-store-admin/
   - Sắp xếp theo displayOrder
 
 #### Features
+
 - ✅ CRUD operations
 - ✅ Primary image support
 - ✅ Display order
@@ -446,6 +488,7 @@ orchard-store-admin/
 ### 6. **Admin Authentication** (Xác Thực Admin/Staff)
 
 #### Entities & Repositories
+
 - ✅ `User` entity cho Admin/Staff:
   - Email, password, fullName, phone
   - Role (ADMIN, STAFF)
@@ -457,6 +500,7 @@ orchard-store-admin/
   - Kiểm tra email tồn tại
 
 #### Security
+
 - ✅ Spring Security với JWT authentication
 - ✅ JWT Token Provider (short-lived & long-lived tokens)
 - ✅ JWT Authentication Filter
@@ -465,6 +509,7 @@ orchard-store-admin/
 - ✅ Role-based access control (RBAC)
 
 #### Services & Controllers
+
 - ✅ `AuthService` với:
   - Login với remember me support
   - Account lockout sau 5 lần sai
@@ -481,6 +526,7 @@ orchard-store-admin/
   - `GET /api/admin/auth/validate-reset-token` - Xác thực reset token
 
 #### Features
+
 - ✅ Login với email/password
 - ✅ Remember Me (30 ngày token)
 - ✅ Account Lockout (5 lần sai → lock 30 phút)
@@ -492,6 +538,7 @@ orchard-store-admin/
 - ✅ Forgot/Reset Password với email token (cần cấu hình email service)
 
 #### Frontend (Admin Panel)
+
 - ✅ Login page với form validation
 - ✅ Remember Me checkbox
 - ✅ Protected routes middleware
@@ -506,6 +553,7 @@ orchard-store-admin/
 ### 7. **Bean Validation** (Xác Thực Dữ Liệu)
 
 #### Implementation
+
 - ✅ Validation cho tất cả DTOs:
   - `BrandDTO`: name, slug, URLs, status
   - `AuthRequestDTO`: email, password, rememberMe
@@ -516,6 +564,7 @@ orchard-store-admin/
   - `ProductImageDTO`: imageUrl, displayOrder
 
 #### Validation Rules
+
 - ✅ `@NotBlank` - Required fields
 - ✅ `@NotNull` - Non-null fields
 - ✅ `@Size` - String length
@@ -527,6 +576,7 @@ orchard-store-admin/
 - ✅ `@Valid` - Nested object validation
 
 #### Error Handling
+
 - ✅ `GlobalExceptionHandler` xử lý validation errors
 - ✅ Error messages tiếng Việt
 - ✅ Chi tiết lỗi theo từng field
@@ -536,12 +586,14 @@ orchard-store-admin/
 ### 7. **Exception Handling** (Xử Lý Lỗi)
 
 #### Implementation
+
 - ✅ `GlobalExceptionHandler` với `@RestControllerAdvice`
 - ✅ Xử lý `MethodArgumentNotValidException` (validation errors)
 - ✅ Xử lý `RuntimeException` (business logic errors)
 - ✅ Xử lý generic `Exception`
 
 #### Error Response Format
+
 ```json
 {
   "timestamp": "2024-01-20T10:00:00",
@@ -560,19 +612,21 @@ orchard-store-admin/
 ## 🔌 API Endpoints
 
 ### Base URL
+
 ```
 http://localhost:8080/api
 ```
 
 ### Admin Authentication API
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/admin/auth/login` | Đăng nhập Admin/Staff | ❌ No |
-| GET | `/admin/auth/me` | Lấy thông tin user hiện tại | ✅ Yes |
-| PUT | `/admin/auth/change-password` | Đổi mật khẩu | ✅ Yes |
+| Method | Endpoint                      | Description                 | Auth Required |
+| ------ | ----------------------------- | --------------------------- | ------------- |
+| POST   | `/admin/auth/login`           | Đăng nhập Admin/Staff       | ❌ No         |
+| GET    | `/admin/auth/me`              | Lấy thông tin user hiện tại | ✅ Yes        |
+| PUT    | `/admin/auth/change-password` | Đổi mật khẩu                | ✅ Yes        |
 
 **Login Request:**
+
 ```json
 {
   "email": "tuhoang.170704@gmail.com",
@@ -582,6 +636,7 @@ http://localhost:8080/api
 ```
 
 **Login Response:**
+
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -594,6 +649,7 @@ http://localhost:8080/api
 ```
 
 **Change Password Request:**
+
 ```json
 {
   "currentPassword": "admin123",
@@ -603,6 +659,7 @@ http://localhost:8080/api
 ```
 
 **Lưu ý:**
+
 - Default admin account: `tuhoang.170704@gmail.com` / `admin123`
 - Token expiration: 1 giờ (default) hoặc 30 ngày (nếu rememberMe = true)
 - Account lockout: Sau 5 lần đăng nhập sai → Lock 30 phút
@@ -611,54 +668,56 @@ http://localhost:8080/api
 
 ### Brands API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/brands` | Lấy tất cả brands (có filter activeOnly) |
-| GET | `/brands/{id}` | Lấy brand theo ID |
-| GET | `/brands/slug/{slug}` | Lấy brand theo slug |
-| POST | `/brands` | Tạo brand mới |
-| PUT | `/brands/{id}` | Cập nhật brand |
-| DELETE | `/brands/{id}` | Xóa brand |
+| Method | Endpoint              | Description                              |
+| ------ | --------------------- | ---------------------------------------- |
+| GET    | `/brands`             | Lấy tất cả brands (có filter activeOnly) |
+| GET    | `/brands/{id}`        | Lấy brand theo ID                        |
+| GET    | `/brands/slug/{slug}` | Lấy brand theo slug                      |
+| POST   | `/brands`             | Tạo brand mới                            |
+| PUT    | `/brands/{id}`        | Cập nhật brand                           |
+| DELETE | `/brands/{id}`        | Xóa brand                                |
 
 ### Categories API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/categories` | Lấy tất cả categories |
-| GET | `/categories/roots` | Lấy root categories |
-| GET | `/categories/{id}` | Lấy category theo ID |
-| GET | `/categories/slug/{slug}` | Lấy category theo slug |
-| GET | `/categories/parent/{parentId}/children` | Lấy children categories |
-| POST | `/categories` | Tạo category mới |
-| PUT | `/categories/{id}` | Cập nhật category |
-| DELETE | `/categories/{id}` | Xóa category |
+| Method | Endpoint                                 | Description             |
+| ------ | ---------------------------------------- | ----------------------- |
+| GET    | `/categories`                            | Lấy tất cả categories   |
+| GET    | `/categories/roots`                      | Lấy root categories     |
+| GET    | `/categories/{id}`                       | Lấy category theo ID    |
+| GET    | `/categories/slug/{slug}`                | Lấy category theo slug  |
+| GET    | `/categories/parent/{parentId}/children` | Lấy children categories |
+| POST   | `/categories`                            | Tạo category mới        |
+| PUT    | `/categories/{id}`                       | Cập nhật category       |
+| DELETE | `/categories/{id}`                       | Xóa category            |
 
 ### Products API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/products` | Lấy tất cả products (pagination) |
-| GET | `/products/{id}` | Lấy product theo ID |
-| GET | `/products/slug/{slug}` | Lấy product theo slug (auto-increment view) |
-| GET | `/products/search` | Tìm kiếm products (filters: brandId, categoryId, minPrice, maxPrice, searchTerm) |
-| GET | `/products/featured` | Lấy featured products |
-| GET | `/products/new` | Lấy new products (pagination) |
-| GET | `/products/bestseller` | Lấy bestseller products (pagination) |
-| GET | `/products/brand/{brandId}` | Lấy products theo brand |
-| GET | `/products/category/{categoryId}` | Lấy products theo category |
-| POST | `/products` | Tạo product mới |
-| PUT | `/products/{id}` | Cập nhật product |
-| DELETE | `/products/{id}` | Xóa product |
+| Method | Endpoint                          | Description                                                                      |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------- |
+| GET    | `/products`                       | Lấy tất cả products (pagination)                                                 |
+| GET    | `/products/{id}`                  | Lấy product theo ID                                                              |
+| GET    | `/products/slug/{slug}`           | Lấy product theo slug (auto-increment view)                                      |
+| GET    | `/products/search`                | Tìm kiếm products (filters: brandId, categoryId, minPrice, maxPrice, searchTerm) |
+| GET    | `/products/featured`              | Lấy featured products                                                            |
+| GET    | `/products/new`                   | Lấy new products (pagination)                                                    |
+| GET    | `/products/bestseller`            | Lấy bestseller products (pagination)                                             |
+| GET    | `/products/brand/{brandId}`       | Lấy products theo brand                                                          |
+| GET    | `/products/category/{categoryId}` | Lấy products theo category                                                       |
+| POST   | `/products`                       | Tạo product mới                                                                  |
+| PUT    | `/products/{id}`                  | Cập nhật product                                                                 |
+| DELETE | `/products/{id}`                  | Xóa product                                                                      |
 
 #### Query Parameters (Products)
 
 **Pagination:**
+
 - `page` (default: 0) - Số trang
 - `size` (default: 20) - Số items mỗi trang
 - `sortBy` (default: "createdAt") - Field để sort
 - `sortDir` (default: "DESC") - Hướng sort (ASC/DESC)
 
 **Search Filters:**
+
 - `brandId` - Filter theo brand
 - `categoryId` - Filter theo category
 - `minPrice` - Giá tối thiểu
@@ -670,12 +729,14 @@ http://localhost:8080/api
 ## 🚀 Hướng Dẫn Setup
 
 ### Yêu Cầu Hệ Thống
+
 - Java 21+
 - Maven 3.6+
 - PostgreSQL (hoặc Supabase account)
 - IDE (IntelliJ IDEA / Eclipse / VS Code)
 
 ### Bước 1: Clone Repository
+
 ```bash
 git clone <repository-url>
 cd JAVA-ORCHARD-STORE
@@ -694,6 +755,7 @@ spring.datasource.password=YOUR_PASSWORD
 ```
 
 ### Bước 2.1: Cấu Hình Email (Forgot Password)
+
 Forgot/Reset Password sử dụng SMTP để gửi email. Bạn có thể dùng Gmail (App Password) hoặc dịch vụ khác (SendGrid, Mailgun, AWS SES, ...).
 
 ```properties
@@ -713,23 +775,26 @@ app.password-reset.cleanup-cron=0 0 * * * *
 
 > **Lưu ý:** Nếu dùng Gmail bạn phải bật 2FA và tạo App Password. Đối với các nhà cung cấp SMTP khác chỉ cần thay host/port/username/password tương ứng.
 
-
 ### Bước 3: Build Project
+
 ```bash
 cd orchard-store-backend
 mvn clean install
 ```
 
 ### Bước 4: Chạy Application
+
 ```bash
 mvn spring-boot:run
 ```
 
 Hoặc chạy từ IDE:
+
 - Mở `OrchardStoreBackendApplication.java`
 - Click Run
 
 ### Bước 5: Kiểm Tra
+
 - Application chạy tại: `http://localhost:8080`
 - Test API: `http://localhost:8080/api/brands`
 
@@ -738,6 +803,7 @@ Hoặc chạy từ IDE:
 ## 🎛️ Admin Panel Setup
 
 ### Yêu Cầu
+
 - Node.js 18+
 - npm hoặc yarn
 - Spring Boot backend đang chạy tại `http://localhost:8080`
@@ -812,6 +878,7 @@ orchard-store-admin/
 ### ⚡ Quick Start - Push Lên GitHub (3 Bước Nhanh)
 
 #### 1. Tạo Repository Trên GitHub
+
 1. Vào https://github.com/new
 2. Đặt tên: `orchard-store` (hoặc tên bạn muốn)
 3. Chọn **Private** (khuyến nghị)
@@ -819,6 +886,7 @@ orchard-store-admin/
 5. Click **Create repository**
 
 #### 2. Add Remote và Push
+
 ```bash
 # Thay YOUR_USERNAME và YOUR_REPO_NAME
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
@@ -840,10 +908,12 @@ git push -u origin main
 ```
 
 **Lưu ý:** Nếu hỏi username/password:
+
 - Username: GitHub username của bạn
 - Password: **Personal Access Token** (không phải password GitHub)
 
 #### 3. Tạo Personal Access Token (Nếu Cần)
+
 1. GitHub > Settings > Developer settings > Personal access tokens > Tokens (classic)
 2. Generate new token (classic)
 3. Chọn scope: `repo`
@@ -855,6 +925,7 @@ git push -u origin main
 ### 🚀 Setup Repository Lần Đầu (Chi Tiết)
 
 #### Bước 1: Tạo GitHub Repository
+
 1. Đăng nhập vào [GitHub](https://github.com)
 2. Click **New repository** (hoặc vào: https://github.com/new)
 3. Điền thông tin:
@@ -865,6 +936,7 @@ git push -u origin main
 4. Click **Create repository**
 
 #### Bước 2: Khởi Tạo Git Repository (Local)
+
 ```powershell
 # Di chuyển vào thư mục project
 cd C:\xampp\htdocs\JAVA-ORCHARD-STORE
@@ -877,6 +949,7 @@ git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
 ```
 
 #### Bước 3: Push Code Lên GitHub
+
 ```powershell
 # Add files
 git add .
@@ -896,6 +969,7 @@ git push -u origin main
 ### 📋 Git Workflow Hàng Ngày
 
 #### Khi Bắt Đầu Làm Việc:
+
 ```powershell
 # Pull code mới nhất (nếu làm việc nhóm)
 git pull origin main
@@ -905,6 +979,7 @@ git status
 ```
 
 #### Khi Làm Xong Một Tính Năng:
+
 ```powershell
 # Xem thay đổi
 git status
@@ -921,6 +996,7 @@ git push origin main
 ```
 
 #### Commit Message Format:
+
 ```
 <type>: <subject>
 
@@ -928,6 +1004,7 @@ git push origin main
 ```
 
 **Types:**
+
 - `feat`: Tính năng mới
 - `fix`: Sửa lỗi
 - `docs`: Cập nhật documentation
@@ -937,6 +1014,7 @@ git push origin main
 - `chore`: Cập nhật build, dependencies
 
 **Ví dụ:**
+
 ```bash
 git commit -m "feat: Add product search with filters
 
@@ -950,10 +1028,12 @@ git commit -m "feat: Add product search with filters
 ### 🔄 Lấy Lại Code Cũ Từ GitHub
 
 #### 1. Xem Code Cũ Trên GitHub
+
 - Vào repository > Click vào số commits > Chọn commit bạn muốn xem
 - Hoặc vào file > Click "History" > Chọn commit
 
 #### 2. Xem Code Cũ Bằng Git (Local)
+
 ```powershell
 # Xem lịch sử commits
 git log --oneline
@@ -966,6 +1046,7 @@ git show d8a32df:README.md
 ```
 
 #### 3. Restore File Từ Commit Cũ
+
 ```powershell
 # Lấy lại 1 file từ commit cũ
 git checkout <commit-hash> -- <file-path>
@@ -980,6 +1061,7 @@ git push origin main
 ```
 
 #### 4. Revert Commit (Undo Thay Đổi)
+
 ```powershell
 # Revert commit cuối cùng (an toàn)
 git revert HEAD
@@ -992,6 +1074,7 @@ git revert <commit-hash>
 **Lưu ý:** `revert` tạo commit mới để undo thay đổi, **KHÔNG xóa** commit cũ (an toàn).
 
 #### 5. Tạo Branch Từ Commit Cũ
+
 ```powershell
 # Tạo branch mới từ commit cũ
 git checkout -b <branch-name> <commit-hash>
@@ -1008,17 +1091,20 @@ git push -u origin old-version
 ### 📜 PowerShell Scripts
 
 #### 1. `setup-github-repo.ps1` - Setup Repository Lần Đầu
+
 ```powershell
 .\setup-github-repo.ps1 -GitHubUsername "YOUR_USERNAME" -RepositoryName "orchard-store"
 ```
 
 **Tính năng:**
+
 - ✅ Kiểm tra và khởi tạo Git repository
 - ✅ Cấu hình Git user.name và user.email
 - ✅ Thêm remote origin
 - ✅ Kiểm tra .gitignore
 
 #### 2. `push-to-github.ps1` - Push Code (Đầy Đủ)
+
 ```powershell
 # Sử dụng mặc định
 .\push-to-github.ps1
@@ -1028,6 +1114,7 @@ git push -u origin old-version
 ```
 
 **Tính năng:**
+
 - ✅ Kiểm tra Git đã cài đặt
 - ✅ Tự động thêm remote (nếu chưa có)
 - ✅ Cảnh báo nếu application.properties bị commit
@@ -1035,6 +1122,7 @@ git push -u origin old-version
 - ✅ Error handling đầy đủ
 
 #### 3. `push-to-github-simple.ps1` - Push Code (Đơn Giản)
+
 ```powershell
 .\push-to-github-simple.ps1
 ```
@@ -1046,19 +1134,24 @@ git push -u origin old-version
 ### 🔒 Bảo Mật
 
 #### Files Đã Được Bảo Vệ
+
 ✅ **Đã ignore:**
+
 - `application.properties` (chứa database password, JWT secrets)
 - `.env.local` (chứa API keys)
 - `logs/`, `node_modules/`, `target/`
 
 ✅ **Đã tạo file example:**
+
 - `application.properties.example` (template không có credentials)
 - `.env.local.example` (template không có credentials)
 
 #### Hướng Dẫn Cho Team Members
+
 Khi clone project:
 
 1. **Backend:**
+
 ```bash
 cd orchard-store-backend/src/main/resources
 cp application.properties.example application.properties
@@ -1066,6 +1159,7 @@ cp application.properties.example application.properties
 ```
 
 2. **Admin Panel:**
+
 ```bash
 cd orchard-store-admin
 cp .env.local.example .env.local
@@ -1077,10 +1171,12 @@ cp .env.local.example .env.local
 ### 🆘 Troubleshooting
 
 #### Lỗi: "Authentication failed"
+
 - Sử dụng Personal Access Token thay vì password
 - Tạo token: GitHub > Settings > Developer settings > Personal access tokens
 
 #### Lỗi: "Updates were rejected"
+
 ```powershell
 # Pull code mới nhất
 git pull origin main
@@ -1091,6 +1187,7 @@ git push origin main
 ```
 
 #### Lỗi: "application.properties bị commit"
+
 ```powershell
 # Xóa khỏi Git (nhưng giữ file local)
 git rm --cached orchard-store-backend/src/main/resources/application.properties
@@ -1103,6 +1200,7 @@ git push origin main
 ## 📚 Tài Liệu Tham Khảo
 
 ### Documentation Files
+
 - **[docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md)** - Tài liệu kỹ thuật chi tiết:
   - Bean Validation
   - Module hóa & Mapper Layer
@@ -1116,6 +1214,7 @@ git push origin main
 - **[docs/ADMIN_PANEL_DEVELOPMENT_PLAN.md](./docs/ADMIN_PANEL_DEVELOPMENT_PLAN.md)** - Kế hoạch phát triển Admin Panel
 
 ### External Resources
+
 - [Spring Boot Documentation](https://spring.io/projects/spring-boot)
 - [Spring Data JPA Documentation](https://spring.io/projects/spring-data-jpa)
 - [Supabase Documentation](https://supabase.com/docs)
@@ -1126,6 +1225,7 @@ git push origin main
 ## 📝 Ghi Chú
 
 ### Database Schema
+
 - Database schema được thiết kế với **38 tables** bao gồm:
   - Core entities (Brands, Categories, Products)
   - Dynamic attributes system
@@ -1136,10 +1236,12 @@ git push origin main
   - Order management
 
 ### Authentication
+
 - **Admin/Staff**: JWT authentication (chưa implement)
 - **Customers**: Không cần đăng ký, xác thực qua email verification code
 
 ### VIP System
+
 - Tự động nâng cấp VIP tier dựa trên tổng giá trị đơn hàng
 - 5 tiers: Standard, Silver, Gold, Platinum, Diamond
 - Database functions & triggers tự động xử lý
@@ -1149,6 +1251,7 @@ git push origin main
 ## 🔄 Tiếp Theo
 
 ### Phase 2: Dynamic Attributes System (✅ Hoàn Thành)
+
 - [x] Product attributes management
 - [x] Attribute values management
 - [x] Category attributes assignment
@@ -1156,6 +1259,7 @@ git push origin main
 - [x] Integration vào ProductDTO (attributeValues field)
 
 ### Phase 3: Inventory Intelligence (✅ Hoàn Thành)
+
 - [x] Stock tracking (InventoryTransaction)
 - [x] Low stock alerts (StockAlert)
 - [x] Pre-orders (PreOrder)
@@ -1163,12 +1267,14 @@ git push origin main
 - [x] Integration vào ProductVariantDTO (stockStatus field)
 
 ### Phase 4: Shopping Cart & Checkout (Chưa Bắt Đầu)
+
 - [ ] Shopping cart
 - [ ] Guest checkout
 - [ ] Email verification
 - [ ] Order management
 
 ### Phase 5: VIP Customer System (Chưa Bắt Đầu)
+
 - [ ] Customer tracking
 - [ ] VIP tier auto-upgrade
 - [ ] Discount calculation
@@ -1196,22 +1302,25 @@ This project is private and proprietary.
 ### ✅ Recent Completions (2025-11-18)
 
 #### Product Bundling Module
+
 - ✅ Entity, Repository, DTO, Mapper, Service, Controller hoàn chỉnh
 - ✅ CRUD operations, tự động tính giá bundle và discount
 - ✅ Hỗ trợ 4 loại bundle: CURATED_SET, GIFT_PACKAGE, COMBO_DEAL, SEASONAL_SET
 - ✅ API: `/api/admin/bundles`
 
 #### Product Price History
+
 - ✅ Track lịch sử thay đổi giá, tự động record khi giá thay đổi
 - ✅ Query theo variant, promotion, change type
 - ✅ API: `/api/admin/price-history`
 
 #### Product Reviews System
+
 - ✅ Review management với moderation, images, helpful votes
 - ✅ Auto update product rating, verified purchase reviews
 - ✅ API: `/api/reviews`
 
 #### ProductDTO Enhancements
+
 - ✅ Dynamic Attributes integration: ProductDTO có `attributeValues` list
 - ✅ Inventory integration: ProductVariantDTO có `stockStatus` (IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
-

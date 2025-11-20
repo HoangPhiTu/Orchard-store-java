@@ -17,6 +17,49 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
     
     /**
+     * Xử lý ResourceNotFoundException (404)
+     * Khi không tìm thấy resource trong database
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.NOT_FOUND.value());
+        errorResponse.put("error", "Resource Not Found");
+        errorResponse.put("message", ex.getMessage());
+        errorResponse.put("path", "/api");
+        
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+    
+    /**
+     * Xử lý ResourceAlreadyExistsException (409)
+     * Khi resource đã tồn tại (trùng SKU, slug, etc.)
+     */
+    @ExceptionHandler(ResourceAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleResourceAlreadyExistsException(ResourceAlreadyExistsException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.CONFLICT.value());
+        errorResponse.put("error", "Resource Already Exists");
+        errorResponse.put("message", ex.getMessage());
+        errorResponse.put("path", "/api");
+        
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
+    @ExceptionHandler(com.orchard.orchard_store_backend.modules.shopping.exception.CartRateLimitException.class)
+    public ResponseEntity<Map<String, Object>> handleCartRateLimitException(RuntimeException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.TOO_MANY_REQUESTS.value());
+        errorResponse.put("error", "Too Many Requests");
+        errorResponse.put("message", ex.getMessage());
+        errorResponse.put("path", "/api");
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
+    }
+    
+    /**
      * Xử lý Validation Errors (Bean Validation)
      * Khi dữ liệu không hợp lệ, Spring sẽ throw MethodArgumentNotValidException
      */

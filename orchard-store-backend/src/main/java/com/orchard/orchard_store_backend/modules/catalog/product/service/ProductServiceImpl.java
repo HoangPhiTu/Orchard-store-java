@@ -6,7 +6,10 @@ import com.orchard.orchard_store_backend.modules.catalog.brand.entity.Brand;
 import com.orchard.orchard_store_backend.modules.catalog.brand.repository.BrandRepository;
 import com.orchard.orchard_store_backend.modules.catalog.category.entity.Category;
 import com.orchard.orchard_store_backend.modules.catalog.category.repository.CategoryRepository;
+import com.orchard.orchard_store_backend.modules.catalog.concentration.entity.Concentration;
+import com.orchard.orchard_store_backend.modules.catalog.concentration.repository.ConcentrationRepository;
 import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductDTO;
+import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductDetailDTO;
 import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductImageDTO;
 import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductVariantDTO;
 import com.orchard.orchard_store_backend.modules.catalog.product.entity.Product;
@@ -24,8 +27,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +38,7 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
+    private final ConcentrationRepository concentrationRepository;
     private final CategoryRepository categoryRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductImageRepository imageRepository;
@@ -45,126 +49,60 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Page<ProductDTO> getAllProducts(Pageable pageable) {
-        return productRepository.findByStatusOrderByCreatedAtDesc(Product.Status.ACTIVE, pageable)
+        return productRepository.findAll(pageable)
                 .map(this::toDTO);
     }
 
     @Override
     public ProductDTO getProductById(Long id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with id: " + id));
         return toDTO(product);
-    }
-
-    @Override
-    public ProductDTO getProductBySlug(String slug) {
-        Product product = productRepository.findBySlug(slug)
-                .orElseThrow(() -> new RuntimeException("Product not found with slug: " + slug));
-
-        product.setViewCount(product.getViewCount() + 1);
-        productRepository.save(product);
-
-        return toDTO(product);
-    }
-
-    @Override
-    public Page<ProductDTO> searchProducts(Long brandId, Long categoryId,
-                                          BigDecimal minPrice, BigDecimal maxPrice,
-                                          String searchTerm, Pageable pageable) {
-        return productRepository.searchProducts(brandId, categoryId, minPrice, maxPrice, searchTerm, pageable)
-                .map(this::toDTO);
-    }
-
-    @Override
-    public List<ProductDTO> getFeaturedProducts() {
-        return productRepository.findFeaturedProducts()
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public Page<ProductDTO> getNewProducts(Pageable pageable) {
-        return productRepository.findNewProducts(pageable)
-                .map(this::toDTO);
-    }
-
-    @Override
-    public Page<ProductDTO> getBestsellerProducts(Pageable pageable) {
-        return productRepository.findBestsellerProducts(pageable)
-                .map(this::toDTO);
-    }
-
-    @Override
-    public Page<ProductDTO> getProductsByBrand(Long brandId, Pageable pageable) {
-        return productRepository.findByBrandIdAndStatus(brandId, Product.Status.ACTIVE, pageable)
-                .map(this::toDTO);
-    }
-
-    @Override
-    public Page<ProductDTO> getProductsByCategory(Long categoryId, Pageable pageable) {
-        return productRepository.findByCategoryIdAndStatus(categoryId, Product.Status.ACTIVE, pageable)
-                .map(this::toDTO);
     }
 
     @Override
     public ProductDTO createProduct(ProductDTO productDTO) {
-        if (productRepository.existsBySlug(productDTO.getSlug())) {
-            throw new RuntimeException("Product with slug already exists: " + productDTO.getSlug());
-        }
-
         Brand brand = brandRepository.findById(productDTO.getBrandId())
-                .orElseThrow(() -> new RuntimeException("Brand not found with id: " + productDTO.getBrandId()));
-
-        Category category = categoryRepository.findById(productDTO.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found with id: " + productDTO.getCategoryId()));
+                .orElseThrow(() -> new IllegalArgumentException("Brand not found with id: " + productDTO.getBrandId()));
 
         Product product = productMapper.toEntity(productDTO);
         product.setBrand(brand);
-        product.setCategory(category);
+
+        Product saved = productRepository.save(product);
+        return toDTO(saved);
+    }
+
+    /**
+     * Create product with full details (variants, images)
+     * Use ProductDetailDTO for create operations that include variants/images
+     */
+    public ProductDetailDTO createProductWithDetails(ProductDetailDTO productDetailDTO) {
+        Brand brand = brandRepository.findById(productDetailDTO.getBrandId())
+                .orElseThrow(() -> new IllegalArgumentException("Brand not found with id: " + productDetailDTO.getBrandId()));
+
+        Product product = productMapper.toEntity(productDetailDTO);
+        product.setBrand(brand);
 
         Product saved = productRepository.save(product);
 
-        if (productDTO.getVariants() != null && !productDTO.getVariants().isEmpty()) {
-            for (ProductVariantDTO variantDTO : productDTO.getVariants()) {
-                ProductVariant variant = productVariantMapper.toEntity(variantDTO);
-                variant.setProduct(saved);
-                variantRepository.save(variant);
-            }
-        }
+        persistVariants(saved, productDetailDTO.getVariants());
+        persistImages(saved, productDetailDTO.getImages());
 
-        if (productDTO.getImages() != null && !productDTO.getImages().isEmpty()) {
-            for (ProductImageDTO imageDTO : productDTO.getImages()) {
-                ProductImage image = productImageMapper.toEntity(imageDTO);
-                image.setProduct(saved);
-                imageRepository.save(image);
-            }
-        }
-
-        return toDTO(saved);
+        return getProductDetailById(saved.getId());
     }
 
     @Override
     public ProductDTO updateProduct(Long id, ProductDTO productDTO) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
-
-        if (productRepository.existsBySlugAndIdNot(productDTO.getSlug(), id)) {
-            throw new RuntimeException("Product with slug already exists: " + productDTO.getSlug());
-        }
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with id: " + id));
 
         productMapper.updateProductFromDto(productDTO, product);
 
-        if (productDTO.getBrandId() != null && !product.getBrand().getId().equals(productDTO.getBrandId())) {
+        if (productDTO.getBrandId() != null &&
+                !Objects.equals(product.getBrand().getId(), productDTO.getBrandId())) {
             Brand brand = brandRepository.findById(productDTO.getBrandId())
-                    .orElseThrow(() -> new RuntimeException("Brand not found with id: " + productDTO.getBrandId()));
+                    .orElseThrow(() -> new IllegalArgumentException("Brand not found with id: " + productDTO.getBrandId()));
             product.setBrand(brand);
-        }
-
-        if (productDTO.getCategoryId() != null && !product.getCategory().getId().equals(productDTO.getCategoryId())) {
-            Category category = categoryRepository.findById(productDTO.getCategoryId())
-                    .orElseThrow(() -> new RuntimeException("Category not found with id: " + productDTO.getCategoryId()));
-            product.setCategory(category);
         }
 
         Product updated = productRepository.save(product);
@@ -174,29 +112,78 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void deleteProduct(Long id) {
         if (!productRepository.existsById(id)) {
-            throw new RuntimeException("Product not found with id: " + id);
+            throw new IllegalArgumentException("Product not found with id: " + id);
         }
         productRepository.deleteById(id);
     }
 
+    private void persistVariants(Product product, List<ProductVariantDTO> variants) {
+        if (variants == null || variants.isEmpty()) {
+            return;
+        }
+
+        for (ProductVariantDTO variantDTO : variants) {
+            ProductVariant variant = productVariantMapper.toEntity(variantDTO);
+            variant.setProduct(product);
+
+            if (variantDTO.getConcentrationId() != null) {
+                Concentration concentration = concentrationRepository.findById(variantDTO.getConcentrationId())
+                        .orElseThrow(() -> new IllegalArgumentException("Concentration not found with id: " + variantDTO.getConcentrationId()));
+                variant.setConcentration(concentration);
+            }
+
+            if (variantDTO.getCategoryId() != null) {
+                Category category = categoryRepository.findById(variantDTO.getCategoryId())
+                        .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + variantDTO.getCategoryId()));
+                variant.setCategory(category);
+            }
+
+            variantRepository.save(variant);
+        }
+    }
+
+    private void persistImages(Product product, List<ProductImageDTO> images) {
+        if (images == null || images.isEmpty()) {
+            return;
+        }
+
+        for (ProductImageDTO imageDTO : images) {
+            ProductImage image = productImageMapper.toEntity(imageDTO);
+            image.setProduct(product);
+
+            if (imageDTO.getProductVariantId() != null) {
+                ProductVariant variant = variantRepository.findById(imageDTO.getProductVariantId())
+                        .orElseThrow(() -> new IllegalArgumentException("Variant not found with id: " + imageDTO.getProductVariantId()));
+                image.setProductVariant(variant);
+            }
+
+            imageRepository.save(image);
+        }
+    }
+
     private ProductDTO toDTO(Product product) {
-        ProductDTO dto = productMapper.toDTO(product);
+        // Use Entity Graph to fetch relationships if needed
+        Product productWithDetails = productRepository.findByIdWithDetails(product.getId())
+                .orElse(product);
+        return productMapper.toDTO(productWithDetails);
+    }
 
-        List<ProductVariant> variants = variantRepository.findActiveVariantsByProductId(product.getId());
-        dto.setVariants(variants.stream()
-                .map(productVariantMapper::toDTO)
-                .collect(Collectors.toList()));
+    /**
+     * Convert Product to ProductDetailDTO with all relationships
+     */
+    public ProductDetailDTO toDetailDTO(Product product) {
+        // Use Entity Graph to fetch all relationships
+        Product productWithDetails = productRepository.findByIdWithDetails(product.getId())
+                .orElse(product);
+        return productMapper.toDetailDTO(productWithDetails);
+    }
 
-        List<ProductImage> images = imageRepository.findAllByProductIdOrdered(product.getId());
-        dto.setImages(images.stream()
-                .map(productImageMapper::toDTO)
-                .collect(Collectors.toList()));
-
-        // Load attribute values
-        List<ProductAttributeValueDTO> attributeValues = productAttributeValueService.getAttributesForProduct(product.getId());
-        dto.setAttributeValues(attributeValues);
-
-        return dto;
+    /**
+     * Get product detail by ID
+     */
+    public ProductDetailDTO getProductDetailById(Long id) {
+        Product product = productRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with id: " + id));
+        return toDetailDTO(product);
     }
 }
-

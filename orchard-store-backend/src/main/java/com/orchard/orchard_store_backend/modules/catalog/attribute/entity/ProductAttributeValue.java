@@ -7,9 +7,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "product_attribute_values")
+@Table(name = "product_attributes")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,15 +33,18 @@ public class ProductAttributeValue {
     private ProductVariant productVariant;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "attribute_id", nullable = false)
+    @JoinColumn(name = "attribute_type_id", nullable = false)
     private ProductAttribute attribute;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "attribute_value_id")
+    @JoinColumn(name = "attribute_option_id")
     private AttributeValue attributeValue;
 
     @Column(name = "custom_value", columnDefinition = "TEXT")
     private String customValue;
+
+    @Column(name = "numeric_value", precision = 15, scale = 2)
+    private BigDecimal numericValue;
 
     @Column(name = "display_order")
     @Builder.Default
@@ -46,5 +53,19 @@ public class ProductAttributeValue {
     @Column(name = "is_primary")
     @Builder.Default
     private Boolean primary = Boolean.FALSE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scope", length = 20, nullable = false)
+    @Builder.Default
+    private Scope scope = Scope.PRODUCT;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    public enum Scope {
+        PRODUCT,
+        VARIANT
+    }
 }
 

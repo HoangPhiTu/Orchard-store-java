@@ -1,6 +1,24 @@
 # Lộ Trình Phát Triển Enhanced - Orchard Store E-Commerce Platform
 
+**Last Updated**: 2024-12-20
+
 ## 🎯 Mục Tiêu: Đạt 95% Tính Năng So Với Orchard.vn
+
+> **📌 Xem thêm:**
+>
+> **📝 Standards:**
+>
+> - **[CODING_STANDARDS.md](./CODING_STANDARDS.md)**: Coding standards, naming conventions
+>
+> **📚 Technical Documentation:**
+>
+> - **[DOCUMENTATION.md](./DOCUMENTATION.md)**: Technical documentation, API reference
+> - **[DATABASE_SCHEMA_ENHANCED.md](./DATABASE_SCHEMA_ENHANCED.md)**: Database schema chi tiết
+> - **[BACKEND_IMPLEMENTATION_STATUS.md](./BACKEND_IMPLEMENTATION_STATUS.md)**: Implementation status, modules
+>
+> **📋 Planning:**
+>
+> - **[ADMIN_PANEL_DEVELOPMENT_PLAN.md](./ADMIN_PANEL_DEVELOPMENT_PLAN.md)**: Kế hoạch Admin Panel
 
 ---
 
@@ -13,7 +31,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 **Orchard.vn Feature Mapping:**
 
 - 🎯 **Product Discovery**: Advanced filtering by fragrance, concentration, gender, price range
-- 📦 **Inventory Intelligence**: Real-time stock tracking, pre-orders, restock notifications  
+- 📦 **Inventory Intelligence**: Real-time stock tracking, pre-orders, restock notifications
 - 🎁 **Product Bundling**: Curated sets, gift packages, combo deals
 - 📈 **Analytics & Insights**: Product views, conversion tracking, popular products
 - 💰 **Pricing Strategy**: Price history, discount tracking, member pricing
@@ -25,6 +43,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ## 🛠️ Technology Stack
 
 ### Backend
+
 - **Framework**: Spring Boot 3.5.7
 - **Java Version**: 21
 - **Build Tool**: Maven
@@ -40,7 +59,9 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - **Scheduling**: Spring Scheduler (cho analytics aggregation)
 
 ### Frontend (Khuyến Nghị: Next.js 14+)
+
 - **Framework**: **Next.js 14+** (React-based) ⭐ **RECOMMENDED**
+
   - ✅ **SSR/SSG**: SEO tối ưu cho e-commerce (quan trọng cho Google ranking)
   - ✅ **Performance**: Tốc độ tải nhanh, Core Web Vitals tốt
   - ✅ **Image Optimization**: Built-in Image component tự động optimize
@@ -49,48 +70,56 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
   - ✅ **Tương thích**: Hoạt động tốt với Spring Boot REST API
   - ✅ **Production Ready**: Được sử dụng bởi Vercel, Netflix, TikTok, Nike, v.v.
 
-- **UI Library**: 
+- **UI Library**:
+
   - **Tailwind CSS** ⭐ (Recommended - Utility-first, nhanh, linh hoạt)
   - **shadcn/ui** (Built on Tailwind, components đẹp, customizable)
   - Hoặc **Ant Design** (Nhiều components sẵn có, phù hợp admin panel)
 
-- **State Management**: 
+- **State Management**:
+
   - **Zustand** ⭐ (Recommended - Nhẹ, đơn giản, đủ mạnh)
   - Hoặc **Redux Toolkit** (Nếu cần state management phức tạp)
   - **React Query / TanStack Query** (Cho server state, caching API calls)
 
-- **HTTP Client**: 
+- **HTTP Client**:
+
   - **Axios** hoặc **Fetch API** (Next.js built-in)
   - **React Query** (Tự động caching, refetching, error handling)
 
-- **Form Handling**: 
+- **Form Handling**:
+
   - **React Hook Form** ⭐ (Recommended - Performance cao, validation tốt)
   - **Zod** (Schema validation, type-safe)
 
-- **Type Safety**: 
+- **Type Safety**:
   - **TypeScript** ⭐ (Bắt buộc - Type safety, better DX)
 
 #### Lý Do Chọn Next.js Cho E-Commerce:
 
 1. **SEO Tối Ưu** 🔍
+
    - SSR (Server-Side Rendering) cho dynamic content
    - SSG (Static Site Generation) cho product pages
    - Automatic meta tags, Open Graph, structured data
    - → Google ranking tốt hơn, traffic cao hơn
 
 2. **Performance** ⚡
+
    - Code splitting tự động
    - Image optimization built-in
    - Font optimization
    - → Core Web Vitals tốt, conversion rate cao hơn
 
 3. **Developer Experience** 👨‍💻
+
    - File-based routing (dễ hiểu)
    - Hot reload nhanh
    - TypeScript support tốt
    - → Phát triển nhanh, ít bug
 
 4. **Ecosystem** 📦
+
    - Nhiều thư viện hỗ trợ
    - Cộng đồng lớn
    - Documentation tốt
@@ -109,6 +138,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - **SvelteKit**: Performance cao nhất, bundle size nhỏ nhất
 
 ### Infrastructure
+
 - **Containerization**: Docker
 - **CI/CD**: GitHub Actions / Jenkins
 - **Cloud**: AWS / Azure / Google Cloud (optional)
@@ -157,11 +187,35 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 
 ---
 
+## 📌 Next Steps (Product Data Refresh · Nov 2025)
+
+1. **Database Migration**
+   - [x] Tạo bảng `concentrations` (✅ Đã hoàn thành - xem DATABASE_SCHEMA_ENHANCED.md)
+   - Alter `products`/`product_variants`/`product_attributes` theo schema mới (slug riêng, inventory flags, scope).
+   - Rebuild index & trigger (`trg_validate_product_attribute`).
+2. **Backend Refactor**
+   - Update entity, DTO, mapper (Product/ProductVariant/Attribute) bám schema mới.
+   - Điều chỉnh service logic: slug generator, inventory flags, concentration lookup.
+3. **Admin Panel Alignment**
+   - Đồng bộ forms (create/edit) với các field mới: variant slug, mô tả ngắn, SEO, inventory flags, concentration dropdown.
+   - Kết nối API mới khi backend sẵn sàng.
+4. **Data Migration & Seeding**
+   - [x] Seed bảng `concentrations` (EDP/EDT/Parfum...) - ✅ Backend API đã sẵn sàng
+   - Script chuyển đổi slug/sku hiện tại sang chuẩn mới.
+5. **Analytics Wiring**
+   - Ghi log vào `product_analytics`/`product_daily_sales`.
+   - Dashboard đọc từ bảng mới (Next.js + React Query).
+
+> Sau khi hoàn tất các bước trên, Roadmap sẽ chuyển sang triển khai Cart/Checkout (Phase 6) với dữ liệu sản phẩm ổn định.
+
+---
+
 ## 🚀 Lộ Trình Phát Triển Enhanced (8 Phases)
 
 ### **PHASE 1: Foundation & Core Setup** (Tuần 1-2)
 
 #### 1.1 Project Setup & Infrastructure
+
 - [x] Cấu hình Spring Boot với dependencies
 - [x] Setup database (Supabase PostgreSQL)
 - [x] Cấu hình application.properties
@@ -172,6 +226,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Setup API documentation (Swagger/OpenAPI)
 
 #### 1.2 Core Entities (Foundation)
+
 - [ ] **User** entity + repository
 - [ ] **Brand** entity + repository
 - [ ] **Category** entity + repository (hierarchical)
@@ -180,6 +235,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Seed data cơ bản (brands, categories)
 
 #### 1.3 Security Foundation (Simplified - Chỉ cho Admin/Staff)
+
 - [ ] Setup Spring Security (chỉ cho Admin APIs)
 - [ ] Implement JWT authentication (chỉ cho Admin/Staff)
 - [ ] Admin/Staff login
@@ -187,12 +243,14 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Role-based access control (RBAC) - ADMIN, STAFF
 - [ ] Public APIs không cần authentication (orders, customers lookup)
 
-**Lưu ý:** 
+**Lưu ý:**
+
 - Khách hàng KHÔNG cần đăng ký/đăng nhập
 - Xác thực đơn hàng qua email với mã xác thực
 - Tra cứu đơn hàng bằng verification_code + email
 
-**Deliverables**: 
+**Deliverables**:
+
 - Backend API chạy được
 - Database connection thành công
 - Admin authentication (JWT)
@@ -203,6 +261,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ### **PHASE 2: Dynamic Attributes System** (Tuần 3-4) ✅ **HOÀN THÀNH**
 
 #### 2.1 Attributes System Core
+
 - [x] **ProductAttribute** entity + repository
 - [x] **AttributeValue** entity + repository
 - [x] **ProductAttributeValue** entity + repository
@@ -211,12 +270,14 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [x] Attribute management API
 
 #### 2.2 Attributes Configuration
+
 - [x] Setup default attributes (fragrance_group, concentration, gender, etc.)
 - [x] Seed attribute values
 - [x] Attribute validation rules
 - [ ] Multi-language support (Vietnamese/English) - Optional
 
 #### 2.3 Product-Attribute Integration
+
 - [x] Assign attributes to products
 - [x] Variant-specific attributes
 - [x] Attribute-based product queries
@@ -224,6 +285,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [x] **Integration vào ProductDTO** - ProductDTO giờ bao gồm `attributeValues` list
 
 **Deliverables**: ✅
+
 - Hệ thống attributes động hoàn chỉnh
 - API quản lý attributes
 - Product-attribute assignment
@@ -234,6 +296,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ### **PHASE 3: Core Product Management** (Tuần 5-7) ✅ **PHẦN LỚN HOÀN THÀNH**
 
 #### 3.1 Product Core ✅ **HOÀN THÀNH**
+
 - [x] **Product** entity + repository
 - [x] **ProductVariant** entity + repository
 - [x] **ProductImage** entity + repository
@@ -244,6 +307,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [x] **Product Price History** tracking
 
 #### 3.2 Product Display & Filtering
+
 - [ ] Get products by category
 - [ ] Get products by brand
 - [ ] Get products by attributes (dynamic filtering)
@@ -252,12 +316,14 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Product pagination & sorting
 
 #### 3.3 Product Relationships
+
 - [ ] **RelatedProduct** entity + repository
 - [ ] **ProductGift** entity + repository
 - [ ] Related products logic
 - [ ] Product recommendations
 
 **Deliverables**:
+
 - API quản lý sản phẩm đầy đủ
 - Dynamic filtering system
 - Upload và quản lý hình ảnh
@@ -268,6 +334,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ### **PHASE 4: Inventory Intelligence** (Tuần 8-9) ✅ **HOÀN THÀNH**
 
 #### 4.1 Inventory Management
+
 - [x] **InventoryTransaction** entity + repository
 - [x] Real-time stock tracking
 - [x] Stock quantity updates
@@ -276,6 +343,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [x] **Integration vào ProductVariantDTO** - Thêm `stockStatus` field (IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
 
 #### 4.2 Pre-Orders & Notifications
+
 - [x] **PreOrder** entity + repository
 - [x] **StockAlert** entity + repository
 - [x] Pre-order management
@@ -284,11 +352,13 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [x] Email notifications (Spring Mail) - Ready
 
 #### 4.3 Inventory Analytics
+
 - [x] Stock movement reports (via InventoryTransaction)
 - [ ] Inventory valuation - Optional
 - [ ] Stock turnover analysis - Optional
 
 **Deliverables**: ✅
+
 - Hệ thống quản lý kho hàng thông minh
 - Pre-order system
 - Stock alerts & notifications
@@ -299,6 +369,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ### **PHASE 5: Pricing Strategy & Bundling** (Tuần 10-11) ✅ **PHẦN LỚN HOÀN THÀNH**
 
 #### 5.1 Pricing Management
+
 - [x] **ProductPriceHistory** entity + repository
 - [ ] **MemberPricingTier** entity + repository - Chưa triển khai
 - [ ] **ProductMemberPrice** entity + repository - Chưa triển khai
@@ -309,6 +380,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Price change notifications - Optional
 
 #### 5.2 Product Bundling ✅ **HOÀN THÀNH**
+
 - [x] **ProductBundle** entity + repository
 - [x] **BundleItem** entity + repository
 - [x] Bundle management (CRUD đầy đủ)
@@ -318,12 +390,14 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [x] Discount calculation (amount & percentage)
 
 #### 5.3 Promotion Integration
+
 - [ ] **Promotion** entity + repository (enhanced) - Chưa triển khai
 - [ ] **PromotionUsage** entity + repository - Chưa triển khai
 - [ ] Promotion application logic - Chưa triển khai
 - [ ] Promotion validation - Chưa triển khai
 
 **Deliverables**: ✅ (Phần lớn)
+
 - ✅ Hệ thống pricing history tracking
 - ✅ Product bundling system hoàn chỉnh
 - ⏳ Promotion management - Chưa triển khai
@@ -333,6 +407,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ### **PHASE 6: Shopping Cart & Checkout** (Tuần 12-13)
 
 #### 6.1 Shopping Cart (Session-based, không cần đăng nhập)
+
 - [ ] **Cart** entity + repository
 - [ ] Add to cart (with variant selection)
 - [ ] Update cart item quantity
@@ -342,6 +417,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Guest cart (session-based)
 
 #### 6.2 Order Management (Email Verification)
+
 - [ ] **Order** entity + repository (với verification_code)
 - [ ] **OrderItem** entity + repository
 - [ ] Create order from cart (guest checkout)
@@ -353,6 +429,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Order cancellation
 
 #### 6.3 Checkout Process (Simplified)
+
 - [ ] Guest checkout form (name, email, phone, address)
 - [ ] Auto create customer record
 - [ ] Payment method selection
@@ -362,6 +439,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Generate and send verification code via email
 
 **Deliverables**:
+
 - Giỏ hàng hoàn chỉnh
 - Quy trình checkout
 - Quản lý đơn hàng
@@ -371,6 +449,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ### **PHASE 7: Payment & User Features** (Tuần 14-15)
 
 #### 7.1 Payment Integration
+
 - [ ] **Payment** entity + repository
 - [ ] Payment gateway integration (VNPay, MoMo, PayPal)
 - [ ] Payment status tracking
@@ -378,6 +457,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Refund processing
 
 #### 7.2 User Features
+
 - [ ] **Wishlist** entity + repository
 - [ ] User profile management
 - [ ] Address book management
@@ -386,6 +466,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Email verification
 
 #### 7.3 Reviews & Ratings
+
 - [ ] **Review** entity + repository (enhanced)
 - [ ] **ReviewImage** entity + repository
 - [ ] **ReviewHelpful** entity + repository
@@ -396,6 +477,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Helpful votes
 
 **Deliverables**:
+
 - Tích hợp thanh toán
 - Tính năng người dùng đầy đủ
 - Hệ thống đánh giá nâng cao
@@ -405,6 +487,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 ### **PHASE 8: Analytics, SEO & Optimization** (Tuần 16-18)
 
 #### 8.1 Analytics & Insights
+
 - [ ] **ProductView** entity + repository
 - [ ] **ProductConversionTracking** entity + repository
 - [ ] **SearchQuery** entity + repository
@@ -417,6 +500,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Analytics dashboard API
 
 #### 8.2 SEO Optimization
+
 - [ ] **SEOUrl** entity + repository
 - [ ] **UrlSlugsHistory** entity + repository
 - [ ] URL redirect management (301/302)
@@ -425,6 +509,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] SEO metadata management
 
 #### 8.3 Performance Optimization
+
 - [ ] Caching strategy (Redis)
 - [ ] Database query optimization
 - [ ] Image optimization & CDN
@@ -433,6 +518,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Lazy loading strategies
 
 #### 8.4 Admin Panel
+
 - [ ] Admin dashboard API
 - [ ] Product management interface
 - [ ] Order management interface
@@ -441,6 +527,7 @@ Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ p
 - [ ] Reports & exports (Excel, PDF)
 
 **Deliverables**:
+
 - Analytics system hoàn chỉnh
 - SEO optimization
 - Performance optimization
@@ -511,6 +598,7 @@ orchard-store-backend/
 ## 🔌 API Endpoints Chính (Enhanced)
 
 ### Authentication (Chỉ cho Admin/Staff)
+
 - `POST /api/admin/auth/login` - Admin/Staff đăng nhập
 - `POST /api/admin/auth/refresh` - Refresh token
 - `POST /api/admin/auth/logout` - Đăng xuất
@@ -518,6 +606,7 @@ orchard-store-backend/
 **Lưu ý:** Khách hàng KHÔNG cần đăng ký/đăng nhập
 
 ### Attributes (Dynamic Filtering)
+
 - `GET /api/attributes` - Lấy tất cả attributes
 - `GET /api/attributes/{id}` - Chi tiết attribute
 - `GET /api/attributes/filterable` - Attributes có thể filter
@@ -526,6 +615,7 @@ orchard-store-backend/
 - `PUT /api/admin/attributes/{id}` - Cập nhật attribute (Admin)
 
 ### Products (Enhanced)
+
 - `GET /api/products` - Danh sách sản phẩm (với pagination, filter, sort)
 - `GET /api/products/{id}` - Chi tiết sản phẩm
 - `GET /api/products/filter` - Advanced filtering
@@ -536,6 +626,7 @@ orchard-store-backend/
 - `GET /api/products/{id}/comparison` - So sánh sản phẩm
 
 ### Inventory
+
 - `GET /api/inventory/variants/{id}/stock` - Kiểm tra tồn kho
 - `POST /api/inventory/pre-orders` - Đặt hàng trước
 - `GET /api/inventory/pre-orders` - Danh sách pre-orders
@@ -543,16 +634,19 @@ orchard-store-backend/
 - `GET /api/admin/inventory/alerts` - Cảnh báo tồn kho (Admin)
 
 ### Pricing
+
 - `GET /api/products/{id}/price-history` - Lịch sử giá
 - `GET /api/pricing/member-tiers` - Bậc giá thành viên
 - `GET /api/products/{id}/member-prices` - Giá thành viên
 
 ### Bundles
+
 - `GET /api/bundles` - Danh sách gói sản phẩm
 - `GET /api/bundles/{id}` - Chi tiết gói
 - `GET /api/bundles/{id}/items` - Sản phẩm trong gói
 
 ### Cart (Session-based, không cần đăng nhập)
+
 - `GET /api/cart?session_id={session_id}` - Lấy giỏ hàng
 - `POST /api/cart/items` - Thêm vào giỏ hàng (session-based)
 - `PUT /api/cart/items/{id}` - Cập nhật số lượng
@@ -560,6 +654,7 @@ orchard-store-backend/
 - `POST /api/cart/clear` - Xóa toàn bộ giỏ hàng
 
 ### Orders (Email Verification - Không Cần Đăng Nhập)
+
 - `POST /api/orders` - Tạo đơn hàng (guest checkout)
   - Tự động tạo customer record
   - Tạo verification_code
@@ -571,6 +666,7 @@ orchard-store-backend/
 - `GET /api/orders/{id}/track` - Theo dõi đơn hàng
 
 ### Reviews
+
 - `GET /api/products/{id}/reviews` - Đánh giá sản phẩm
 - `POST /api/products/{id}/reviews` - Thêm đánh giá
 - `PUT /api/reviews/{id}` - Cập nhật đánh giá
@@ -578,12 +674,14 @@ orchard-store-backend/
 - `POST /api/reviews/{id}/helpful` - Đánh dấu hữu ích
 
 ### Analytics (Admin)
+
 - `GET /api/admin/analytics/products/{id}/views` - Lượt xem sản phẩm
 - `GET /api/admin/analytics/products/{id}/conversion` - Conversion tracking
 - `GET /api/admin/analytics/search/queries` - Search analytics
 - `GET /api/admin/analytics/dashboard` - Dashboard statistics
 
 ### SEO
+
 - `GET /api/seo/redirects` - URL redirects (Admin)
 - `POST /api/admin/seo/redirects` - Tạo redirect (Admin)
 
@@ -648,6 +746,7 @@ orchard-store-backend/
 ## 🎯 Implementation Priority
 
 ### High Priority (MVP)
+
 1. ✅ Core Entities (User, Brand, Category, Product)
 2. ✅ Dynamic Attributes System
 3. ✅ Product Management & Filtering
@@ -655,12 +754,14 @@ orchard-store-backend/
 5. ✅ Order Management
 
 ### Medium Priority
+
 6. Inventory Intelligence
 7. Pricing Strategy
 8. Reviews & Ratings
 9. User Features
 
 ### Low Priority (Nice to Have)
+
 10. Analytics & Insights
 11. SEO Optimization
 12. Product Bundling
@@ -708,19 +809,23 @@ Lộ trình này cung cấp một kế hoạch phát triển toàn diện để 
 ### Version 0.1.0 (2025-11-18)
 
 #### ✅ Added
+
 - **Product Bundling Module**: Hoàn chỉnh với CRUD, auto pricing calculation, 4 bundle types (CURATED_SET, GIFT_PACKAGE, COMBO_DEAL, SEASONAL_SET)
 - **Product Price History**: Track lịch sử giá, auto record khi giá thay đổi, query theo variant/promotion/change type
 - **Product Reviews System**: Review management, moderation (approve/reject/hide), images, helpful votes, auto rating update, verified purchase reviews
 
 #### ✅ Enhanced
+
 - **ProductDTO**: Tích hợp Dynamic Attributes (`attributeValues` list tự động load khi lấy product)
 - **ProductVariantDTO**: Tích hợp Inventory info (`stockStatus` field: IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
 
 #### 🔧 Fixed
+
 - Sửa lỗi `ClassNotFoundException: ProductBundle` trong MapStruct mapper (sử dụng fully qualified name)
 - Sửa enum parsing trong mappers với `.toUpperCase()` cho robustness
 
 #### 📊 Statistics
+
 - **Controllers**: 15 (tăng từ 14) - Thêm ProductBundleController
 - **Repositories**: 21 (tăng từ 19) - Thêm ProductBundleRepository, BundleItemRepository
 
@@ -729,4 +834,3 @@ Lộ trình này cung cấp một kế hoạch phát triển toàn diện để 
 **Last Updated**: 2025-11-18  
 **Version**: 0.1.0-SNAPSHOT  
 **Status**: 🟢 In Development (Phase 1-3 Complete)
-
