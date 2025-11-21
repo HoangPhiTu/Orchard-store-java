@@ -4,6 +4,7 @@ import com.orchard.orchard_store_backend.modules.auth.entity.Role;
 import com.orchard.orchard_store_backend.modules.auth.entity.User;
 import com.orchard.orchard_store_backend.modules.auth.entity.UserRole;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
  * Maps JSONB permissions to Spring Security authorities
  */
 @Service
+@Slf4j
 public class CustomUserDetailsService implements UserDetailsService {
     
     @Autowired
@@ -35,6 +37,15 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+        
+        // Log for debugging
+        log.info("=== CustomUserDetailsService.loadUserByUsername ===");
+        log.info("Email: {}", email);
+        log.info("User ID: {}", user.getId());
+        log.info("Password hash: {}", user.getPassword());
+        log.info("Account locked: {}", user.isAccountLocked());
+        log.info("Status: {}", user.getStatus());
+        log.info("Failed login attempts: {}", user.getFailedLoginAttempts());
         
         // Check if account is locked
         boolean isLocked = user.isAccountLocked() || user.getStatus() == User.Status.BANNED;

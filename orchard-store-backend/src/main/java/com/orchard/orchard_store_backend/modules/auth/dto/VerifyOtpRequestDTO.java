@@ -3,31 +3,26 @@ package com.orchard.orchard_store_backend.modules.auth.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO cho request verify OTP.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ResetPasswordDTO {
+@Builder
+public class VerifyOtpRequestDTO {
 
-    // For OTP-based reset
+    @NotBlank(message = "Email is required")
     @Email(message = "Email is invalid")
     private String email;
 
+    @NotBlank(message = "OTP code is required")
     @Pattern(regexp = "^[0-9]{6}$", message = "OTP must be 6 digits")
     private String otp;
-
-    // For token-based reset (legacy)
-    private String token;
-
-    @NotBlank(message = "New password is required")
-    @Size(min = 6, max = 100, message = "Password must be between 6 and 100 characters")
-    private String newPassword;
-
-    @NotBlank(message = "Confirm password is required")
-    private String confirmPassword;
 }
 

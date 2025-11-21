@@ -17,6 +17,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.time.LocalDateTime;
 
@@ -43,6 +46,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public AuthResponseDTO login(AuthRequestDTO request, HttpServletRequest httpRequest) {
@@ -122,16 +128,41 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void changePassword(String email, String currentPassword, String newPassword) {
+        // Clear entity manager cache to ensure fresh data
+        entityManager.clear();
+        
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // Verify current password
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new RuntimeException("Current password is incorrect");
         }
 
-        user.setPassword(passwordEncoder.encode(newPassword));
+        // Encode new password
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        
+        // Update password
+        user.setPassword(encodedPassword);
+        user.setPasswordChangedAt(LocalDateTime.now());
+        
+        // Save user
         userRepository.save(user);
+        
+        // Flush to ensure changes are persisted immediately
+        entityManager.flush();
+        entityManager.clear();
+        
+        // Verify password was saved correctly by querying fresh from database
+        User verifyUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found after save"));
+        
+        boolean passwordMatches = passwordEncoder.matches(newPassword, verifyUser.getPassword());
+        if (!passwordMatches) {
+            throw new RuntimeException("Password was not saved correctly. Please try again.");
+        }
     }
 }
 

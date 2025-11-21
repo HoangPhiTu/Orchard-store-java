@@ -1,0 +1,9 @@
+export default function OrdersPage() {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 text-slate-600">
+      <p className="text-xl font-semibold text-slate-900">Orders</p>
+      <p>Order management module coming soon.</p>
+    </div>
+  );
+}
+
