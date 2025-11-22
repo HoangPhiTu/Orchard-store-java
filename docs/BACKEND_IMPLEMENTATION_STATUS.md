@@ -1,7 +1,7 @@
 # 📊 Backend Implementation Status - Orchard Store
 
-**Last Updated**: 2024-12-20  
-**Status**: ✅ **COMPLETE** - Tất cả entities đã được triển khai
+**Last Updated**: 2025-11-22  
+**Status**: ✅ **COMPLETE** - Tất cả entities đã được triển khai + User Management APIs
 
 > **📌 Xem thêm:**
 >
@@ -113,6 +113,9 @@ Backend của Orchard Store đã được triển khai đầy đủ với **54 e
 - ✅ Login history tracking
 - ✅ Legacy role support (backward compatibility)
 - ✅ **Stateless session** - Scalable architecture ⭐ NEW
+- ✅ **User Management APIs** - CRUD operations cho Admin ⭐ NEW (2025-11-22)
+- ✅ **Setup Controller** - Tạo admin account qua API endpoint ⭐ NEW (2025-11-22)
+- ✅ **DataInitializer** - Đơn giản hóa, không retry loop phức tạp ⭐ IMPROVED (2025-11-22)
 
 #### User Entity Details
 
@@ -136,6 +139,117 @@ Backend của Orchard Store đã được triển khai đầy đủ với **54 e
 | `AuthController`           | `AuthController.java`           | ✅     | Login API (`/api/auth/login`, `/api/auth/me`)                         |
 | `LoginRequestDTO`          | `LoginRequestDTO.java`          | ✅     | DTO cho login request                                                 |
 | `LoginResponseDTO`         | `LoginResponseDTO.java`         | ✅     | DTO cho login response với tokens và user info                        |
+
+#### User Management ⭐ NEW (2025-11-22)
+
+**Path**: `modules/auth/`
+
+| Component              | File                        | Status | Description                                     |
+| ---------------------- | --------------------------- | ------ | ----------------------------------------------- |
+| `UserAdminController`  | `UserAdminController.java`  | ✅     | REST API cho quản lý users (Admin only)         |
+| `UserAdminService`     | `UserAdminService.java`     | ✅     | Interface cho User Admin Service                |
+| `UserAdminServiceImpl` | `UserAdminServiceImpl.java` | ✅     | Implementation với CRUD operations              |
+| `UserAdminMapper`      | `UserAdminMapper.java`      | ✅     | MapStruct mapper cho User entities và DTOs      |
+| `UserResponseDTO`      | `UserResponseDTO.java`      | ✅     | DTO cho user response                           |
+| `UserCreateRequestDTO` | `UserCreateRequestDTO.java` | ✅     | DTO cho tạo user mới                            |
+| `UserUpdateRequestDTO` | `UserUpdateRequestDTO.java` | ✅     | DTO cho cập nhật user                           |
+| `SetupController`      | `SetupController.java`      | ✅     | Endpoint tạo admin account (`/api/setup/admin`) |
+| `DataInitializer`      | `DataInitializer.java`      | ✅     | Đơn giản hóa, không retry loop phức tạp         |
+
+**UserAdminController Endpoints:**
+
+- `GET /api/admin/users` - Lấy danh sách users với search và pagination
+- `POST /api/admin/users` - Tạo user mới
+- `PUT /api/admin/users/{id}` - Cập nhật user
+- `PATCH /api/admin/users/{id}/status` - Khóa/Mở khóa user (toggle status)
+
+**Features:**
+
+- ✅ Search users theo email, tên, số điện thoại
+- ✅ Pagination với Spring Data Pageable
+- ✅ Role assignment khi tạo/cập nhật user
+- ✅ Password encoding tự động
+- ✅ Email validation và duplicate check
+- ✅ Status toggle (ACTIVE ↔ INACTIVE/BANNED)
+- ✅ Security: `@PreAuthorize("hasRole('ADMIN')")` - Chỉ Admin mới được quản lý users
+
+**SetupController:**
+
+- ✅ `POST /api/setup/admin` - Tạo admin account (public endpoint, tạm thời)
+- ✅ Tự động tạo role ADMIN nếu chưa có
+- ✅ Fix existing users thiếu roles
+- ✅ Error handling cho connection limit issues
+
+**DataInitializer Improvements:**
+
+- ✅ Đơn giản hóa code, bỏ retry loop phức tạp
+- ✅ Spring Boot tự động retry connection
+- ✅ Graceful error handling - app vẫn start được khi connection limit
+- ✅ Log warning thay vì crash app
+
+**User Management Architecture:**
+
+```
+Controller (UserAdminController)
+    ↓
+Service (UserAdminService → UserAdminServiceImpl)
+    ↓
+Mapper (UserAdminMapper - MapStruct)
+    ↓
+Repository (UserRepository, RoleRepository, UserRoleRepository)
+    ↓
+Entity (User, Role, UserRole)
+```
+
+**DTOs:**
+
+- **UserResponseDTO**: `id`, `email`, `fullName`, `phone`, `status`, `roles` (Set<String>), `createdAt`
+- **UserCreateRequestDTO**: `fullName`, `email` (validated), `password` (min 6), `phone`, `roleIds` (Set<Long>), `status`
+- **UserUpdateRequestDTO**: `fullName`, `phone`, `roleIds`, `status` (Note: Email và password không thể cập nhật)
+
+**Service Methods:**
+
+- `getUsers(String keyword, Pageable pageable)`: Tìm kiếm theo email/tên/SĐT, sử dụng `JpaSpecificationExecutor`
+- `createUser(UserCreateRequestDTO)`: Validate email, encode password, assign roles, tạo UserRole entries
+- `updateUser(Long id, UserUpdateRequestDTO)`: Cập nhật info và roles (xóa cũ, thêm mới)
+- `toggleUserStatus(Long id)`: Toggle ACTIVE ↔ INACTIVE (soft delete)
+
+**Mapper (MapStruct):**
+
+- `toDTO(User)`: Map entity → UserResponseDTO
+- `toEntity(UserCreateRequestDTO)`: Map DTO → User entity
+- `updateEntity(UserUpdateRequestDTO, @MappingTarget User)`: Update existing entity
+- Auto-map roles từ `user.getUserRoles()` → `Set<String>` (role codes)
+
+**Setup & Initialization:**
+
+- **SetupController** (`POST /api/setup/admin`): Tạo admin account khi DataInitializer bị skip
+
+  - Tự động tạo role ADMIN nếu chưa có
+  - Tạo user + UserRole entry
+  - Fix existing users thiếu roles
+  - Public endpoint (tạm thời), nên xóa hoặc bảo vệ sau khi setup
+
+- **DataInitializer Logic**:
+  1. Kiểm tra user đã tồn tại chưa
+  2. Nếu chưa có → Tạo user mới + UserRole
+  3. Nếu đã có → Kiểm tra và fix roles nếu thiếu
+  4. Nếu gặp connection limit → Log warning và skip (không crash app)
+
+**SQL Script:**
+
+- File: `CREATE_ADMIN_USER.sql` (đã bị xóa, có thể tạo lại nếu cần)
+- Tự động tạo role ADMIN nếu chưa có
+- Tạo user với BCrypt password hash
+- Tạo UserRole entry
+- Fix existing users thiếu roles
+- Usage: Chạy trực tiếp trên Supabase Dashboard > SQL Editor
+
+**Security:**
+
+- Authorization: Tất cả endpoints yêu cầu `ROLE_ADMIN` (`@PreAuthorize("hasRole('ADMIN')")`)
+- Password: BCrypt encoding, minimum 6 characters, không lưu plain text
+- Role Assignment: Validate roles trước khi assign, chỉ assign roles tồn tại trong DB
 
 #### UserRepository ⭐ ENHANCED
 
@@ -966,8 +1080,9 @@ Các entities sử dụng JSONB:
 ---
 
 **Status**: ✅ **ALL ENTITIES IMPLEMENTED**  
-**Last Updated**: 2024-12-20  
-**Compile Status**: ✅ **SUCCESS** (205 source files)  
+**Last Updated**: 2025-11-22  
+**Compile Status**: ✅ **SUCCESS** (205+ source files)  
 **Repository Features**: ✅ Entity Graph, ✅ Specification, ✅ JSONB Optimization  
 **DTO & Mapper Features**: ✅ 2-Layer DTO Architecture, ✅ @AfterMapping, ✅ JSONB Support  
-**Security Features**: ✅ Spring Security 6, ✅ JWT Authentication, ✅ RBAC, ✅ Stateless Session
+**Security Features**: ✅ Spring Security 6, ✅ JWT Authentication, ✅ RBAC, ✅ Stateless Session  
+**User Management**: ✅ CRUD APIs, ✅ Role Assignment, ✅ Setup Controller, ✅ DataInitializer Improvements

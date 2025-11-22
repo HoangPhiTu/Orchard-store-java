@@ -12,6 +12,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  SheetBody,
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -118,7 +119,7 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent className="flex flex-col">
         <form
           className="flex h-full flex-col"
           onSubmit={form.handleSubmit(handleSubmit)}
@@ -130,132 +131,136 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                placeholder="Aroma Labs"
-                {...form.register("name")}
-              />
-              {form.formState.errors.name && (
-                <p className="text-xs text-rose-500">
-                  {form.formState.errors.name.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="slug">Slug</Label>
-              <Input
-                id="slug"
-                placeholder="aroma-labs"
-                {...form.register("slug", {
-                  onChange: () => setHasManualSlugEdit(true),
-                })}
-              />
-              {form.formState.errors.slug && (
-                <p className="text-xs text-rose-500">
-                  {form.formState.errors.slug.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                placeholder="Short bio of the brand"
-                className="min-h-[100px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                {...form.register("description")}
-              />
-              {form.formState.errors.description && (
-                <p className="text-xs text-rose-500">
-                  {form.formState.errors.description.message}
-                </p>
-              )}
-            </div>
-
-            <ImageUpload
-              label="Logo"
-              value={logoValue ?? ""}
-              onChange={(value) => form.setValue("logoUrl", value ?? "")}
-            />
-
-            <div className="grid gap-4 md:grid-cols-2">
+          <SheetBody>
+            <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="name">Name</Label>
                 <Input
-                  id="country"
-                  placeholder="France"
-                  {...form.register("country")}
+                  id="name"
+                  placeholder="Aroma Labs"
+                  {...form.register("name")}
                 />
-                {form.formState.errors.country && (
-                  <p className="text-xs text-rose-500">
-                    {form.formState.errors.country.message}
+                {form.formState.errors.name && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.name.message}
                   </p>
                 )}
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="websiteUrl">Website</Label>
+                <Label htmlFor="slug">Slug</Label>
                 <Input
-                  id="websiteUrl"
-                  placeholder="https://brand.com"
-                  {...form.register("websiteUrl")}
+                  id="slug"
+                  placeholder="aroma-labs"
+                  {...form.register("slug", {
+                    onChange: () => setHasManualSlugEdit(true),
+                  })}
                 />
-                {form.formState.errors.websiteUrl && (
-                  <p className="text-xs text-rose-500">
-                    {form.formState.errors.websiteUrl.message}
+                {form.formState.errors.slug && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.slug.message}
                   </p>
                 )}
               </div>
-            </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="displayOrder">Display Order</Label>
-                <Input
-                  id="displayOrder"
-                  type="number"
-                  placeholder="0"
-                  {...form.register("displayOrder")}
+                <Label htmlFor="description">Description</Label>
+                <textarea
+                  id="description"
+                  placeholder="Short bio of the brand"
+                  className="min-h-[100px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  {...form.register("description")}
                 />
-                {form.formState.errors.displayOrder && (
-                  <p className="text-xs text-rose-500">
-                    {form.formState.errors.displayOrder.message}
+                {form.formState.errors.description && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.description.message}
                   </p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <select
-                  id="status"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                  {...form.register("status")}
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                </select>
+
+              <ImageUpload
+                label="Logo"
+                value={logoValue ?? ""}
+                onChange={(value) => form.setValue("logoUrl", value ?? "")}
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    placeholder="France"
+                    {...form.register("country")}
+                  />
+                  {form.formState.errors.country && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.country.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="websiteUrl">Website</Label>
+                  <Input
+                    id="websiteUrl"
+                    placeholder="https://brand.com"
+                    {...form.register("websiteUrl")}
+                  />
+                  {form.formState.errors.websiteUrl && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.websiteUrl.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="displayOrder">Display Order</Label>
+                  <Input
+                    id="displayOrder"
+                    type="number"
+                    placeholder="0"
+                    {...form.register("displayOrder")}
+                  />
+                  {form.formState.errors.displayOrder && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.displayOrder.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <select
+                    id="status"
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                    {...form.register("status")}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
+          </SheetBody>
 
-          <SheetFooter className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <Button
-                type="submit"
-                className="bg-slate-900 hover:bg-slate-800"
-                isLoading={isSubmitting}
-              >
-                {isEditing ? "Save changes" : "Create Brand"}
-              </Button>
+          <SheetFooter>
+            <div className="flex w-full gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
+                className="flex-1"
               >
                 Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                isLoading={isSubmitting}
+              >
+                {isEditing ? "Save changes" : "Create Brand"}
               </Button>
             </div>
           </SheetFooter>

@@ -1,20 +1,8 @@
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  Users,
-  Boxes,
-  Megaphone,
-  Settings,
-} from "lucide-react";
+import { LayoutDashboard, Tag, Layers3, Users } from "lucide-react";
 
 export const ADMIN_MENU = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Products", href: "/admin/products", icon: Package },
-  { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
-  { label: "Customers", href: "/admin/customers", icon: Users },
-  { label: "Inventory", href: "/admin/inventory", icon: Boxes },
-  { label: "Marketing", href: "/admin/marketing", icon: Megaphone },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+  { label: "Brands", href: "/admin/brands", icon: Tag },
+  { label: "Categories", href: "/admin/categories", icon: Layers3 },
+  { label: "Users", href: "/admin/users", icon: Users },
 ];
-

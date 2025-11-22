@@ -59,25 +59,51 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints - Authentication
+                // ====================================================
+                // 1. PUBLIC ENDPOINTS (Không cần đăng nhập)
+                // ====================================================
+                
+                // 👉 FIX: Mở quyền cho Admin Auth (Login/Refresh Token)
+                // Phải đặt dòng này TRƯỚC dòng /api/admin/**
+                .requestMatchers("/api/admin/auth/**").permitAll() 
+                
+                // Giữ lại cái này phòng trường hợp bạn dùng path cũ
                 .requestMatchers("/api/auth/**").permitAll()
                 
-                // Public endpoints - Customer Auth (OTP)
+                // Setup endpoint (tạo admin account - tạm thời public)
+                .requestMatchers("/api/setup/**").permitAll()
+                
+                // Customer Auth (Gửi OTP, Verify OTP)
                 .requestMatchers("/api/store/auth/**").permitAll()
                 
-                // Public endpoints - Product Catalog (GET only)
+                // Public Catalog (Xem sản phẩm không cần login)
                 .requestMatchers("/api/products/**").permitAll()
                 .requestMatchers("/api/brands/**").permitAll()
                 .requestMatchers("/api/categories/**").permitAll()
                 .requestMatchers("/api/concentrations/**").permitAll()
+                .requestMatchers("/api/bundles/**").permitAll() // Thêm Bundle nếu cần public
+
+                // Swagger UI (Nếu có cài, nên mở để test)
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+
+                // Uploads (Để xem ảnh)
+                .requestMatchers("/uploads/**").permitAll()
+
+                // WebSocket endpoints (SockJS fallback)
+                .requestMatchers("/ws/**").permitAll()
+
+                // ====================================================
+                // 2. PROTECTED ENDPOINTS (Cần đăng nhập)
+                // ====================================================
                 
-                // Protected endpoints - Customer Profile (requires ROLE_CUSTOMER)
+                // Customer Profile: Chỉ khách hàng được xem
                 .requestMatchers("/api/store/profile/**").hasRole("CUSTOMER")
                 
-                // Protected endpoints - Admin (requires authentication + role)
+                // Admin Panel: Chỉ Admin hoặc Staff được vào
+                // Dòng này sẽ chặn tất cả các API bắt đầu bằng /api/admin (trừ cái auth đã mở ở trên)
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
                 
-                // All other requests require authentication
+                // Tất cả request còn lại đều phải đăng nhập
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

@@ -20,26 +20,25 @@ export const brandService = {
   getAll: (params?: BrandQueryParams) =>
     http
       .get<ApiResponse<Brand[]>>(API_ROUTES.BRANDS, { params })
-      .then((res) => unwrapList(res.data)),
+      .then((res) => unwrapList(res)),
 
   getById: (id: number) =>
     http
       .get<ApiResponse<Brand>>(`${API_ROUTES.BRANDS}/${id}`)
-      .then((res) => unwrapItem(res.data)),
+      .then((res) => unwrapItem(res)),
 
   create: (payload: BrandFormData) =>
     http
       .post<ApiResponse<Brand>>(API_ROUTES.BRANDS, payload)
-      .then((res) => unwrapItem(res.data)),
+      .then((res) => unwrapItem(res)),
 
   update: (id: number, payload: BrandFormData) =>
     http
       .put<ApiResponse<Brand>>(`${API_ROUTES.BRANDS}/${id}`, payload)
-      .then((res) => unwrapItem(res.data)),
+      .then((res) => unwrapItem(res)),
 
   delete: (id: number) =>
     http
       .delete<ApiResponse<null>>(`${API_ROUTES.BRANDS}/${id}`)
       .then((res) => res.data),
 };
-

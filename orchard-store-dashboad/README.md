@@ -67,10 +67,12 @@ Create a `.env.local` file in the project root (or copy `env.local.example`):
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_ACCESS_TOKEN_KEY=orchard_admin_token
+JWT_SECRET=your-jwt-secret-key-here
 ```
 
 - `NEXT_PUBLIC_API_URL` points to the Spring Boot backend.
 - `NEXT_PUBLIC_ACCESS_TOKEN_KEY` is the token key used by axios interceptors, middleware, and Zustand store.
+- `JWT_SECRET` (optional but recommended): JWT secret for token verification in middleware. Should match the secret used in backend Spring Boot. If not provided, middleware will decode tokens without verification (less secure but faster).
 
 ---
 
@@ -115,11 +117,15 @@ npm run dev          # starts Next.js on http://localhost:3000
    - Selecting an account auto-fills both email and password; there's a 🗑 button to delete each entry
    - Each record shows the last login time in `vi-VN` format for easy identification
 
-4. **Route Protection**
+4. **Route Protection với RBAC**
 
-   - `middleware.ts` enforces authentication for every route except `/login` and static assets
-   - Not logged in → redirect to `/login?next=<requested-path>`
-   - Already logged in → blocked from revisiting `/login`, redirected to `/admin/dashboard`
+   - `middleware.ts` enforces authentication và **Role-Based Access Control (RBAC)**:
+     - Decode/verify JWT token từ cookie sử dụng thư viện `jose`
+     - Kiểm tra role từ JWT payload (`roles` array)
+     - **Chặn CUSTOMER**: User có role CUSTOMER sẽ bị redirect về trang chủ với `?error=forbidden`
+     - **Chỉ cho phép ADMIN và STAFF**: Chỉ user có `ROLE_ADMIN` hoặc `ROLE_STAFF` mới truy cập được `/admin/*`
+     - Not logged in → redirect to `/login?next=<requested-path>`
+     - Already logged in → blocked from revisiting `/login`, redirected to `/admin/dashboard`
 
 5. **Verifying Authentication**
    - **Without token**: Open a fresh incognito window → hitting `/admin/dashboard` must redirect to `/login`
@@ -179,28 +185,50 @@ npm run dev          # starts Next.js on http://localhost:3000
 
 ---
 
-### ✅ 4.3. Role-Based Redirects
+### ✅ 4.3. Role-Based Access Control (RBAC) với JWT Verification
 
-**Mục đích**: Đảm bảo chỉ user có quyền ADMIN mới truy cập được admin dashboard.
+**Mục đích**: Đảm bảo chỉ user có quyền ADMIN hoặc STAFF mới truy cập được admin dashboard. Chặn CUSTOMER khỏi admin routes.
 
 **Implementation**:
 
-- **File**: `src/middleware.ts` (server-side protection)
+- **File**: `src/middleware.ts` (server-side RBAC với JWT verification)
+- **File**: `src/lib/jwt.ts` (JWT decode/verify utilities)
 - **File**: `src/app/(admin)/layout.tsx` (client-side role check)
 
 **Cách hoạt động**:
 
-**Server-side (Middleware)**:
+**Server-side (Middleware với RBAC)**:
 
-- Kiểm tra token trong Cookie
-- Redirect về `/login` nếu không có token khi truy cập `/admin/*`
-- Redirect về `/admin/dashboard` nếu có token khi truy cập `/login`
+1. Extract JWT token từ Cookie
+2. Decode/verify token sử dụng thư viện `jose`:
+   - Nếu có `JWT_SECRET` → verify token với secret (an toàn)
+   - Nếu không có → decode token mà không verify (nhanh hơn, ít an toàn hơn)
+3. Extract `roles` từ JWT payload
+4. **RBAC Logic**:
+   - Nếu `isCustomerOnly(roles)` → redirect về `/` với `?error=forbidden`
+   - Nếu không có `hasAdminOrStaffRole(roles)` → redirect về `/` với `?error=unauthorized`
+   - Chỉ cho phép truy cập nếu có `ROLE_ADMIN` hoặc `ROLE_STAFF`
+5. Redirect về `/login` nếu không có token khi truy cập `/admin/*`
+6. Redirect về `/admin/dashboard` nếu có token và role hợp lệ khi truy cập `/login`
 
 **Client-side (Layout)**:
 
 - Kiểm tra `user.roles` sau khi auth initialized
 - Nếu không có role `ADMIN` → logout và redirect về login với error message
 - Hiển thị loading spinner trong lúc check auth
+
+**JWT Payload Structure** (từ backend):
+
+```json
+{
+  "sub": "admin@example.com",
+  "userId": 1,
+  "roles": ["ROLE_ADMIN", "ROLE_STAFF"],
+  "authorities": ["product:view", "product:create"],
+  "iat": 1234567890,
+  "exp": 1234571490
+}
+```
 
 ---
 
@@ -540,11 +568,70 @@ Swap these with live API hooks once endpoints are available (e.g., via TanStack 
 
 ### Catalog Management Module
 
-- `src/services/brand.service.ts` & `src/services/category.service.ts` expose strongly-typed CRUD helpers that unwrap the backend `ApiResponse<T>` format and accept pagination/search params.
-- `src/hooks/use-brands.ts` + `use-categories.ts` wrap TanStack Query for list/detail/mutation flows (auto-invalidates caches after create/update/delete).
-- Brand admin UI (`/admin/brands`) renders a Saledash-style data table with search, pagination, status badges, and a `BrandForm` sheet (slug auto-generation + logo preview upload).
-- Category admin UI (`/admin/categories`) mirrors the same UX, adds parent filters (root/any parent) and a hierarchical table, plus a `CategoryForm` sheet with parent-category combobox (prevents circular references) and image upload preview.
-- Catalog form validation lives in `brandFormSchema` / `categoryFormSchema` (Zod) so both popup forms and future pages reuse the same constraints.
+**Services & Hooks**:
+
+- `src/services/brand.service.ts` & `src/services/category.service.ts`: Strongly-typed CRUD helpers that unwrap the backend `ApiResponse<T>` format and accept pagination/search params.
+- `src/hooks/use-brands.ts` + `use-categories.ts`: TanStack Query hooks for list/detail/mutation flows (auto-invalidates caches after create/update/delete).
+
+**Brand Management UI** (`/admin/brands`):
+
+- Saledash-style data table với:
+  - Search (client-side filtering)
+  - Client-side pagination
+  - Status badges (ACTIVE/INACTIVE)
+  - Action dropdown (Edit, Delete)
+- `BrandForm` sheet component:
+  - Auto-slug generation từ name field
+  - Logo upload preview
+  - Zod validation (`brandFormSchema`)
+  - TanStack Query mutations (create/update/delete)
+
+**Category Management UI** (`/admin/categories`):
+
+- Hierarchical data table với:
+  - Search (client-side filtering)
+  - Filter by parent category (All/Root/specific parent)
+  - Client-side pagination
+  - Status badges
+  - Action dropdown (Edit, Delete)
+- `CategoryForm` sheet component:
+  - Parent category combobox (filters out current category to prevent circular references)
+  - Auto-slug generation
+  - Image upload preview
+  - Zod validation (`categoryFormSchema`)
+  - TanStack Query mutations (create/update/delete)
+
+**Form Validation**:
+
+- `brandFormSchema` / `categoryFormSchema` (Zod) được tái sử dụng cho cả popup forms và future pages.
+- Auto-slug generation utility: `lib/utils.ts` → `slugify()` function.
+
+### Dynamic Breadcrumbs
+
+**Mục đích**: Hiển thị breadcrumbs động dựa trên URL hiện tại để user biết mình đang ở đâu và dễ dàng quay lại trang cha.
+
+**Implementation**:
+
+- **Hook**: `src/hooks/use-breadcrumbs.ts`
+- **Component**: `src/components/ui/breadcrumb.tsx` (Shadcn UI style)
+- **Integration**: `src/components/layout/header.tsx`
+
+**Features**:
+
+- Tự động parse pathname và tạo breadcrumb items
+- Map route segments thành labels (từ `ADMIN_MENU` config hoặc `ROUTE_LABELS` mapping)
+- Xử lý ID trong URL:
+  - UUID/numeric ID → hiển thị "Details" (nếu context là products/orders/customers)
+  - Hoặc rút gọn ID (ví dụ: `a1b2...c3d4`)
+- Luôn bắt đầu với "Home" → `/admin/dashboard`
+- Clickable navigation (trừ mục cuối) để quay lại trang cha
+- Responsive: ẩn trên mobile, hiển thị trên desktop
+
+**Example**:
+
+- `/admin/products/create` → `Home > Products > Create`
+- `/admin/products/123` → `Home > Products > Details`
+- `/admin/categories` → `Home > Categories`
 
 ### Troubleshooting
 
@@ -611,6 +698,41 @@ Swap these with live API hooks once endpoints are available (e.g., via TanStack 
 
 ## 📋 Changelog
 
+### Version 1.2.0 (2025-11-21)
+
+#### ✨ New Features
+
+- **Dynamic Breadcrumbs**:
+  - Tự động hiển thị breadcrumbs dựa trên URL hiện tại
+  - Xử lý ID trong URL (hiển thị "Details" hoặc rút gọn)
+  - Clickable navigation để quay lại trang cha
+  - Responsive design (ẩn trên mobile)
+- **RBAC Middleware với JWT Verification**:
+  - Decode/verify JWT token sử dụng thư viện `jose` (Edge Runtime compatible)
+  - Kiểm tra role từ JWT payload
+  - Chặn CUSTOMER khỏi `/admin/*` routes
+  - Chỉ cho phép ADMIN và STAFF truy cập
+  - Hỗ trợ JWT_SECRET để verify token (optional)
+- **Brand & Category Management**:
+  - Full CRUD UI với search, pagination, filters
+  - Sheet form components với validation và image upload preview
+  - Auto-slug generation
+  - TanStack Query integration với auto cache invalidation
+
+#### 🔧 Improvements
+
+- **JWT Utilities**: Tạo `lib/jwt.ts` với các helper functions cho decode/verify và role checking
+- **Environment Config**: Thêm `JWT_SECRET` vào env config (optional)
+- **Breadcrumbs Hook**: Tạo `useBreadcrumbs` hook để parse pathname và tạo breadcrumb items
+- **UI Components**: Thêm Shadcn UI Breadcrumb component
+
+#### 🐛 Bug Fixes
+
+- Fixed middleware chỉ check token mà không check role
+- Fixed CUSTOMER có thể truy cập admin routes
+
+---
+
 ### Version 1.1.0 (2025-11-21)
 
 #### ✨ New Features
@@ -643,4 +765,4 @@ Swap these with live API hooks once endpoints are available (e.g., via TanStack 
 ---
 
 **Last Updated**: 2025-11-21  
-**Version**: 1.1.0
+**Version**: 1.2.0

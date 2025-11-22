@@ -18,19 +18,17 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Page<Product> findAllByStatus(Product.Status status, Pageable pageable);
 
     /**
-     * Find Product by ID with all related entities fetched in a single query.
+     * Find Product by ID with all related entities fetched efficiently.
      * 
      * ⚠️ CRITICAL: Sử dụng @EntityGraph để tránh LazyInitializationException
      * 
-     * Vấn đề LazyInitializationException:
-     * - Khi Product được load, các relationships (variants, images, seoUrls) là LAZY
-     * - Nếu access các relationships này sau khi session đã đóng → LazyInitializationException
-     * - Entity Graph fetch tất cả trong 1 query → Tránh N+1 problem và Lazy Exception
+     * Vấn đề MultipleBagFetchException:
+     * - Hibernate không cho phép fetch nhiều @OneToMany collections (bags) cùng lúc
+     * - Giải pháp: Chỉ fetch variants trong EntityGraph, images và seoUrls dùng @BatchSize
      * 
      * Performance:
-     * - 1 query với JOIN thay vì N+1 queries
-     * - Fetch variants, images, seoUrls cùng lúc
-     * - Brand cũng được fetch (nếu cần)
+     * - 1 query chính với JOIN variants và brand
+     * - images và seoUrls được fetch riêng bằng @BatchSize (hiệu quả, tránh N+1)
      * 
      * Usage:
      * Product product = productRepository.findByIdWithDetails(productId)
@@ -40,8 +38,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
      */
     @EntityGraph(attributePaths = {
         "variants",
-        "images",
-        "seoUrls",
         "brand"
     })
     @Query("SELECT p FROM Product p WHERE p.id = :id")
@@ -53,13 +49,12 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
      * ⚠️ WARNING: Chỉ dùng khi thực sự cần tất cả data
      * Nếu chỉ cần basic info, dùng findAll() hoặc findAllByStatus()
      * 
-     * Note: This overrides the default findAll() method with Entity Graph
+     * Note: Chỉ fetch variants và brand trong EntityGraph để tránh MultipleBagFetchException.
+     * images và seoUrls được fetch riêng bằng @BatchSize.
      */
     @Override
     @EntityGraph(attributePaths = {
         "variants",
-        "images",
-        "seoUrls",
         "brand"
     })
     org.springframework.data.domain.Page<Product> findAll(org.springframework.data.domain.Pageable pageable);
@@ -75,7 +70,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
            "WHERE v.slug = :slug " +
            "AND p.status = 'ACTIVE' " +
            "AND v.status = 'ACTIVE'")
-    @EntityGraph(attributePaths = {"variants", "images", "seoUrls", "brand"})
+    @EntityGraph(attributePaths = {"variants", "brand"})
     Optional<Product> findByVariantSlug(@Param("slug") String slug);
 }
 

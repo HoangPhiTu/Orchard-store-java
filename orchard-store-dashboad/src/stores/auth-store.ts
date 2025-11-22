@@ -149,8 +149,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
+/**
+ * Helper function để force logout (gọi từ axios interceptor)
+ * Xóa session và redirect về trang login
+ */
 export const forceLogout = () => {
   const logout = useAuthStore.getState().logout;
-  logout().catch(() => undefined);
+  logout().catch(() => {
+    // Nếu logout thất bại, vẫn redirect về login
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+  });
 };
-

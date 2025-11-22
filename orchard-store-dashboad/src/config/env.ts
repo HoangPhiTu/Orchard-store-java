@@ -15,7 +15,9 @@ export const env = {
     "NEXT_PUBLIC_ACCESS_TOKEN_KEY",
     "orchard_admin_token"
   ),
+  // JWT secret for token verification (optional, but recommended for security)
+  // If not provided, middleware will decode token without verification (less secure but faster)
+  jwtSecret: process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET,
 };
 
 export const REFRESH_TOKEN_STORAGE_KEY = "orchard_refresh_token";
-

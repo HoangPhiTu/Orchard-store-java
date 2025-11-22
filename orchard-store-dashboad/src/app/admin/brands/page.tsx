@@ -98,78 +98,82 @@ export default function BrandManagementPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-2">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead className="w-64">Brand</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center">
-                    Loading brands...
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="w-64">Brand</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              )}
-              {!isLoading && paginatedBrands.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center">
-                    No brands found.
-                  </TableCell>
-                </TableRow>
-              )}
-              {paginatedBrands.map((brand) => (
-                <TableRow key={brand.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white">
-                        {brand.logoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={brand.logoUrl}
-                            alt={brand.name}
-                            className="h-full w-full rounded-xl object-cover"
-                          />
-                        ) : (
-                          <span className="text-sm font-semibold text-slate-500">
-                            {brand.name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center">
+                      Loading brands...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && paginatedBrands.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center">
+                      No brands found.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {paginatedBrands.map((brand) => (
+                  <TableRow key={brand.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                          {brand.logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={brand.logoUrl}
+                              alt={brand.name}
+                              className="h-full w-full rounded-xl object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-semibold text-slate-500">
+                              {brand.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900">
+                            {brand.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Order: {brand.displayOrder ?? 0}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {brand.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Order: {brand.displayOrder ?? 0}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-slate-500">{brand.slug}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        brand.status === "ACTIVE" ? "success" : "secondary"
-                      }
-                    >
-                      {brand.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <ActionMenu
-                      onEdit={() => handleOpenForm(brand)}
-                      onDelete={() => handleDelete(brand)}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell className="text-slate-500">
+                      {brand.slug}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          brand.status === "ACTIVE" ? "success" : "secondary"
+                        }
+                      >
+                        {brand.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ActionMenu
+                        onEdit={() => handleOpenForm(brand)}
+                        onDelete={() => handleDelete(brand)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-4 md:flex-row md:items-center md:justify-between">
@@ -192,9 +196,7 @@ export default function BrandManagementPage() {
             <Button
               variant="outline"
               disabled={currentPage === totalPages}
-              onClick={() =>
-                setPage((prev) => Math.min(totalPages, prev + 1))
-              }
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
             >
               Next
             </Button>
@@ -261,4 +263,3 @@ function ActionMenu({
     </div>
   );
 }
-

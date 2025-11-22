@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
   LineChart,
@@ -29,8 +30,8 @@ const statCards = [
     change: "+18.4%",
     trend: "up",
     description: "vs last month",
-    gradient: "linear-gradient(135deg, #475569, #64748B)",
     icon: Wallet,
+    isAlert: false,
   },
   {
     title: "Total Orders",
@@ -38,8 +39,8 @@ const statCards = [
     change: "+5.4%",
     trend: "up",
     description: "vs last month",
-    gradient: "linear-gradient(135deg, #64748B, #94A3B8)",
     icon: ShoppingBag,
+    isAlert: false,
   },
   {
     title: "New Customers",
@@ -47,8 +48,8 @@ const statCards = [
     change: "+2.1%",
     trend: "up",
     description: "vs last month",
-    gradient: "linear-gradient(135deg, #334155, #475569)",
     icon: Users,
+    isAlert: false,
   },
   {
     title: "Low Stock Alert",
@@ -56,8 +57,8 @@ const statCards = [
     change: "-3 items",
     trend: "down",
     description: "critical threshold",
-    gradient: "linear-gradient(135deg, #F59E0B, #FBBF24)",
     icon: AlertTriangle,
+    isAlert: true,
   },
 ];
 
@@ -172,29 +173,48 @@ const columns: ColumnsType<RecentOrder> = [
 export default function DashboardOverviewPage() {
   return (
     <div className="space-y-6">
-      <Row gutter={[24, 24]}>
+      <Row gutter={[16, 16]}>
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <Col xs={24} sm={12} xl={6} key={card.title}>
+            <Col xs={24} sm={12} md={12} lg={6} key={card.title}>
               <div
-                className="rounded-2xl p-5 text-white shadow-xl"
-                style={{ background: card.gradient }}
+                className={cn(
+                  "rounded-2xl border bg-white p-5 shadow-sm",
+                  card.isAlert
+                    ? "border-amber-200 bg-amber-50/30"
+                    : "border-slate-100"
+                )}
               >
                 <div className="flex items-center justify-between">
-                  <Icon size={28} className="opacity-80" />
+                  <div
+                    className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-xl",
+                      card.isAlert
+                        ? "bg-amber-100 text-amber-600"
+                        : "bg-indigo-50 text-indigo-600"
+                    )}
+                  >
+                    <Icon size={24} />
+                  </div>
                   <div className="text-right">
-                    <p className="text-sm">{card.title}</p>
-                    <p className="text-2xl font-semibold">{card.value}</p>
+                    <p className="text-sm text-slate-600">{card.title}</p>
+                    <p className="text-2xl font-semibold text-slate-900">
+                      {card.value}
+                    </p>
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-between text-sm opacity-90">
-                  <span>{card.description}</span>
+                <div className="mt-4 flex items-center justify-between text-sm">
+                  <span className="text-slate-500">{card.description}</span>
                   <Space
                     size={4}
                     align="center"
                     className={
-                      card.trend === "up" ? "text-emerald-200" : "text-red-200"
+                      card.trend === "up"
+                        ? "text-indigo-600"
+                        : card.isAlert
+                        ? "text-amber-600"
+                        : "text-red-600"
                     }
                   >
                     {card.trend === "up" ? (
@@ -211,7 +231,7 @@ export default function DashboardOverviewPage() {
         })}
       </Row>
 
-      <Row gutter={[24, 24]}>
+      <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
           <Card
             title="Revenue Over Time"
@@ -221,7 +241,7 @@ export default function DashboardOverviewPage() {
             }
           >
             <div className="chart-wrapper">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={revenueSeries}>
                   <CartesianGrid vertical={false} stroke="#eef0f4" />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} />
@@ -230,7 +250,7 @@ export default function DashboardOverviewPage() {
                   <Line
                     type="monotone"
                     dataKey="value"
-                    stroke="#475569"
+                    stroke="#4f46e5"
                     strokeWidth={3}
                     dot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
                   />
@@ -248,13 +268,13 @@ export default function DashboardOverviewPage() {
             }
           >
             <div className="chart-wrapper">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={topProducts}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip />
-                  <Bar dataKey="sales" radius={[12, 12, 0, 0]} fill="#64748B" />
+                  <Bar dataKey="sales" radius={[12, 12, 0, 0]} fill="#a78bfa" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -267,14 +287,16 @@ export default function DashboardOverviewPage() {
         className="table-card activity-table"
         extra={<Typography.Link href="/admin/orders">View all</Typography.Link>}
       >
-        <Table
-          columns={columns}
-          dataSource={recentOrders}
-          pagination={false}
-          rowKey="key"
-        />
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={recentOrders}
+            pagination={false}
+            rowKey="key"
+            scroll={{ x: "max-content" }}
+          />
+        </div>
       </Card>
     </div>
   );
 }
-

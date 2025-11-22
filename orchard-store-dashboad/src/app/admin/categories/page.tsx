@@ -160,7 +160,8 @@ export default function CategoryManagementPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-2">
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
                 <TableHead className="w-1/3">Category</TableHead>
@@ -223,6 +224,7 @@ export default function CategoryManagementPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-4 md:flex-row md:items-center md:justify-between">

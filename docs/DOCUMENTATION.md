@@ -41,6 +41,7 @@ Tài liệu kỹ thuật chi tiết cho Orchard Store E-Commerce Platform.
 - [Customer Dashboard & Gamification](#-customer-dashboard--gamification) ⭐ **NEW**
 - [Cart & Checkout Service](#-cart--checkout-service--new) ⭐ **NEW**
 - [JSONB Performance Optimization & Hibernate Configuration](#-jsonb-performance-optimization--hibernate-configuration) ⭐ **ENHANCED**
+- **[Frontend Error Handling & Form Validation](./FRONTEND_ERROR_HANDLING.md)** ⭐ **NEW** - Centralized error handling, form inline errors, WebSocket notifications
 
 ### 📖 Reference Documentation
 

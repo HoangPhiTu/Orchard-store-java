@@ -49,3 +49,15 @@ export interface ResetPasswordRequest {
   newPassword: string;
   confirmPassword: string;
 }
+
+// Role types for RBAC
+export interface Role {
+  id: number;
+  roleCode: string; // e.g., "ADMIN", "MANAGER", "STAFF"
+  roleName: string; // e.g., "Administrator", "Manager", "Staff"
+  description?: string | null;
+  hierarchyLevel?: number; // Higher = more permissions (1-10)
+  status?: "ACTIVE" | "INACTIVE";
+  createdAt?: string; // ISO date string
+  updatedAt?: string; // ISO date string
+}

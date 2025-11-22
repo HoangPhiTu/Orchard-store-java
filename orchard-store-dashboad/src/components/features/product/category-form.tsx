@@ -12,6 +12,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  SheetBody,
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,7 +131,7 @@ export function CategoryForm({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent className="flex flex-col">
         <form
           className="flex h-full flex-col"
           onSubmit={form.handleSubmit(handleSubmit)}
@@ -144,126 +145,130 @@ export function CategoryForm({
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                placeholder="Skin Care"
-                {...form.register("name")}
-              />
-              {form.formState.errors.name && (
-                <p className="text-xs text-rose-500">
-                  {form.formState.errors.name.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="slug">Slug</Label>
-              <Input
-                id="slug"
-                placeholder="skin-care"
-                {...form.register("slug", {
-                  onChange: () => setHasManualSlugEdit(true),
-                })}
-              />
-              {form.formState.errors.slug && (
-                <p className="text-xs text-rose-500">
-                  {form.formState.errors.slug.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                className="min-h-[100px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                placeholder="Describe what products belong to this category"
-                {...form.register("description")}
-              />
-            </div>
-
-            <ImageUpload
-              label="Category image"
-              value={imageValue ?? ""}
-              onChange={(value) => form.setValue("imageUrl", value ?? "")}
-            />
-
-            <div className="space-y-2">
-              <Label htmlFor="parentId">Parent Category</Label>
-              <select
-                id="parentId"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                value={parentIdValue ?? ""}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  form.setValue(
-                    "parentId",
-                    value === "" ? undefined : Number(value)
-                  );
-                }}
-              >
-                <option value="">(No parent)</option>
-                {parentOptions.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              {form.formState.errors.parentId && (
-                <p className="text-xs text-rose-500">
-                  {form.formState.errors.parentId.message}
-                </p>
-              )}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
+          <SheetBody>
+            <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="displayOrder">Display Order</Label>
+                <Label htmlFor="name">Name</Label>
                 <Input
-                  id="displayOrder"
-                  type="number"
-                  placeholder="0"
-                  {...form.register("displayOrder")}
+                  id="name"
+                  placeholder="Skin Care"
+                  {...form.register("name")}
                 />
-                {form.formState.errors.displayOrder && (
-                  <p className="text-xs text-rose-500">
-                    {form.formState.errors.displayOrder.message}
+                {form.formState.errors.name && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.name.message}
                   </p>
                 )}
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="slug">Slug</Label>
+                <Input
+                  id="slug"
+                  placeholder="skin-care"
+                  {...form.register("slug", {
+                    onChange: () => setHasManualSlugEdit(true),
+                  })}
+                />
+                {form.formState.errors.slug && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.slug.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <textarea
+                  id="description"
+                  className="min-h-[100px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  placeholder="Describe what products belong to this category"
+                  {...form.register("description")}
+                />
+              </div>
+
+              <ImageUpload
+                label="Category image"
+                value={imageValue ?? ""}
+                onChange={(value) => form.setValue("imageUrl", value ?? "")}
+              />
+
+              <div className="space-y-2">
+                <Label htmlFor="parentId">Parent Category</Label>
                 <select
-                  id="status"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                  {...form.register("status")}
+                  id="parentId"
+                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  value={parentIdValue ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    form.setValue(
+                      "parentId",
+                      value === "" ? undefined : Number(value)
+                    );
+                  }}
                 >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="">(No parent)</option>
+                  {parentOptions.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
+                {form.formState.errors.parentId && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.parentId.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="displayOrder">Display Order</Label>
+                  <Input
+                    id="displayOrder"
+                    type="number"
+                    placeholder="0"
+                    {...form.register("displayOrder")}
+                  />
+                  {form.formState.errors.displayOrder && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.displayOrder.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <select
+                    id="status"
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                    {...form.register("status")}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
+          </SheetBody>
 
           <SheetFooter>
-            <div className="flex items-center gap-3">
-              <Button
-                type="submit"
-                className="bg-slate-900 hover:bg-slate-800"
-                isLoading={isSubmitting}
-              >
-                {isEditing ? "Save changes" : "Create Category"}
-              </Button>
+            <div className="flex w-full gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
+                className="flex-1"
               >
                 Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                isLoading={isSubmitting}
+              >
+                {isEditing ? "Save changes" : "Create Category"}
               </Button>
             </div>
           </SheetFooter>

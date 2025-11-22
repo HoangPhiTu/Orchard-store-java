@@ -256,7 +256,7 @@ export default function LoginPage() {
               </div>
               <p className="text-sm text-slate-600 mb-1">Total Sales</p>
               <p className="text-2xl font-bold text-slate-900 mb-1">$128,420</p>
-              <div className="flex items-center gap-1 text-sm text-emerald-600">
+              <div className="flex items-center gap-1 text-sm text-indigo-600">
                 <TrendingUp className="h-4 w-4" />
                 <span>+12.5% this month</span>
               </div>
@@ -271,7 +271,7 @@ export default function LoginPage() {
               </div>
               <p className="text-sm text-slate-600 mb-1">Active Users</p>
               <p className="text-2xl font-bold text-slate-900 mb-1">24.5k</p>
-              <div className="flex items-center gap-1 text-sm text-emerald-600">
+              <div className="flex items-center gap-1 text-sm text-indigo-600">
                 <TrendingUp className="h-4 w-4" />
                 <span>+5.2% this week</span>
               </div>
@@ -364,7 +364,7 @@ export default function LoginPage() {
                       }}
                     />
                     {hasSavedAccount && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 border border-emerald-200">
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 border border-indigo-200">
                         Saved
                       </span>
                     )}

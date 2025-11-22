@@ -1,0 +1,92 @@
+import http from "@/lib/axios-client";
+import { API_ROUTES } from "@/config/api-routes";
+import type {
+  User,
+  UserFilters,
+  UserCreateRequestDTO,
+  UserUpdateRequestDTO,
+  Page,
+} from "@/types/user.types";
+import type { ApiResponse } from "@/types/api.types";
+
+/**
+ * Unwrap ApiResponse<Page<T>> to Page<T>
+ */
+const unwrapPage = <T>(response: ApiResponse<Page<T>>): Page<T> => {
+  if (!response.data) {
+    throw new Error(response.message || "User data not found");
+  }
+  return response.data;
+};
+
+/**
+ * Unwrap ApiResponse<T> to T
+ */
+const unwrapItem = <T>(response: ApiResponse<T>): T => {
+  if (!response.data) {
+    throw new Error(response.message || "User data not found");
+  }
+  return response.data;
+};
+
+export const userService = {
+  /**
+   * Lấy danh sách users với tìm kiếm và phân trang
+   * GET /api/admin/users?keyword=...&page=0&size=20&status=ACTIVE
+   */
+  getUsers: (params?: UserFilters) =>
+    http
+      .get<ApiResponse<Page<User>>>(API_ROUTES.USERS, { params })
+      .then((res) => unwrapPage(res)),
+
+  /**
+   * Lấy chi tiết một user theo ID
+   * Note: Backend chưa có endpoint GET /api/admin/users/{id}
+   * Tạm thời throw error, cần thêm endpoint này ở backend
+   */
+  getUser: (id: number): Promise<User> => {
+    // TODO: Backend cần thêm endpoint GET /api/admin/users/{id}
+    // Tạm thời sử dụng workaround: lấy từ danh sách với filter
+    return http
+      .get<ApiResponse<Page<User>>>(API_ROUTES.USERS, {
+        params: { size: 1 },
+      })
+      .then((res) => {
+        const page = unwrapPage(res);
+        const user = page.content.find((u) => u.id === id);
+        if (!user) {
+          throw new Error(`User with ID ${id} not found`);
+        }
+        return user;
+      });
+  },
+
+  /**
+   * Tạo user mới
+   * POST /api/admin/users
+   */
+  createUser: (data: UserCreateRequestDTO) =>
+    http
+      .post<ApiResponse<User>>(API_ROUTES.USERS, data)
+      .then((res) => unwrapItem(res)),
+
+  /**
+   * Cập nhật user
+   * PUT /api/admin/users/{id}
+   * Note: Email và password không thể cập nhật qua endpoint này
+   */
+  updateUser: (id: number, data: UserUpdateRequestDTO) =>
+    http
+      .put<ApiResponse<User>>(`${API_ROUTES.USERS}/${id}`, data)
+      .then((res) => unwrapItem(res)),
+
+  /**
+   * Khóa/Mở khóa user (toggle status)
+   * PATCH /api/admin/users/{id}/status
+   */
+  toggleUserStatus: (id: number) =>
+    http
+      .patch<ApiResponse<User>>(`${API_ROUTES.USERS}/${id}/status`)
+      .then((res) => unwrapItem(res)),
+};
+

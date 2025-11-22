@@ -15,37 +15,37 @@ import { ApiResponse } from "@/types/api.types";
 
 export const authService = {
   login: (payload: LoginRequest) =>
-    http.post<LoginResponse>(API_ROUTES.LOGIN, payload).then((res) => res.data),
+    http.post<LoginResponse>(API_ROUTES.LOGIN, payload).then((res) => res),
   logout: () => http.post(API_ROUTES.LOGOUT).catch(() => undefined),
-  getCurrentUser: () => http.get<User>(API_ROUTES.ME).then((res) => res.data),
+  getCurrentUser: () => http.get<User>(API_ROUTES.ME).then((res) => res),
   refreshToken: (refreshToken: string) =>
     http
       .post<LoginResponse>(API_ROUTES.REFRESH_TOKEN, { refreshToken })
-      .then((res) => res.data),
+      .then((res) => res),
   forgotPassword: (payload: ForgotPasswordRequest) =>
     http
       .post<ApiResponse<{ message: string }>>(
         API_ROUTES.FORGOT_PASSWORD,
         payload
       )
-      .then((res) => res.data),
+      .then((res) => res),
   sendOtp: (payload: SendOtpRequest) =>
     http
       .post<ApiResponse<SendOtpResponse>>(API_ROUTES.SEND_OTP, payload)
       .then((res) => {
-        if (res.data.data) {
-          return res.data.data;
+        if (res.data) {
+          return res.data;
         }
-        throw new Error(res.data.message || "Failed to send OTP");
+        throw new Error(res.message || "Failed to send OTP");
       }),
   verifyOtp: (payload: VerifyOtpRequest) =>
     http
       .post<ApiResponse<VerifyOtpResponse>>(API_ROUTES.VERIFY_OTP, payload)
       .then((res) => {
-        if (res.data.data) {
-          return res.data.data;
+        if (res.data) {
+          return res.data;
         }
-        throw new Error(res.data.message || "Failed to verify OTP");
+        throw new Error(res.message || "Failed to verify OTP");
       }),
   resetPassword: (payload: ResetPasswordRequest) =>
     http
@@ -55,7 +55,7 @@ export const authService = {
       )
       .then((res) => {
         return {
-          message: res.data.message || "Password reset successfully",
+          message: res.message || "Password reset successfully",
         };
       }),
 };

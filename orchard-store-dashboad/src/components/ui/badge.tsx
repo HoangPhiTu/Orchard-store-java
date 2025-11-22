@@ -4,15 +4,16 @@ import { cn } from "@/lib/utils";
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: "default" | "secondary" | "success" | "warning";
+  variant?: "default" | "secondary" | "success" | "warning" | "danger";
   className?: string;
 }
 
 const variantClasses: Record<NonNullable<BadgeProps["variant"]>, string> = {
   default: "bg-slate-900 text-white",
   secondary: "bg-slate-100 text-slate-600",
-  success: "bg-emerald-50 text-emerald-600",
+  success: "bg-indigo-50 text-indigo-600",
   warning: "bg-amber-50 text-amber-600",
+  danger: "bg-red-50 text-red-600",
 };
 
 export function Badge({
@@ -32,4 +33,3 @@ export function Badge({
     </span>
   );
 }
-

@@ -12,6 +12,7 @@ import com.orchard.orchard_store_backend.modules.inventory.service.InventoryServ
 import com.orchard.orchard_store_backend.modules.order.entity.Order;
 import com.orchard.orchard_store_backend.modules.order.entity.OrderItem;
 import com.orchard.orchard_store_backend.modules.order.repository.OrderRepository;
+import com.orchard.orchard_store_backend.modules.notification.service.NotificationService;
 import com.orchard.orchard_store_backend.modules.promotion.service.PromotionService;
 import com.orchard.orchard_store_backend.modules.promotion.service.PromotionService.PromotionValidationResult;
 import com.orchard.orchard_store_backend.modules.shopping.dto.CheckoutItemDTO;
@@ -45,6 +46,7 @@ public class CheckoutService {
     private final OrderRepository orderRepository;
     private final CartService cartService;
     private final PromotionService promotionService;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public CheckoutSummaryDTO calculateCheckout(CheckoutRequest request) {
@@ -134,6 +136,19 @@ public class CheckoutService {
         adjustInventory(orderItems, savedOrder.getId());
 
         cartService.clearCart(request.getSessionId(), customer != null ? customer.getId() : null);
+
+        // Gửi thông báo real-time về đơn hàng mới
+        try {
+            notificationService.sendNewOrderNotification(
+                savedOrder.getId(),
+                savedOrder.getOrderNumber(),
+                savedOrder.getCustomerName(),
+                savedOrder.getTotalAmount().doubleValue()
+            );
+        } catch (Exception e) {
+            // Log lỗi nhưng không làm fail transaction
+            log.error("Failed to send new order notification for order #{}", savedOrder.getOrderNumber(), e);
+        }
 
         return savedOrder;
     }

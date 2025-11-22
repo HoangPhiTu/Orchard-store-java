@@ -5,7 +5,7 @@ export function Logo({ size = 32 }: { size?: number }) {
       style={{ fontWeight: 600, color: "#065f46" }}
     >
       <div
-        className="rounded-2xl bg-linear-to-br from-emerald-500 to-teal-400"
+        className="rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600"
         style={{ width: size, height: size }}
       />
       <span>Orchard Admin</span>

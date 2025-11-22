@@ -20,31 +20,30 @@ export const categoryService = {
   getAll: (params?: CategoryQueryParams) =>
     http
       .get<ApiResponse<Category[]>>(API_ROUTES.CATEGORIES, { params })
-      .then((res) => unwrapList(res.data)),
+      .then((res) => unwrapList(res)),
 
   getRoots: () =>
     http
       .get<ApiResponse<Category[]>>(`${API_ROUTES.CATEGORIES}/roots`)
-      .then((res) => unwrapList(res.data)),
+      .then((res) => unwrapList(res)),
 
   getById: (id: number) =>
     http
       .get<ApiResponse<Category>>(`${API_ROUTES.CATEGORIES}/${id}`)
-      .then((res) => unwrapItem(res.data)),
+      .then((res) => unwrapItem(res)),
 
   create: (payload: CategoryFormData) =>
     http
       .post<ApiResponse<Category>>(API_ROUTES.CATEGORIES, payload)
-      .then((res) => unwrapItem(res.data)),
+      .then((res) => unwrapItem(res)),
 
   update: (id: number, payload: CategoryFormData) =>
     http
       .put<ApiResponse<Category>>(`${API_ROUTES.CATEGORIES}/${id}`, payload)
-      .then((res) => unwrapItem(res.data)),
+      .then((res) => unwrapItem(res)),
 
   delete: (id: number) =>
     http
       .delete<ApiResponse<null>>(`${API_ROUTES.CATEGORIES}/${id}`)
       .then((res) => res.data),
 };
-

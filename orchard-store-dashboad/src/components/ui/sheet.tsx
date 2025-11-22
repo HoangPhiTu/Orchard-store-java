@@ -48,9 +48,14 @@ export function SheetTrigger({
 interface SheetContentProps {
   children: React.ReactNode;
   className?: string;
+  side?: "left" | "right";
 }
 
-export function SheetContent({ children, className }: SheetContentProps) {
+export function SheetContent({
+  children,
+  className,
+  side = "right",
+}: SheetContentProps) {
   const context = React.useContext(SheetContext);
   const [mounted, setMounted] = React.useState(false);
 
@@ -61,6 +66,8 @@ export function SheetContent({ children, className }: SheetContentProps) {
   if (!context || !mounted) return null;
   if (!context.open) return null;
 
+  const sideClasses = side === "left" ? "mr-auto border-r" : "ml-auto border-l";
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex">
       <div
@@ -69,7 +76,9 @@ export function SheetContent({ children, className }: SheetContentProps) {
       />
       <div
         className={cn(
-          "relative ml-auto flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl",
+          "relative flex h-full w-full max-w-sm flex-col bg-white shadow-2xl",
+          sideClasses,
+          "border-slate-200",
           className
         )}
       >
@@ -88,7 +97,9 @@ export function SheetHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("border-b border-slate-200 p-6", className)}>
+    <div
+      className={cn("border-b border-slate-100 bg-white px-6 py-5", className)}
+    >
       {children}
     </div>
   );
@@ -102,7 +113,12 @@ export function SheetTitle({
   className?: string;
 }) {
   return (
-    <h2 className={cn("text-lg font-semibold text-slate-900", className)}>
+    <h2
+      className={cn(
+        "text-xl font-semibold text-slate-900 leading-tight",
+        className
+      )}
+    >
       {children}
     </h2>
   );
@@ -116,7 +132,23 @@ export function SheetDescription({
   className?: string;
 }) {
   return (
-    <p className={cn("mt-1 text-sm text-slate-500", className)}>{children}</p>
+    <p className={cn("mt-2 text-sm text-slate-500 leading-relaxed", className)}>
+      {children}
+    </p>
+  );
+}
+
+export function SheetBody({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex-1 overflow-y-auto px-6 py-6", className)}>
+      {children}
+    </div>
   );
 }
 
@@ -128,9 +160,13 @@ export function SheetFooter({
   className?: string;
 }) {
   return (
-    <div className={cn("border-t border-slate-200 p-6", className)}>
+    <div
+      className={cn(
+        "sticky bottom-0 border-t border-slate-100 bg-white/90 backdrop-blur-sm px-6 py-4",
+        className
+      )}
+    >
       {children}
     </div>
   );
 }
-

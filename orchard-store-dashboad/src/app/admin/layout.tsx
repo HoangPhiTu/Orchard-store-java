@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { useAuthStore } from "@/stores/auth-store";
+import { useUIStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 
@@ -19,7 +20,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       isLoading: state.isLoading,
     }));
 
-  const [collapsed, setCollapsed] = useState(false);
+  const { isSidebarCollapsed } = useUIStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const hasRedirectedRef = useRef(false);
   const hasAdminRole =
@@ -80,8 +81,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar
-        collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed((prev) => !prev)}
         isMobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
         onLogout={handleLogout}
@@ -89,23 +88,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       <div
         className={cn(
-          "relative flex min-h-screen w-full flex-col transition-all duration-300",
-          "lg:pl-64",
-          collapsed && "lg:pl-24"
+          "relative flex min-h-screen w-full flex-col transition-all duration-300 ease-in-out",
+          "ml-0",
+          isSidebarCollapsed ? "lg:ml-[70px]" : "lg:ml-64"
         )}
       >
-        <Header
-          collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed((prev) => !prev)}
-          onToggleMobileSidebar={() => setMobileSidebarOpen(true)}
-          userName={user?.fullName}
-          userEmail={user?.email}
-        />
-        <main className="min-h-[calc(100vh-4rem)] flex-1 overflow-y-auto px-4 py-6 lg:px-10">
+        <Header userName={user?.fullName} userEmail={user?.email} />
+        <main className="min-h-[calc(100vh-4rem)] flex-1 overflow-y-auto px-4 py-6 lg:px-8">
           {children}
         </main>
       </div>
     </div>
   );
 }
-
