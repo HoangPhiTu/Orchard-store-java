@@ -125,8 +125,10 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
           onSubmit={form.handleSubmit(handleSubmit)}
         >
           <SheetHeader>
-            <SheetTitle>{isEditing ? "Edit Brand" : "Add Brand"}</SheetTitle>
-            <SheetDescription>
+            <SheetTitle className="text-xl font-semibold text-slate-900">
+              {isEditing ? "Edit Brand" : "Add Brand"}
+            </SheetTitle>
+            <SheetDescription className="text-sm text-slate-500">
               Manage how brands appear across the storefront.
             </SheetDescription>
           </SheetHeader>
@@ -134,7 +136,9 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
           <SheetBody>
             <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name" className="text-sm font-medium text-slate-700">
+                  Name
+                </Label>
                 <Input
                   id="name"
                   placeholder="Aroma Labs"
@@ -148,7 +152,9 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
+                <Label htmlFor="slug" className="text-sm font-medium text-slate-700">
+                  Slug
+                </Label>
                 <Input
                   id="slug"
                   placeholder="aroma-labs"
@@ -164,11 +170,13 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description" className="text-sm font-medium text-slate-700">
+                  Description
+                </Label>
                 <textarea
                   id="description"
                   placeholder="Short bio of the brand"
-                  className="min-h-[100px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  className="min-h-[100px] w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-gray-900 shadow-sm transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:text-gray-900"
                   {...form.register("description")}
                 />
                 {form.formState.errors.description && (
@@ -186,7 +194,9 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
+                  <Label htmlFor="country" className="text-sm font-medium text-slate-700">
+                    Country
+                  </Label>
                   <Input
                     id="country"
                     placeholder="France"
@@ -199,7 +209,9 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="websiteUrl">Website</Label>
+                  <Label htmlFor="websiteUrl" className="text-sm font-medium text-slate-700">
+                    Website
+                  </Label>
                   <Input
                     id="websiteUrl"
                     placeholder="https://brand.com"
@@ -215,7 +227,9 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="displayOrder">Display Order</Label>
+                  <Label htmlFor="displayOrder" className="text-sm font-medium text-slate-700">
+                    Display Order
+                  </Label>
                   <Input
                     id="displayOrder"
                     type="number"
@@ -229,10 +243,12 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
+                  <Label htmlFor="status" className="text-sm font-medium text-slate-700">
+                    Status
+                  </Label>
                   <select
                     id="status"
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-gray-900 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     {...form.register("status")}
                   >
                     <option value="ACTIVE">Active</option>
@@ -250,14 +266,14 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
-                className="flex-1"
+                className="flex-1 rounded-lg"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="flex-1 rounded-lg"
                 isLoading={isSubmitting}
               >
                 {isEditing ? "Save changes" : "Create Brand"}

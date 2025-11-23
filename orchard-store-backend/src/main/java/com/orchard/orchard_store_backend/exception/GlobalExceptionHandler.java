@@ -47,6 +47,22 @@ public class GlobalExceptionHandler {
         
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
+    
+    /**
+     * Xử lý OperationNotPermittedException (400)
+     * Khi thao tác không được phép (ví dụ: tự khóa/xóa chính mình)
+     */
+    @ExceptionHandler(OperationNotPermittedException.class)
+    public ResponseEntity<Map<String, Object>> handleOperationNotPermittedException(OperationNotPermittedException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
+        errorResponse.put("error", "Operation Not Permitted");
+        errorResponse.put("message", ex.getMessage());
+        errorResponse.put("path", "/api");
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
 
     @ExceptionHandler(com.orchard.orchard_store_backend.modules.shopping.exception.CartRateLimitException.class)
     public ResponseEntity<Map<String, Object>> handleCartRateLimitException(RuntimeException ex) {

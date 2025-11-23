@@ -5,10 +5,13 @@ import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { useDebounce } from "@/hooks/use-debounce";
-import { useUsers, useToggleUserStatus } from "@/hooks/use-users";
+import { useUsers } from "@/hooks/use-users";
 import type { User, UserStatus } from "@/types/user.types";
 import { UserTable } from "@/components/features/user/user-table";
 import { UserFormSheet } from "@/components/features/user/user-form-sheet";
+import { ResetPasswordDialog } from "@/components/features/user/reset-password-dialog";
+import { DeleteUserDialog } from "@/components/features/user/delete-user-dialog";
+import { ToggleStatusDialog } from "@/components/features/user/toggle-status-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,6 +28,14 @@ export default function UserManagementPage() {
   const [page, setPage] = useState(0); // Backend uses 0-based pagination
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] =
+    useState(false);
+  const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [isDeleteUserDialogOpen, setIsDeleteUserDialogOpen] = useState(false);
+  const [toggleStatusUser, setToggleStatusUser] = useState<User | null>(null);
+  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] =
+    useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -40,16 +51,6 @@ export default function UserManagementPage() {
   );
 
   const { data, isLoading, error } = useUsers(filters);
-  const toggleStatus = useToggleUserStatus({
-    onSuccess: (user) => {
-      toast.success(
-        user.status === "ACTIVE" ? "User unlocked successfully" : "User locked successfully"
-      );
-    },
-    onError: () => {
-      toast.error("Failed to toggle user status");
-    },
-  });
 
   // Reset to first page when search or filter changes
   const handleSearchChange = (value: string) => {
@@ -68,12 +69,23 @@ export default function UserManagementPage() {
   };
 
   const handleToggleStatus = (user: User) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to ${user.status === "ACTIVE" ? "lock" : "unlock"} this user?`
-    );
-    if (confirmed) {
-      toggleStatus.mutate(user.id);
-    }
+    setToggleStatusUser(user);
+    setIsToggleStatusDialogOpen(true);
+  };
+
+  const handleResetPassword = (user: User) => {
+    setResetPasswordUser(user);
+    setIsResetPasswordDialogOpen(true);
+  };
+
+  const handleResetPasswordSuccess = () => {
+    // Optionally refetch users or show success message
+    // The toast is already shown in ResetPasswordDialog
+  };
+
+  const handleDelete = (user: User) => {
+    setDeleteUser(user);
+    setIsDeleteUserDialogOpen(true);
   };
 
   const handleAddUser = () => {
@@ -99,7 +111,9 @@ export default function UserManagementPage() {
         {/* Header */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">User Management</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              User Management
+            </h1>
             <p className="text-sm text-slate-500">
               Manage all staff members and their roles in the system.
             </p>
@@ -122,7 +136,10 @@ export default function UserManagementPage() {
             />
           </div>
           <div className="flex items-center gap-3">
-            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+            <Select
+              value={statusFilter}
+              onValueChange={handleStatusFilterChange}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -148,7 +165,9 @@ export default function UserManagementPage() {
             <UserTable
               users={data?.content || []}
               onEdit={handleEdit}
+              onResetPassword={handleResetPassword}
               onToggleStatus={handleToggleStatus}
+              onDelete={handleDelete}
               isLoading={isLoading}
             />
           )}
@@ -158,8 +177,8 @@ export default function UserManagementPage() {
         {data && data.totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-slate-200 pt-4">
             <div className="text-sm text-slate-600">
-              Showing {data.content.length > 0 ? data.page * data.size + 1 : 0} to{" "}
-              {Math.min((data.page + 1) * data.size, data.totalElements)} of{" "}
+              Showing {data.content.length > 0 ? data.page * data.size + 1 : 0}{" "}
+              to {Math.min((data.page + 1) * data.size, data.totalElements)} of{" "}
               {data.totalElements} users
             </div>
             <div className="flex items-center gap-2">
@@ -195,7 +214,46 @@ export default function UserManagementPage() {
         onOpenChange={setFormOpen}
         user={selectedUser}
       />
+
+      {/* Reset Password Dialog */}
+      {resetPasswordUser && (
+        <ResetPasswordDialog
+          userId={resetPasswordUser.id}
+          userName={resetPasswordUser.fullName}
+          isOpen={isResetPasswordDialogOpen}
+          onClose={() => {
+            setIsResetPasswordDialogOpen(false);
+            setResetPasswordUser(null);
+          }}
+          onSuccess={handleResetPasswordSuccess}
+        />
+      )}
+
+      {/* Delete User Dialog */}
+      {deleteUser && (
+        <DeleteUserDialog
+          userId={deleteUser.id}
+          userName={deleteUser.fullName}
+          userEmail={deleteUser.email}
+          isOpen={isDeleteUserDialogOpen}
+          onClose={() => {
+            setIsDeleteUserDialogOpen(false);
+            setDeleteUser(null);
+          }}
+        />
+      )}
+
+      {/* Toggle Status Dialog */}
+      {toggleStatusUser && (
+        <ToggleStatusDialog
+          user={toggleStatusUser}
+          isOpen={isToggleStatusDialogOpen}
+          onClose={() => {
+            setIsToggleStatusDialogOpen(false);
+            setToggleStatusUser(null);
+          }}
+        />
+      )}
     </div>
   );
 }
-

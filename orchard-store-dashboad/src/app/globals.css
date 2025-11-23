@@ -31,3 +31,124 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Custom Scrollbar Styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(203 213 225) transparent; /* slate-300 */
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(203 213 225); /* slate-300 */
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(148 163 184); /* slate-400 */
+}
+
+/* Force dark text color for inputs when typing */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="number"],
+textarea,
+select {
+  color: rgb(17 24 39) !important; /* gray-900 */
+  font-weight: 500 !important; /* font-medium */
+}
+
+/* Override browser autofill styles */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: rgb(17 24 39) !important; /* gray-900 */
+  -webkit-box-shadow: 0 0 0px 1000px white inset !important;
+  box-shadow: 0 0 0px 1000px white inset !important;
+  font-weight: 500 !important;
+}
+
+/* Ensure text color is dark when input has value */
+input:not(:placeholder-shown),
+textarea:not(:placeholder-shown) {
+  color: rgb(17 24 39) !important; /* gray-900 */
+  font-weight: 500 !important;
+}
+
+/* ===== FORM VALIDATION ANIMATIONS ===== */
+
+/* Shake animation for form errors */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Shake animation for submit button */
+@keyframes shake-button {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-3px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+.animate-shake-button {
+  animation: shake-button 0.4s ease-in-out;
+}
+
+/* Pulse animation for error fields */
+@keyframes pulse-error {
+  0%,
+  100% {
+    border-color: rgb(239 68 68); /* red-500 */
+  }
+  50% {
+    border-color: rgb(220 38 38); /* red-600 */
+  }
+}
+
+.animate-pulse-error {
+  animation: pulse-error 1s ease-in-out 2;
+}

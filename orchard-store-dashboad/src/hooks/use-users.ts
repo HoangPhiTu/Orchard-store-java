@@ -13,6 +13,10 @@ import type {
   UserUpdateRequestDTO,
   Page,
 } from "@/types/user.types";
+import type {
+  LoginHistoryPage,
+  LoginHistoryFilters,
+} from "@/types/login-history.types";
 
 const USERS_QUERY_KEY = ["admin", "users"] as const;
 
@@ -110,3 +114,22 @@ export const useToggleUserStatus = (
   });
 };
 
+/**
+ * Hook để lấy lịch sử đăng nhập của user
+ */
+export const useUserHistory = (
+  userId: number | null,
+  filters?: LoginHistoryFilters
+) => {
+  return useQuery<LoginHistoryPage, Error>({
+    queryKey: [...USERS_QUERY_KEY, "history", userId, filters] as const,
+    queryFn: () => {
+      if (!userId) {
+        throw new Error("User ID is required");
+      }
+      return userService.getLoginHistory(userId, filters);
+    },
+    enabled: !!userId, // Chỉ query khi có userId
+    placeholderData: keepPreviousData,
+  });
+};

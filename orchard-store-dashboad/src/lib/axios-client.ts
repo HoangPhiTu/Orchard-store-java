@@ -85,7 +85,7 @@ const getValidationErrors = (
 // Tạo axios instance với config
 const http = axios.create({
   baseURL: API_URL,
-  timeout: 30000, // 30 seconds
+  timeout: 10000, // 10 seconds - prevent hanging requests
   withCredentials: true,
 });
 
@@ -247,6 +247,13 @@ http.interceptors.response.use(
         // Toast sẽ được hiển thị bởi form component nếu cần
         break;
 
+      case 400:
+        // Bad Request - OperationNotPermittedException hoặc các lỗi khác
+        // Hiển thị message cụ thể từ backend (ví dụ: role hierarchy, self-protection)
+        const badRequestMessage = errorMessage || "Yêu cầu không hợp lệ";
+        toast.error(badRequestMessage);
+        break;
+
       case 422:
         // Validation Error
         const validationErrors = getValidationErrors(error);
@@ -270,8 +277,16 @@ http.interceptors.response.use(
       default:
         // Network Error hoặc các lỗi khác
         if (!error.response) {
-          // Network Error (response undefined)
-          toast.error("Mất kết nối máy chủ");
+          // Check for timeout (ECONNABORTED)
+          if (
+            error.code === "ECONNABORTED" ||
+            error.message?.includes("timeout")
+          ) {
+            toast.error("Kết nối quá hạn, vui lòng kiểm tra mạng");
+          } else {
+            // Network Error (response undefined)
+            toast.error("Mất kết nối máy chủ");
+          }
         } else if (status) {
           // Other HTTP errors
           const defaultMessage = errorMessage || "Đã có lỗi xảy ra";

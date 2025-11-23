@@ -137,10 +137,10 @@ export function CategoryForm({
           onSubmit={form.handleSubmit(handleSubmit)}
         >
           <SheetHeader>
-            <SheetTitle>
+            <SheetTitle className="text-xl font-semibold text-slate-900">
               {isEditing ? "Edit Category" : "Create Category"}
             </SheetTitle>
-            <SheetDescription>
+            <SheetDescription className="text-sm text-slate-500">
               Organize the catalog structure with categories and subcategories.
             </SheetDescription>
           </SheetHeader>
@@ -148,7 +148,9 @@ export function CategoryForm({
           <SheetBody>
             <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name" className="text-sm font-medium text-slate-700">
+                  Name
+                </Label>
                 <Input
                   id="name"
                   placeholder="Skin Care"
@@ -162,7 +164,9 @@ export function CategoryForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
+                <Label htmlFor="slug" className="text-sm font-medium text-slate-700">
+                  Slug
+                </Label>
                 <Input
                   id="slug"
                   placeholder="skin-care"
@@ -178,10 +182,12 @@ export function CategoryForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description" className="text-sm font-medium text-slate-700">
+                  Description
+                </Label>
                 <textarea
                   id="description"
-                  className="min-h-[100px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  className="min-h-[100px] w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-gray-900 shadow-sm transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:text-gray-900"
                   placeholder="Describe what products belong to this category"
                   {...form.register("description")}
                 />
@@ -194,10 +200,12 @@ export function CategoryForm({
               />
 
               <div className="space-y-2">
-                <Label htmlFor="parentId">Parent Category</Label>
+                <Label htmlFor="parentId" className="text-sm font-medium text-slate-700">
+                  Parent Category
+                </Label>
                 <select
                   id="parentId"
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-gray-900 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   value={parentIdValue ?? ""}
                   onChange={(event) => {
                     const value = event.target.value;
@@ -223,7 +231,9 @@ export function CategoryForm({
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="displayOrder">Display Order</Label>
+                  <Label htmlFor="displayOrder" className="text-sm font-medium text-slate-700">
+                    Display Order
+                  </Label>
                   <Input
                     id="displayOrder"
                     type="number"
@@ -237,10 +247,12 @@ export function CategoryForm({
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
+                  <Label htmlFor="status" className="text-sm font-medium text-slate-700">
+                    Status
+                  </Label>
                   <select
                     id="status"
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-gray-900 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     {...form.register("status")}
                   >
                     <option value="ACTIVE">Active</option>
@@ -258,14 +270,14 @@ export function CategoryForm({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
-                className="flex-1"
+                className="flex-1 rounded-lg"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="flex-1 rounded-lg"
                 isLoading={isSubmitting}
               >
                 {isEditing ? "Save changes" : "Create Category"}

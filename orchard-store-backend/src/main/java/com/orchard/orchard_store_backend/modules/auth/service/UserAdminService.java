@@ -1,5 +1,6 @@
 package com.orchard.orchard_store_backend.modules.auth.service;
 
+import com.orchard.orchard_store_backend.modules.auth.dto.LoginHistoryDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserCreateRequestDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserUpdateRequestDTO;
@@ -11,5 +12,8 @@ public interface UserAdminService {
     UserResponseDTO createUser(UserCreateRequestDTO request);
     UserResponseDTO updateUser(Long id, UserUpdateRequestDTO request);
     UserResponseDTO toggleUserStatus(Long id);
+    void resetPassword(Long userId, String newPassword);
+    void deleteUser(Long userId);
+    Page<LoginHistoryDTO> getUserLoginHistory(Long userId, Pageable pageable);
 }
 

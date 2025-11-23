@@ -7,6 +7,10 @@ import type {
   UserUpdateRequestDTO,
   Page,
 } from "@/types/user.types";
+import type {
+  LoginHistoryPage,
+  LoginHistoryFilters,
+} from "@/types/login-history.types";
 import type { ApiResponse } from "@/types/api.types";
 
 /**
@@ -88,5 +92,35 @@ export const userService = {
     http
       .patch<ApiResponse<User>>(`${API_ROUTES.USERS}/${id}/status`)
       .then((res) => unwrapItem(res)),
-};
 
+  /**
+   * Admin reset password của user khác
+   * PUT /api/admin/users/{id}/reset-password
+   */
+  resetPassword: (id: number, newPassword: string) =>
+    http
+      .put<ApiResponse<void>>(`${API_ROUTES.USERS}/${id}/reset-password`, {
+        newPassword,
+      })
+      .then(() => undefined), // Return void on success
+
+  /**
+   * Xóa user
+   * DELETE /api/admin/users/{id}
+   */
+  deleteUser: (id: number) =>
+    http
+      .delete<ApiResponse<void>>(`${API_ROUTES.USERS}/${id}`)
+      .then(() => undefined), // Return void on success
+
+  /**
+   * Lấy lịch sử đăng nhập của user
+   * GET /api/admin/users/{id}/history?page=0&size=20
+   */
+  getLoginHistory: (id: number, params?: LoginHistoryFilters) =>
+    http
+      .get<ApiResponse<LoginHistoryPage>>(`${API_ROUTES.USERS}/${id}/history`, {
+        params,
+      })
+      .then((res) => unwrapPage(res)),
+};

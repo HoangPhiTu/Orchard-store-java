@@ -1,25 +1,25 @@
 import { z } from "zod";
 
 const variantSchema = z.object({
-  sku: z.string().min(1, "SKU is required"),
+  sku: z.string().min(1, "Vui lòng nhập SKU"),
   price: z
-    .number({ invalid_type_error: "Price must be a number" })
-    .positive("Variant price must be greater than 0"),
+    .number({ invalid_type_error: "Vui lòng nhập số hợp lệ" })
+    .positive("Giá sản phẩm phải lớn hơn 0"),
   stock: z
-    .number({ invalid_type_error: "Stock must be a number" })
-    .int("Stock must be an integer")
-    .nonnegative("Stock cannot be negative"),
+    .number({ invalid_type_error: "Vui lòng nhập số hợp lệ" })
+    .int("Số lượng tồn kho phải là số nguyên")
+    .nonnegative("Số lượng tồn kho không được âm"),
 });
 
 export const productFormSchema = z.object({
-  name: z.string().min(1, "Product name is required"),
+  name: z.string().min(1, "Vui lòng nhập tên sản phẩm"),
   brandId: z.union([
-    z.number({ invalid_type_error: "Brand ID must be a number" }),
-    z.string().min(1, "Brand ID is required"),
+    z.number({ invalid_type_error: "Vui lòng nhập số hợp lệ" }),
+    z.string().min(1, "Vui lòng chọn thương hiệu"),
   ]),
   price: z
-    .number({ invalid_type_error: "Price must be a number" })
-    .positive("Price must be greater than 0"),
+    .number({ invalid_type_error: "Vui lòng nhập số hợp lệ" })
+    .positive("Giá sản phẩm phải lớn hơn 0"),
   description: z.string().optional(),
   variants: z.array(variantSchema).optional(),
 });

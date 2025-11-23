@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, Edit, Lock, Unlock } from "lucide-react";
+import { MoreHorizontal, Edit, Lock, Unlock, Key, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types/user.types";
 
 interface UserTableProps {
   users: User[];
   onEdit?: (user: User) => void;
   onToggleStatus?: (user: User) => void;
+  onResetPassword?: (user: User) => void;
+  onDelete?: (user: User) => void;
   isLoading?: boolean;
 }
 
@@ -41,7 +44,9 @@ const getInitials = (fullName: string): string => {
 /**
  * Get badge variant for role
  */
-const getRoleBadgeVariant = (role: string): "default" | "secondary" | "success" | "warning" => {
+const getRoleBadgeVariant = (
+  role: string
+): "default" | "secondary" | "success" | "warning" => {
   const roleUpper = role.toUpperCase();
   if (roleUpper.includes("ADMIN") || roleUpper.includes("SUPER")) {
     return "warning"; // Orange/Red for Admin
@@ -70,7 +75,42 @@ const getStatusBadgeVariant = (
   }
 };
 
-export function UserTable({ users, onEdit, onToggleStatus, isLoading }: UserTableProps) {
+export function UserTable({
+  users,
+  onEdit,
+  onToggleStatus,
+  onResetPassword,
+  onDelete,
+  isLoading,
+}: UserTableProps) {
+  const { user: currentUser } = useAuthStore();
+
+  /**
+   * Kiểm tra xem có thể toggle status của user này không
+   * - Không thể toggle chính mình
+   * - Phải có quyền ADMIN (có role ADMIN hoặc SUPER_ADMIN)
+   */
+  const canToggleStatus = (user: User): boolean => {
+    // Không thể toggle chính mình
+    if (currentUser && currentUser.email === user.email) {
+      return false;
+    }
+
+    // Phải có quyền ADMIN
+    if (!currentUser || !currentUser.roles) {
+      return false;
+    }
+
+    const hasAdminRole = currentUser.roles.some(
+      (role) =>
+        role.includes("ADMIN") ||
+        role.includes("SUPER_ADMIN") ||
+        role === "ROLE_ADMIN" ||
+        role === "ROLE_SUPER_ADMIN"
+    );
+
+    return hasAdminRole;
+  };
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -108,7 +148,9 @@ export function UserTable({ users, onEdit, onToggleStatus, isLoading }: UserTabl
                   <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="font-semibold text-slate-900">{user.fullName}</span>
+                  <span className="font-semibold text-slate-900">
+                    {user.fullName}
+                  </span>
                   <span className="text-xs text-slate-500">{user.email}</span>
                 </div>
               </div>
@@ -138,7 +180,9 @@ export function UserTable({ users, onEdit, onToggleStatus, isLoading }: UserTabl
 
             {/* Status Column: Badge */}
             <TableCell>
-              <Badge variant={getStatusBadgeVariant(user.status)}>{user.status}</Badge>
+              <Badge variant={getStatusBadgeVariant(user.status)}>
+                {user.status}
+              </Badge>
             </TableCell>
 
             {/* Actions Column: DropdownMenu */}
@@ -157,8 +201,22 @@ export function UserTable({ users, onEdit, onToggleStatus, isLoading }: UserTabl
                       Edit
                     </DropdownMenuItem>
                   )}
+                  {onResetPassword && (
+                    <DropdownMenuItem onClick={() => onResetPassword(user)}>
+                      <Key className="mr-2 h-4 w-4" />
+                      Reset Password
+                    </DropdownMenuItem>
+                  )}
                   {onToggleStatus && (
-                    <DropdownMenuItem onClick={() => onToggleStatus(user)}>
+                    <DropdownMenuItem
+                      onClick={() => onToggleStatus(user)}
+                      disabled={!canToggleStatus(user)}
+                      className={
+                        !canToggleStatus(user)
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }
+                    >
                       {user.status === "ACTIVE" ? (
                         <>
                           <Lock className="mr-2 h-4 w-4" />
@@ -170,6 +228,22 @@ export function UserTable({ users, onEdit, onToggleStatus, isLoading }: UserTabl
                           Unlock
                         </>
                       )}
+                      {!canToggleStatus(user) && (
+                        <span className="ml-auto text-xs text-slate-400">
+                          {currentUser && currentUser.email === user.email
+                            ? "Không thể khóa chính mình"
+                            : "Không có quyền"}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <DropdownMenuItem
+                      onClick={() => onDelete(user)}
+                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -181,4 +255,3 @@ export function UserTable({ users, onEdit, onToggleStatus, isLoading }: UserTabl
     </Table>
   );
 }
-

@@ -44,9 +44,10 @@ export interface CategoryQueryParams {
 
 const slugSchema = z
   .string()
-  .min(2, "Slug must be at least 2 characters")
+  .min(1, "Vui lòng nhập slug")
+  .min(2, "Slug phải có ít nhất 2 ký tự")
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: "Slug can only contain lowercase letters, numbers and dashes",
+    message: "Slug chỉ được chứa chữ thường, số và dấu gạch ngang",
   });
 
 const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
@@ -56,16 +57,29 @@ const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   );
 
 export const brandFormSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  name: z
+    .string()
+    .min(1, "Vui lòng nhập tên thương hiệu")
+    .min(2, "Tên thương hiệu phải có ít nhất 2 ký tự")
+    .max(255, "Tên thương hiệu không được vượt quá 255 ký tự"),
   slug: slugSchema,
-  description: emptyToUndefined(z.string().max(5000, "Description too long")),
-  logoUrl: emptyToUndefined(z.string().url("Logo URL must be valid")),
-  country: emptyToUndefined(z.string().max(100, "Country is too long")),
-  websiteUrl: emptyToUndefined(z.string().url("Website URL must be valid")),
+  description: emptyToUndefined(
+    z.string().max(5000, "Mô tả không được vượt quá 5000 ký tự")
+  ),
+  logoUrl: emptyToUndefined(z.string().url("URL logo không hợp lệ")),
+  country: emptyToUndefined(
+    z.string().max(100, "Tên quốc gia không được vượt quá 100 ký tự")
+  ),
+  websiteUrl: emptyToUndefined(z.string().url("URL website không hợp lệ")),
   displayOrder: emptyToUndefined(
     z.preprocess(
       (value) => (value === undefined ? undefined : Number(value)),
-      z.number().int().min(0)
+      z
+        .number({
+          invalid_type_error: "Vui lòng nhập số hợp lệ",
+        })
+        .int("Thứ tự hiển thị phải là số nguyên")
+        .min(0, "Thứ tự hiển thị phải lớn hơn hoặc bằng 0")
     )
   ),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
@@ -74,20 +88,36 @@ export const brandFormSchema = z.object({
 export type BrandFormData = z.infer<typeof brandFormSchema>;
 
 export const categoryFormSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  name: z
+    .string()
+    .min(1, "Vui lòng nhập tên danh mục")
+    .min(2, "Tên danh mục phải có ít nhất 2 ký tự")
+    .max(255, "Tên danh mục không được vượt quá 255 ký tự"),
   slug: slugSchema,
-  description: emptyToUndefined(z.string().max(5000)),
-  imageUrl: emptyToUndefined(z.string().url("Image URL must be valid")),
+  description: emptyToUndefined(
+    z.string().max(5000, "Mô tả không được vượt quá 5000 ký tự")
+  ),
+  imageUrl: emptyToUndefined(z.string().url("URL hình ảnh không hợp lệ")),
   parentId: emptyToUndefined(
     z.preprocess(
       (value) => (value === undefined ? undefined : Number(value)),
-      z.number().int().positive()
+      z
+        .number({
+          invalid_type_error: "Vui lòng nhập số hợp lệ",
+        })
+        .int("ID danh mục cha phải là số nguyên")
+        .positive("ID danh mục cha phải lớn hơn 0")
     )
   ),
   displayOrder: emptyToUndefined(
     z.preprocess(
       (value) => (value === undefined ? undefined : Number(value)),
-      z.number().int().min(0)
+      z
+        .number({
+          invalid_type_error: "Vui lòng nhập số hợp lệ",
+        })
+        .int("Thứ tự hiển thị phải là số nguyên")
+        .min(0, "Thứ tự hiển thị phải lớn hơn hoặc bằng 0")
     )
   ),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),

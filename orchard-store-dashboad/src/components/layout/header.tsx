@@ -198,7 +198,7 @@ export function Header({ userName, userEmail }: HeaderProps) {
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Account</DropdownMenuLabel>
                   <DropdownMenuItem asChild>
-                    <Link href="#" className="flex items-center">
+                    <Link href="/admin/profile" className="flex items-center">
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
                     </Link>

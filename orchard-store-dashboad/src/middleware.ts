@@ -8,6 +8,30 @@ import {
   isCustomerOnly,
 } from "@/lib/jwt";
 
+// Extract API URL for CSP (remove protocol if needed)
+const getApiUrlForCSP = () => {
+  const apiUrl = env.apiUrl || "http://localhost:8080";
+  // Extract host and port from API URL
+  try {
+    const url = new URL(apiUrl);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return "http://localhost:8080";
+  }
+};
+
+// Get WebSocket URLs for CSP (ws:// and wss:// versions)
+const getWebSocketUrlsForCSP = () => {
+  const apiUrl = env.apiUrl || "http://localhost:8080";
+  try {
+    const url = new URL(apiUrl);
+    const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProtocol}//${url.host} ws://${url.host} wss://${url.host}`;
+  } catch {
+    return "ws://localhost:8080 wss://localhost:8080";
+  }
+};
+
 const TOKEN_KEY = env.accessTokenKey;
 const PROTECTED_PREFIX = "/admin";
 const AUTH_ROUTES = [
@@ -118,7 +142,43 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // Add CSP headers to allow Cloudflare Turnstile and Backend API
+  const response = NextResponse.next();
+
+  // Get API URL and WebSocket URLs for CSP
+  const apiUrlForCSP = getApiUrlForCSP();
+  const wsUrlsForCSP = getWebSocketUrlsForCSP();
+
+  // Content Security Policy for Turnstile and Backend API
+  // Include Turnstile domains in both dev and production (required for Turnstile to load)
+  const turnstileDomains =
+    "https://challenges.cloudflare.com https://*.cloudflare.com";
+
+  const cspHeader = [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval'${
+      turnstileDomains ? ` ${turnstileDomains}` : ""
+    }`,
+    `style-src 'self' 'unsafe-inline'${
+      turnstileDomains ? ` ${turnstileDomains}` : ""
+    }`,
+    `img-src 'self' data:${turnstileDomains ? ` ${turnstileDomains}` : ""}`,
+    "font-src 'self' data:",
+    `connect-src 'self'${
+      turnstileDomains ? ` ${turnstileDomains}` : ""
+    } https://localhost:3000 http://localhost:3000 ${apiUrlForCSP} ${wsUrlsForCSP}`,
+    `frame-src 'self'${turnstileDomains ? ` ${turnstileDomains}` : ""}`,
+    "frame-ancestors 'self'",
+  ]
+    .filter((directive) => directive.trim() !== "")
+    .join("; ");
+
+  response.headers.set("Content-Security-Policy", cspHeader);
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+
+  return response;
 }
 
 export const config = {

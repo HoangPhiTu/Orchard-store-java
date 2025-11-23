@@ -19,5 +19,20 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+    
+    /**
+     * Check if phone number exists for any user (excluding the specified user ID)
+     * @param phone Phone number to check
+     * @param excludeUserId User ID to exclude from the check
+     * @return true if phone exists for another user
+     */
+    boolean existsByPhoneAndIdNot(String phone, Long excludeUserId);
+    
+    /**
+     * Check if phone number exists for any user
+     * @param phone Phone number to check
+     * @return true if phone exists
+     */
+    boolean existsByPhone(String phone);
 }
 

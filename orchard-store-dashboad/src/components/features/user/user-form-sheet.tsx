@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo, useCallback, useState, useRef } from "react";
+import { useForm, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "sonner";
-import { X } from "lucide-react";
-import type { AxiosError } from "axios";
+import { X, Loader2 } from "lucide-react";
+import { useAppMutation } from "@/hooks/use-app-mutation";
+import { FormField } from "@/components/ui/form-field";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 import {
   Sheet,
@@ -21,14 +22,24 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SheetBody } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { useCreateUser, useUpdateUser } from "@/hooks/use-users";
+import { useUserHistory } from "@/hooks/use-users";
 import { useRoles } from "@/hooks/use-roles";
-import type { User, UserStatus } from "@/types/user.types";
-import { userFormSchema } from "@/types/user.types";
-import type { z } from "zod";
+import { userService } from "@/services/user.service";
+import { LoginHistoryTable } from "@/components/features/user/login-history-table";
+import { ImageUpload } from "@/components/shared/image-upload";
+import type { User } from "@/types/user.types";
+import type { LoginHistoryPage } from "@/types/login-history.types";
+import {
+  createUserSchema,
+  updateUserSchema,
+  type CreateUserSchema,
+  type UpdateUserSchema,
+} from "@/lib/schemas/user.schema";
 
-type UserFormData = z.infer<typeof userFormSchema>;
+// Union type cho form data (có thể là create hoặc update)
+type UserFormData = CreateUserSchema | UpdateUserSchema;
 
 interface UserFormSheetProps {
   open: boolean;
@@ -43,6 +54,7 @@ const DEFAULT_VALUES: UserFormData = {
   phone: null,
   roleIds: [],
   status: "ACTIVE",
+  avatarUrl: null,
 };
 
 export function UserFormSheet({
@@ -51,123 +63,71 @@ export function UserFormSheet({
   user,
 }: UserFormSheetProps) {
   const isEditing = Boolean(user);
+  const [activeTab, setActiveTab] = useState("profile");
   const { data: roles = [], isLoading: rolesLoading } = useRoles();
 
+  // Fetch login history only when editing and History tab is active
+  const { data: historyData, isLoading: historyLoading } = useUserHistory(
+    user?.id ?? null,
+    { page: 0, size: 20 }
+  );
+
+  // Sử dụng schema phù hợp với mode (create/edit)
+  const formSchema = isEditing ? updateUserSchema : createUserSchema;
+
   const form = useForm<UserFormData>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: DEFAULT_VALUES,
+    shouldFocusError: true, // ✅ Tự động focus vào field lỗi đầu tiên
   });
 
-  /**
-   * Xử lý lỗi 409 (Conflict) - hiển thị inline error cho field tương ứng
-   */
-  const handleConflictError = (error: AxiosError) => {
-    const errorMessage =
-      (error.response?.data as { message?: string })?.message || "";
-    const messageLower = errorMessage.toLowerCase();
+  // ✅ Sử dụng useAppMutation - Tự động xử lý error, success, invalidate queries
+  // ✅ Tự động đóng sheet khi thành công, giữ mở khi có lỗi
+  const createUserMutation = useAppMutation({
+    mutationFn: (data: CreateUserSchema) => userService.createUser(data),
+    queryKey: ["admin", "users"], // Tự động refresh danh sách users
+    form: form, // Tự động setError và reset form
+    onClose: () => onOpenChange(false), // Tự động đóng sheet khi thành công
+    successMessage: "Tạo người dùng thành công", // Tự động hiển thị toast success
+    resetOnSuccess: true, // Tự động reset form sau khi thành công
+  });
 
-    // Kiểm tra message chứa từ khóa 'email'
-    if (messageLower.includes("email")) {
-      form.setError("email", {
-        type: "manual",
-        message: "Email này đã được sử dụng",
-      });
+  const updateUserMutation = useAppMutation({
+    mutationFn: ({ id, data }: { id: number; data: UpdateUserSchema }) =>
+      userService.updateUser(id, data),
+    queryKey: ["admin", "users"], // Tự động refresh danh sách users
+    form: form, // ✅ Tự động map lỗi vào form fields
+    onClose: () => onOpenChange(false), // ✅ Tự động đóng sheet khi thành công (chỉ khi không có lỗi)
+    successMessage: "Cập nhật người dùng thành công", // ✅ Tự động hiển thị toast success
+    resetOnSuccess: false, // ✅ Không reset form khi update (giữ dữ liệu)
+  });
+
+  // Combined loading state (create hoặc update đang pending)
+  const isPending =
+    createUserMutation.isPending || updateUserMutation.isPending;
+
+  // Refs để trigger shake animation khi có lỗi
+  const formRef = useRef<HTMLFormElement>(null);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+
+  // ✅ Shake animation khi có lỗi validation
+  const handleSubmitError = () => {
+    // Trigger shake animation trên form
+    if (formRef.current) {
+      formRef.current.classList.add("animate-shake");
+      setTimeout(() => {
+        formRef.current?.classList.remove("animate-shake");
+      }, 500);
     }
 
-    // Kiểm tra message chứa từ khóa 'phone' hoặc 'số điện thoại'
-    if (
-      messageLower.includes("phone") ||
-      messageLower.includes("số điện thoại") ||
-      messageLower.includes("điện thoại")
-    ) {
-      form.setError("phone", {
-        type: "manual",
-        message: "Số điện thoại đã tồn tại",
-      });
-    }
-
-    // Nếu không match với email hoặc phone, hiển thị toast chung
-    if (
-      !messageLower.includes("email") &&
-      !messageLower.includes("phone") &&
-      !messageLower.includes("số điện thoại") &&
-      !messageLower.includes("điện thoại")
-    ) {
-      toast.error(errorMessage || "Dữ liệu đã tồn tại");
+    // Trigger shake animation trên submit button
+    if (submitButtonRef.current) {
+      submitButtonRef.current.classList.add("animate-shake-button");
+      setTimeout(() => {
+        submitButtonRef.current?.classList.remove("animate-shake-button");
+      }, 400);
     }
   };
-
-  const createUser = useCreateUser({
-    onSuccess: () => {
-      toast.success("Tạo người dùng thành công");
-      onOpenChange(false);
-      form.reset(DEFAULT_VALUES);
-    },
-    onError: (error) => {
-      // Kiểm tra nếu là lỗi 409 (Conflict)
-      if (
-        error instanceof Error &&
-        "response" in error &&
-        (error as AxiosError).response?.status === 409
-      ) {
-        handleConflictError(error as AxiosError);
-        // Không throw error để tránh Next.js error overlay
-        // Error đã được xử lý inline trong form
-        return;
-      }
-
-      // Các lỗi khác để interceptor xử lý (toast)
-      // Không cần toast ở đây vì interceptor đã xử lý
-    },
-    // Không throw error cho lỗi 409 để tránh Next.js error overlay
-    throwOnError: (error) => {
-      // Chỉ throw error nếu không phải lỗi 409
-      if (
-        error instanceof Error &&
-        "response" in error &&
-        (error as AxiosError).response?.status === 409
-      ) {
-        return false; // Không throw, đã xử lý inline
-      }
-      return true; // Throw các lỗi khác
-    },
-  });
-
-  const updateUser = useUpdateUser({
-    onSuccess: () => {
-      toast.success("Cập nhật người dùng thành công");
-      onOpenChange(false);
-      form.reset(DEFAULT_VALUES);
-    },
-    onError: (error) => {
-      // Kiểm tra nếu là lỗi 409 (Conflict)
-      if (
-        error instanceof Error &&
-        "response" in error &&
-        (error as AxiosError).response?.status === 409
-      ) {
-        handleConflictError(error as AxiosError);
-        // Không throw error để tránh Next.js error overlay
-        // Error đã được xử lý inline trong form
-        return;
-      }
-
-      // Các lỗi khác để interceptor xử lý (toast)
-      // Không cần toast ở đây vì interceptor đã xử lý
-    },
-    // Không throw error cho lỗi 409 để tránh Next.js error overlay
-    throwOnError: (error) => {
-      // Chỉ throw error nếu không phải lỗi 409
-      if (
-        error instanceof Error &&
-        "response" in error &&
-        (error as AxiosError).response?.status === 409
-      ) {
-        return false; // Không throw, đã xử lý inline
-      }
-      return true; // Throw các lỗi khác
-    },
-  });
 
   // Map user roles (role codes) to role IDs for form
   const userRoleIds = useMemo(() => {
@@ -187,6 +147,7 @@ export function UserFormSheet({
         phone: user.phone || null,
         roleIds: userRoleIds,
         status: user.status,
+        avatarUrl: user.avatarUrl || null,
       });
     } else {
       form.reset(DEFAULT_VALUES);
@@ -224,67 +185,28 @@ export function UserFormSheet({
     });
   };
 
-  const onSubmit = (data: UserFormData) => {
+  // ✅ Hàm submit cực kỳ ngắn gọn - không cần try-catch, không cần validation thủ công
+  // ✅ Không cần gọi onClose() hay toast - Hook tự động xử lý!
+  // ✅ Schema validation + useAppMutation tự động xử lý tất cả!
+  // ✅ Nếu thành công: Hook tự động gọi onClose() để đóng Sheet
+  // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, giữ Sheet mở để user sửa
+  const onSubmit = async (data: UserFormData) => {
     if (isEditing) {
-      // Update user - only send fields that can be updated
-      // Note: Email and password cannot be updated via this endpoint
-      if (!data.roleIds || data.roleIds.length === 0) {
-        form.setError("roleIds", {
-          type: "manual",
-          message: "Phải chọn ít nhất một quyền",
-        });
-        return;
-      }
-
-      const updateData: {
-        fullName?: string;
-        phone?: string | null;
-        roleIds: number[];
-        status?: UserStatus;
-      } = {
-        roleIds: data.roleIds,
-      };
-
-      if (data.fullName) updateData.fullName = data.fullName;
-      if (data.phone !== undefined) updateData.phone = data.phone;
-      if (data.status) updateData.status = data.status as UserStatus;
-
-      updateUser.mutate({ id: user!.id, data: updateData });
+      // Update user
+      const updateData = data as UpdateUserSchema;
+      // ✅ Dùng mutateAsync để có thể await
+      // ✅ Không cần try-catch: Hook tự động xử lý lỗi và gán vào form
+      // ✅ Nếu thành công: Hook tự động gọi onClose() trong onSuccess
+      // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, không gọi onClose()
+      await updateUserMutation.mutateAsync({ id: user!.id, data: updateData });
     } else {
-      // Create user - all fields required
-      if (
-        !data.email ||
-        !data.password ||
-        !data.roleIds ||
-        data.roleIds.length === 0
-      ) {
-        if (!data.email)
-          form.setError("email", {
-            type: "manual",
-            message: "Email không được để trống",
-          });
-        if (!data.password)
-          form.setError("password", {
-            type: "manual",
-            message: "Mật khẩu phải có ít nhất 6 ký tự",
-          });
-        if (!data.roleIds || data.roleIds.length === 0) {
-          form.setError("roleIds", {
-            type: "manual",
-            message: "Phải chọn ít nhất một quyền",
-          });
-        }
-        return;
-      }
-
-      createUser.mutate({
-        fullName: data.fullName,
-        email: data.email,
-        password: data.password,
-        phone: data.phone || null,
-        roleIds: data.roleIds,
-        status: data.status || "ACTIVE",
-      });
+      // Create user
+      const createData = data as CreateUserSchema;
+      // ✅ Dùng mutateAsync để có thể await
+      // ✅ Không cần try-catch: Hook tự động xử lý lỗi và gán vào form
+      // ✅ Nếu thành công: Hook tự động gọi onClose() trong onSuccess
+      // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, không gọi onClose()
+      await createUserMutation.mutateAsync(createData);
     }
   };
 
@@ -292,16 +214,19 @@ export function UserFormSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex flex-col">
         <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex h-full flex-col"
+          ref={formRef}
+          onSubmit={form.handleSubmit(onSubmit, handleSubmitError)}
+          className="relative flex h-full flex-col"
         >
+          {/* Loading Overlay */}
+          <LoadingOverlay isLoading={isPending} />
           <SheetHeader>
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <SheetTitle>
+                <SheetTitle className="text-xl font-semibold text-slate-900">
                   {isEditing ? "Edit User" : "Add New User"}
                 </SheetTitle>
-                <SheetDescription>
+                <SheetDescription className="text-sm text-slate-500">
                   {isEditing
                     ? "Update user information and roles."
                     : "Create a new user account with roles and permissions."}
@@ -319,188 +244,398 @@ export function UserFormSheet({
           </SheetHeader>
 
           <SheetBody>
-            <div className="space-y-6">
-              {/* Full Name */}
-              <div className="space-y-2">
-                <Label htmlFor="fullName">
-                  Full Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="fullName"
-                  {...form.register("fullName")}
-                  placeholder="Enter full name"
-                  className={
-                    form.formState.errors.fullName ? "border-red-500" : ""
-                  }
-                />
-                {form.formState.errors.fullName && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.fullName.message}
-                  </p>
-                )}
-              </div>
+            {/* Tabs chỉ hiển thị khi Edit mode */}
+            {isEditing ? (
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="profile">Thông tin</TabsTrigger>
+                  <TabsTrigger value="history">Lịch sử</TabsTrigger>
+                </TabsList>
 
-              {/* Email */}
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  Email <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...form.register("email")}
-                  placeholder="Enter email address"
-                  disabled={isEditing} // Email cannot be changed when editing
-                  className={
-                    form.formState.errors.email ? "border-red-500" : ""
-                  }
-                />
-                {form.formState.errors.email && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.email.message}
-                  </p>
-                )}
-                {isEditing && (
-                  <p className="text-xs text-slate-500">
-                    Email cannot be changed
-                  </p>
-                )}
-              </div>
+                {/* Tab 1: Profile - Form nhập liệu */}
+                <TabsContent value="profile" className="mt-4">
+                  <div className="space-y-6">
+                    {/* Avatar Upload - Căn giữa */}
+                    <div className="flex justify-center">
+                      <ImageUpload
+                        value={form.watch("avatarUrl")}
+                        onChange={(url) =>
+                          form.setValue("avatarUrl", url || null, {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          })
+                        }
+                        folder="users"
+                        size="lg"
+                        disabled={isPending}
+                      />
+                    </div>
 
-              {/* Password */}
-              <div className="space-y-2">
-                <Label htmlFor="password">
-                  Password{" "}
-                  {!isEditing && <span className="text-red-500">*</span>}
-                  {isEditing && (
-                    <span className="text-slate-500 text-xs font-normal">
-                      {" "}
-                      (Leave blank to keep current password)
-                    </span>
-                  )}
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  {...form.register("password")}
-                  placeholder={
-                    isEditing
-                      ? "Enter new password (optional)"
-                      : "Enter password"
-                  }
-                  className={
-                    form.formState.errors.password ? "border-red-500" : ""
-                  }
-                />
-                {form.formState.errors.password && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
+                    {/* Full Name */}
+                    <FormField
+                      label="Full Name"
+                      htmlFor="fullName"
+                      required
+                      error={form.formState.errors.fullName}
+                    >
+                      <Input
+                        id="fullName"
+                        {...form.register("fullName")}
+                        placeholder="Enter full name"
+                        className={cn(
+                          form.formState.errors.fullName &&
+                            "border-red-500 focus:border-red-500 focus:ring-red-500"
+                        )}
+                      />
+                    </FormField>
 
-              {/* Phone */}
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  {...form.register("phone")}
-                  placeholder="Enter phone number"
-                  className={
-                    form.formState.errors.phone ? "border-red-500" : ""
-                  }
-                />
-                {form.formState.errors.phone && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.phone.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Roles - Selectable Cards */}
-              <div className="space-y-2">
-                <Label>
-                  Roles <span className="text-red-500">*</span>
-                </Label>
-                {rolesLoading ? (
-                  <p className="text-sm text-slate-500">Loading roles...</p>
-                ) : roles.length === 0 ? (
-                  <p className="text-sm text-slate-500">No roles available</p>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {roles.map((role) => {
-                      const isSelected =
-                        watchedRoleIds?.includes(role.id) || false;
-                      return (
-                        <div
-                          key={role.id}
-                          onClick={() => handleRoleToggle(role.id)}
-                          className={cn(
-                            "relative flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all",
-                            isSelected
-                              ? "border-indigo-500 bg-indigo-50"
-                              : "border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/30"
-                          )}
-                        >
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-0.5"
-                          >
-                            <Checkbox
-                              id={`role-${role.id}`}
-                              checked={isSelected}
-                              onCheckedChange={(checked) => {
-                                // Only update if the checked state is different
-                                if (checked !== isSelected) {
-                                  handleRoleToggle(role.id);
-                                }
-                              }}
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <Label
-                              htmlFor={`role-${role.id}`}
-                              className="cursor-pointer font-medium text-slate-900"
+                    {/* Email */}
+                    <FormField
+                      label="Email"
+                      htmlFor="email"
+                      required
+                      error={
+                        (form.formState.errors as Record<string, FieldError>)
+                          .email
+                      }
+                      description={
+                        isEditing ? "Email không thể thay đổi" : undefined
+                      }
+                    >
+                      <Input
+                        id="email"
+                        type="email"
+                        {...form.register("email" as keyof UserFormData)}
+                        placeholder="Enter email address"
+                        disabled={isEditing}
+                        value={user?.email || ""}
+                        className={cn(
+                          (
+                            form.formState.errors as Record<
+                              string,
+                              { message?: string }
                             >
-                              {role.roleName}
-                            </Label>
-                            {role.description && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                {role.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {form.formState.errors.roleIds && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.roleIds.message}
-                  </p>
-                )}
-              </div>
+                          ).email &&
+                            "border-red-500 focus:border-red-500 focus:ring-red-500",
+                          isEditing && "bg-slate-100 cursor-not-allowed"
+                        )}
+                      />
+                    </FormField>
 
-              {/* Status - Switch */}
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <div className="flex items-center space-x-3">
-                  <Switch
-                    id="status"
-                    checked={watchedStatus === "ACTIVE"}
-                    onCheckedChange={handleStatusToggle}
+                    {/* Password */}
+                    <FormField
+                      label="Password"
+                      htmlFor="password"
+                      error={form.formState.errors.password}
+                      description={
+                        isEditing
+                          ? "Để trống nếu bạn không muốn thay đổi mật khẩu"
+                          : undefined
+                      }
+                    >
+                      <Input
+                        id="password"
+                        type="password"
+                        {...form.register("password")}
+                        placeholder="Nhập mật khẩu mới (tùy chọn)"
+                        className={cn(
+                          form.formState.errors.password &&
+                            "border-red-500 focus:border-red-500 focus:ring-red-500"
+                        )}
+                      />
+                    </FormField>
+
+                    {/* Phone */}
+                    <FormField
+                      label="Phone Number"
+                      htmlFor="phone"
+                      error={form.formState.errors.phone}
+                    >
+                      <Input
+                        id="phone"
+                        type="tel"
+                        {...form.register("phone")}
+                        placeholder="Enter phone number"
+                        className={cn(
+                          form.formState.errors.phone &&
+                            "border-red-500 focus:border-red-500 focus:ring-red-500"
+                        )}
+                      />
+                    </FormField>
+
+                    {/* Roles - Selectable Cards */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Roles <span className="text-red-500">*</span>
+                      </Label>
+                      {rolesLoading ? (
+                        <p className="text-sm text-slate-500">
+                          Loading roles...
+                        </p>
+                      ) : roles.length === 0 ? (
+                        <p className="text-sm text-slate-500">
+                          No roles available
+                        </p>
+                      ) : (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {roles.map((role) => {
+                            const isSelected =
+                              watchedRoleIds?.includes(role.id) || false;
+                            return (
+                              <div
+                                key={role.id}
+                                onClick={() => handleRoleToggle(role.id)}
+                                className={cn(
+                                  "relative flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
+                                  isSelected
+                                    ? "border-indigo-600 bg-indigo-50/50"
+                                    : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
+                                )}
+                              >
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="mt-0.5"
+                                >
+                                  <Checkbox
+                                    id={`role-${role.id}`}
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => {
+                                      if (checked !== isSelected) {
+                                        handleRoleToggle(role.id);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <Label
+                                    htmlFor={`role-${role.id}`}
+                                    className="cursor-pointer font-semibold text-slate-900"
+                                  >
+                                    {role.roleName}
+                                  </Label>
+                                  {role.description && (
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {role.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {form.formState.errors.roleIds && (
+                        <p className="text-xs text-red-500">
+                          {form.formState.errors.roleIds.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status - Switch */}
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="status"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Status
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <Switch
+                          id="status"
+                          checked={watchedStatus === "ACTIVE"}
+                          onCheckedChange={handleStatusToggle}
+                        />
+                        <Label
+                          htmlFor="status"
+                          className="cursor-pointer font-normal"
+                        >
+                          {watchedStatus === "ACTIVE" ? "Active" : "Inactive"}
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Tab 2: History - Lịch sử đăng nhập */}
+                <TabsContent value="history" className="mt-4">
+                  <LoginHistoryTable
+                    history={
+                      (historyData as LoginHistoryPage | undefined)?.content ||
+                      []
+                    }
+                    isLoading={historyLoading}
                   />
-                  <Label
-                    htmlFor="status"
-                    className="cursor-pointer font-normal"
-                  >
-                    {watchedStatus === "ACTIVE" ? "Active" : "Inactive"}
+                </TabsContent>
+              </Tabs>
+            ) : (
+              /* Create mode: Chỉ hiển thị form, không có Tabs */
+              <div className="space-y-6">
+                {/* Avatar Upload - Căn giữa */}
+                <div className="flex justify-center">
+                  <ImageUpload
+                    value={form.watch("avatarUrl")}
+                    onChange={(url) =>
+                      form.setValue("avatarUrl", url || null, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                    folder="users"
+                    size="lg"
+                    disabled={isPending}
+                  />
+                </div>
+
+                {/* Full Name */}
+                <FormField
+                  label="Full Name"
+                  htmlFor="fullName"
+                  required
+                  error={form.formState.errors.fullName}
+                >
+                  <Input
+                    id="fullName"
+                    {...form.register("fullName")}
+                    placeholder="Enter full name"
+                    className={cn(
+                      form.formState.errors.fullName &&
+                        "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    )}
+                  />
+                </FormField>
+
+                {/* Email */}
+                <FormField
+                  label="Email"
+                  htmlFor="email"
+                  required
+                  error={
+                    (form.formState.errors as Record<string, FieldError>).email
+                  }
+                >
+                  <Input
+                    id="email"
+                    type="email"
+                    {...form.register("email" as keyof UserFormData)}
+                    placeholder="Enter email address"
+                    className={cn(
+                      (
+                        form.formState.errors as Record<
+                          string,
+                          { message?: string }
+                        >
+                      ).email &&
+                        "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    )}
+                  />
+                </FormField>
+
+                {/* Password */}
+                <FormField
+                  label="Password"
+                  htmlFor="password"
+                  required
+                  error={form.formState.errors.password}
+                >
+                  <Input
+                    id="password"
+                    type="password"
+                    {...form.register("password")}
+                    placeholder="Nhập mật khẩu"
+                    className={cn(
+                      form.formState.errors.password &&
+                        "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    )}
+                  />
+                </FormField>
+
+                {/* Phone */}
+                <FormField
+                  label="Phone Number"
+                  htmlFor="phone"
+                  error={form.formState.errors.phone}
+                >
+                  <Input
+                    id="phone"
+                    type="tel"
+                    {...form.register("phone")}
+                    placeholder="Enter phone number"
+                    className={cn(
+                      form.formState.errors.phone &&
+                        "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    )}
+                  />
+                </FormField>
+
+                {/* Roles - Selectable Cards */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Roles <span className="text-red-500">*</span>
                   </Label>
+                  {rolesLoading ? (
+                    <p className="text-sm text-slate-500">Loading roles...</p>
+                  ) : roles.length === 0 ? (
+                    <p className="text-sm text-slate-500">No roles available</p>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {roles.map((role) => {
+                        const isSelected =
+                          watchedRoleIds?.includes(role.id) || false;
+                        return (
+                          <div
+                            key={role.id}
+                            onClick={() => handleRoleToggle(role.id)}
+                            className={cn(
+                              "relative flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
+                              isSelected
+                                ? "border-indigo-600 bg-indigo-50/50"
+                                : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
+                            )}
+                          >
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-0.5"
+                            >
+                              <Checkbox
+                                id={`role-${role.id}`}
+                                checked={isSelected}
+                                onCheckedChange={(checked) => {
+                                  if (checked !== isSelected) {
+                                    handleRoleToggle(role.id);
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <Label
+                                htmlFor={`role-${role.id}`}
+                                className="cursor-pointer font-semibold text-slate-900"
+                              >
+                                {role.roleName}
+                              </Label>
+                              {role.description && (
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {role.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {form.formState.errors.roleIds && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.roleIds.message}
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
           </SheetBody>
 
           <SheetFooter>
@@ -509,21 +644,27 @@ export function UserFormSheet({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1"
-                disabled={createUser.isPending || updateUser.isPending}
+                className="flex-1 rounded-lg"
+                disabled={isPending}
               >
                 Cancel
               </Button>
               <Button
+                ref={submitButtonRef}
                 type="submit"
-                disabled={createUser.isPending || updateUser.isPending}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                disabled={isPending}
+                className="flex-1 rounded-lg"
               >
-                {createUser.isPending || updateUser.isPending
-                  ? "Saving..."
-                  : isEditing
-                  ? "Update User"
-                  : "Create User"}
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : isEditing ? (
+                  "Cập nhật"
+                ) : (
+                  "Tạo mới"
+                )}
               </Button>
             </div>
           </SheetFooter>

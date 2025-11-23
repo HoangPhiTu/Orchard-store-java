@@ -146,7 +146,7 @@ export function SheetBody({
   className?: string;
 }) {
   return (
-    <div className={cn("flex-1 overflow-y-auto px-6 py-6", className)}>
+    <div className={cn("flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent", className)}>
       {children}
     </div>
   );
@@ -162,7 +162,7 @@ export function SheetFooter({
   return (
     <div
       className={cn(
-        "sticky bottom-0 border-t border-slate-100 bg-white/90 backdrop-blur-sm px-6 py-4",
+        "sticky bottom-0 border-t border-slate-100 bg-white px-6 py-6",
         className
       )}
     >

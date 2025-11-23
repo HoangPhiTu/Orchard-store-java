@@ -87,14 +87,14 @@ export default function ForgotPasswordPage() {
             <CardHeader className="space-y-4 pb-6">
               <ProgressSteps currentStep={2} />
               <div className="space-y-2 text-center pt-4">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                  <CheckCircle2 className="h-8 w-8 text-slate-700" />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+                  <CheckCircle2 className="h-8 w-8 text-indigo-600" />
                 </div>
                 <CardTitle className="text-2xl">Check your email</CardTitle>
                 <CardDescription>
                   We&apos;ve sent a 6-digit OTP code to
                   <br />
-                  <span className="font-semibold text-slate-900">
+                  <span className="font-semibold text-indigo-600">
                     {submittedEmail}
                   </span>
                 </CardDescription>
@@ -111,7 +111,8 @@ export default function ForgotPasswordPage() {
               </div>
               <div className="space-y-2">
                 <Button
-                  className="w-full bg-slate-900 hover:bg-slate-800"
+                  variant="default"
+                  className="w-full"
                   onClick={handleContinueToVerify}
                 >
                   Continue to verify OTP
@@ -124,7 +125,7 @@ export default function ForgotPasswordPage() {
                 </Link>
                 <Button
                   variant="ghost"
-                  className="w-full"
+                  className="w-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                   onClick={() => {
                     setIsSubmitted(false);
                     setSubmittedEmail("");
@@ -191,7 +192,8 @@ export default function ForgotPasswordPage() {
 
               <Button
                 type="submit"
-                className="h-11 w-full rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors shadow-sm"
+                variant="default"
+                className="h-11 w-full rounded-lg shadow-sm"
                 isLoading={isSubmitting}
               >
                 {isSubmitting ? (
@@ -207,7 +209,7 @@ export default function ForgotPasswordPage() {
               <div className="text-center">
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back to login

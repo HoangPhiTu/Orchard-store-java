@@ -40,10 +40,10 @@ dist/
 *.temp
 .cache/
 
-# Documentation files (except README.md and docs/)
+# Documentation files - exclude all .md files and docs/ folder
 *.md
 !README.md
-!docs/**/*.md
+docs/
 
 # Test files
 **/test/

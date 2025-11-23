@@ -1,4 +1,9 @@
-import { z } from "zod";
+import {
+  createUserSchema,
+  updateUserSchema,
+  type CreateUserSchema,
+  type UpdateUserSchema,
+} from "@/lib/schemas/user.schema";
 
 export type UserStatus = "ACTIVE" | "INACTIVE" | "BANNED" | "SUSPENDED";
 
@@ -9,6 +14,7 @@ export interface User {
   phone?: string | null;
   status: UserStatus;
   roles: string[]; // Array of role codes (e.g., ["ADMIN", "MANAGER"])
+  avatarUrl?: string | null; // URL ảnh avatar
   createdAt: string; // ISO date string
   lastLogin?: string | null; // ISO date string (optional)
 }
@@ -30,61 +36,16 @@ export interface Page<T> {
   last: boolean;
 }
 
-// Zod Schema for User Form Validation
-export const userFormSchema = z.object({
-  fullName: z
-    .string()
-    .min(1, "Họ tên không được để trống")
-    .max(255, "Họ tên không được vượt quá 255 ký tự"),
-  email: z
-    .string()
-    .min(1, "Email không được để trống")
-    .email("Email không hợp lệ")
-    .max(255, "Email không được vượt quá 255 ký tự"),
-  password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự").optional(),
-  phone: z
-    .string()
-    .regex(/^[0-9+\-\s()]*$/, "Số điện thoại không hợp lệ")
-    .max(20, "Số điện thoại không được vượt quá 20 ký tự")
-    .optional()
-    .nullable(),
-  roleIds: z
-    .array(z.number().positive())
-    .min(1, "Phải chọn ít nhất một quyền")
-    .optional(),
-  status: z.enum(["ACTIVE", "INACTIVE", "BANNED", "SUSPENDED"]).optional(),
-});
-
-// Schema for Create User (password required)
-export const createUserFormSchema = userFormSchema.extend({
-  password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
-  roleIds: z.array(z.number().positive()).min(1, "Phải chọn ít nhất một quyền"),
-});
-
-// Schema for Update User (NO email, NO password - only fullName, phone, roleIds, status)
-export const updateUserFormSchema = z.object({
-  fullName: z
-    .string()
-    .min(1, "Họ tên không được để trống")
-    .max(255, "Họ tên không được vượt quá 255 ký tự")
-    .optional(),
-  phone: z
-    .string()
-    .regex(/^[0-9+\-\s()]*$/, "Số điện thoại không hợp lệ")
-    .max(20, "Số điện thoại không được vượt quá 20 ký tự")
-    .optional()
-    .nullable(),
-  roleIds: z
-    .array(z.number().positive())
-    .min(1, "Phải chọn ít nhất một quyền")
-    .optional(),
-  status: z.enum(["ACTIVE", "INACTIVE", "BANNED", "SUSPENDED"]).optional(),
-});
+// Re-export schemas from user.schema.ts for backward compatibility
+// userFormSchema: Dùng cho form cần tất cả fields (có thể dùng createUserSchema)
+export const userFormSchema = createUserSchema;
+export const createUserFormSchema = createUserSchema;
+export const updateUserFormSchema = updateUserSchema;
 
 // Form data types matching backend DTOs
-export type UserFormData = z.infer<typeof userFormSchema>;
-export type CreateUserFormData = z.infer<typeof createUserFormSchema>;
-export type UpdateUserFormData = z.infer<typeof updateUserFormSchema>;
+export type UserFormData = CreateUserSchema; // Use CreateUserSchema as base
+export type CreateUserFormData = CreateUserSchema;
+export type UpdateUserFormData = UpdateUserSchema;
 
 // Request DTOs matching backend exactly
 export interface UserCreateRequestDTO {
@@ -94,6 +55,7 @@ export interface UserCreateRequestDTO {
   phone?: string | null;
   roleIds: number[]; // Array of role IDs
   status?: UserStatus;
+  avatarUrl?: string | null; // URL ảnh avatar
 }
 
 export interface UserUpdateRequestDTO {
@@ -101,5 +63,6 @@ export interface UserUpdateRequestDTO {
   phone?: string | null;
   roleIds?: number[]; // Array of role IDs
   status?: UserStatus;
+  avatarUrl?: string | null; // URL ảnh avatar
   // Note: email and password cannot be updated via this endpoint
 }

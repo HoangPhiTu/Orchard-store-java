@@ -74,15 +74,16 @@ public class DataInitializer implements CommandLineRunner {
         logger.info("📋 Checking default roles...");
         
         // Danh sách roles mặc định cần có
+        // Hierarchy Level: Số càng lớn = Quyền càng cao
         String[][] defaultRoles = {
             {"SUPER_ADMIN", "Super Administrator", "Full system access with all permissions", "10", "{\"*\": [\"*\"]}"},
-            {"ADMIN", "Administrator", "Full access to all modules except system settings", "9", 
+            {"ADMIN", "Administrator", "Full access to all modules except system settings", "8", 
              "{\"products\": [\"*\"], \"orders\": [\"*\"], \"customers\": [\"*\"], \"categories\": [\"*\"], \"brands\": [\"*\"], \"concentrations\": [\"*\"], \"inventory\": [\"*\"], \"analytics\": [\"read\"]}"},
-            {"MANAGER", "Manager", "Can manage products, orders, and view analytics", "7", 
+            {"MANAGER", "Manager", "Can manage products, orders, and view analytics", "6", 
              "{\"products\": [\"create\", \"read\", \"update\"], \"orders\": [\"read\", \"update\"], \"customers\": [\"read\"], \"analytics\": [\"read\"]}"},
-            {"STAFF", "Staff", "Can view and update orders, limited product access", "5", 
+            {"STAFF", "Staff", "Can view and update orders, limited product access", "4", 
              "{\"orders\": [\"read\", \"update\"], \"products\": [\"read\"], \"customers\": [\"read\"]}"},
-            {"VIEWER", "Viewer", "Read-only access to all modules", "3", "{\"*\": [\"read\"]}"}
+            {"VIEWER", "Viewer", "Read-only access to all modules", "2", "{\"*\": [\"read\"]}"}
         };
         
         for (String[] roleData : defaultRoles) {
@@ -148,7 +149,7 @@ public class DataInitializer implements CommandLineRunner {
                                     .roleCode("ADMIN")
                                     .roleName("Administrator")
                                     .description("Full access to all modules except system settings")
-                                    .hierarchyLevel(9)
+                                    .hierarchyLevel(8) // Updated: Level 8 (số càng lớn = quyền càng cao)
                                     .permissions(adminPermissions)
                                     .status("ACTIVE")
                                     .createdAt(now)

@@ -46,7 +46,7 @@ Xây dựng nền tảng e-commerce với **95% tính năng** so với Orchard.v
 - Bảng `concentrations` chuẩn hóa nồng độ (EDP, EDT, Parfum…) để gợi ý sản phẩm liên quan.
 - `product_attributes` bổ sung `scope` (PRODUCT/VARIANT) + trigger đảm bảo attribute_value khớp attribute_type.
 - Bộ chỉ số real-time lưu ở `product_analytics` và `product_daily_sales` để phục vụ dashboard.
-- 👉 Chi tiết SQL & migration plan: xem `docs/DATABASE_SCHEMA_ENHANCED.md`.
+- 👉 Chi tiết SQL & migration plan: xem `docs/BACKEND.md`.
 
 ---
 
@@ -85,10 +85,10 @@ Xây dựng nền tảng e-commerce với **95% tính năng** so với Orchard.v
 JAVA-ORCHARD-STORE/
 ├── README.md                         # Tài liệu tổng quan & hướng dẫn setup
 ├── docs/                             # Bộ tài liệu kỹ thuật chuyên sâu
-│   ├── DOCUMENTATION.md              # Bean Validation, Auth features, module hóa, API endpoints, Backend status
-│   ├── DATABASE_SCHEMA_ENHANCED.md   # Thiết kế CSDL (38 bảng, function, trigger)
-│   ├── ROADMAP_ENHANCED.md           # Lộ trình phát triển theo phase
-│   └── ADMIN_PANEL_DEVELOPMENT_PLAN.md # Kế hoạch phát triển Admin Panel
+│   ├── BACKEND.md                    # Tài liệu Backend (Database Schema, Entities, APIs, Security)
+│   ├── FRONTEND.md                   # Tài liệu Frontend (Error Handling, Components, WebSocket)
+│   ├── PROJECT.md                    # Planning & Roadmap (Lộ trình phát triển)
+│   └── CODING_STANDARDS.md            # Coding standards và naming conventions
 ├── logs/                             # Nhật ký chạy ứng dụng (backend/admin)
 ├── orchard-store-backend/            # Monolithic Spring Boot backend
 ├── orchard-store-admin/              # Next.js 14 Admin Panel
@@ -1201,17 +1201,23 @@ git push origin main
 
 ### Documentation Files
 
-- **[docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md)** - Tài liệu kỹ thuật chi tiết:
-  - Bean Validation
-  - Module hóa & Mapper Layer
-  - Database Schema overview
-  - API Endpoints Summary
-  - Backend Status & Modules
-  - Product Features Review
-  - Admin Authentication Features
-- **[docs/DATABASE_SCHEMA_ENHANCED.md](./docs/DATABASE_SCHEMA_ENHANCED.md)** - Chi tiết database schema (38 tables, functions, triggers)
-- **[docs/ROADMAP_ENHANCED.md](./docs/ROADMAP_ENHANCED.md)** - Lộ trình phát triển 8 phases
-- **[docs/ADMIN_PANEL_DEVELOPMENT_PLAN.md](./docs/ADMIN_PANEL_DEVELOPMENT_PLAN.md)** - Kế hoạch phát triển Admin Panel
+- **[docs/BACKEND.md](./docs/BACKEND.md)** - Tài liệu Backend đầy đủ:
+  - Database Schema (41 tables, ERD)
+  - Modules & Entities (54 entities)
+  - API Documentation
+  - Security & Authentication (Spring Security 6, JWT, RBAC)
+  - Technical Deep Dive (Bean Validation, MapStruct, Repository Layer)
+- **[docs/FRONTEND.md](./docs/FRONTEND.md)** - Tài liệu Frontend:
+  - Error Handling (Centralized Axios Interceptor)
+  - Authentication & State Management
+  - UI Components & Features
+  - WebSocket Notifications
+- **[docs/PROJECT.md](./docs/PROJECT.md)** - Planning & Roadmap:
+  - Technology Stack
+  - Kiến Trúc Hệ Thống
+  - Lộ Trình Phát Triển
+  - Delivery Plan
+- **[docs/CODING_STANDARDS.md](./docs/CODING_STANDARDS.md)** - Coding standards và naming conventions
 
 ### External Resources
 

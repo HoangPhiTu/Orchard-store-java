@@ -32,6 +32,9 @@ public class UserCreateRequestDTO {
     @Size(max = 20, message = "Số điện thoại không được vượt quá 20 ký tự")
     private String phone;
 
+    @Size(max = 500, message = "URL avatar không được vượt quá 500 ký tự")
+    private String avatarUrl;
+
     @NotNull(message = "Danh sách quyền không được để trống")
     private Set<Long> roleIds;
 

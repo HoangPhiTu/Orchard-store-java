@@ -73,8 +73,11 @@ const persistSession = (
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: readUser(),
-  isAuthenticated: Boolean(readToken()),
+  // ⭐ FIX HYDRATION MISMATCH: Không đọc localStorage khi initialize
+  // Server render: null, Client render: null (consistent!)
+  // Chỉ đọc sau khi component mount (trong checkAuth/initialize)
+  user: null,
+  isAuthenticated: false,
   isLoading: false,
   isInitialized: false,
 

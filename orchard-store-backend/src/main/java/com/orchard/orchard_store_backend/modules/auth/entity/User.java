@@ -39,6 +39,9 @@ public class User {
     @Column(length = 20)
     private String phone;
 
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
     // Legacy role field (backward compatibility)
     // Vẫn giữ để tương thích với code cũ, nhưng khuyến nghị dùng bảng user_roles
     @Enumerated(EnumType.STRING)

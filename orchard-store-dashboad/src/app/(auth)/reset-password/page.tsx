@@ -168,8 +168,8 @@ export default function ResetPasswordPage() {
             <CardHeader className="space-y-4 pb-6">
               <ProgressSteps currentStep={3} />
               <div className="space-y-2 pt-4 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                  <CheckCircle2 className="h-8 w-8 text-slate-700" />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+                  <CheckCircle2 className="h-8 w-8 text-indigo-600" />
                 </div>
                 <CardTitle className="text-2xl">
                   Password reset successful
@@ -182,7 +182,7 @@ export default function ResetPasswordPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Link href="/login" className="block w-full">
-                <Button className="w-full bg-slate-900 hover:bg-slate-800">
+                <Button variant="default" className="w-full">
                   Go to login
                 </Button>
               </Link>
@@ -208,7 +208,7 @@ export default function ResetPasswordPage() {
         <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
           <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
               <p className="mt-4 text-sm text-slate-600">Loading...</p>
             </CardContent>
           </Card>
@@ -233,7 +233,7 @@ export default function ResetPasswordPage() {
         <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
           <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
               <p className="mt-4 text-sm text-slate-600">Validating OTP...</p>
             </CardContent>
           </Card>
@@ -277,7 +277,8 @@ export default function ResetPasswordPage() {
 
               <div className="space-y-2">
                 <Button
-                  className="w-full bg-slate-900 hover:bg-slate-800"
+                  variant="default"
+                  className="w-full"
                   onClick={() => {
                     router.push(
                       `/verify-otp?email=${encodeURIComponent(email)}`
@@ -400,7 +401,8 @@ export default function ResetPasswordPage() {
 
               <Button
                 type="submit"
-                className="h-11 w-full rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors shadow-sm"
+                variant="default"
+                className="h-11 w-full rounded-lg shadow-sm"
                 isLoading={isSubmitting}
               >
                 {isSubmitting ? (
@@ -416,7 +418,7 @@ export default function ResetPasswordPage() {
               <div className="text-center space-y-3">
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back to login

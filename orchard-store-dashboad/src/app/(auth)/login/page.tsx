@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
+import dynamic from "next/dynamic";
 import {
   Clock,
   Loader2,
@@ -16,6 +17,7 @@ import {
   Users,
   TrendingUp,
   Mountain,
+  // DISABLED: ShieldAlert, // Lock mechanism disabled
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuthStore } from "@/stores/auth-store";
 import { loginSchema, type LoginSchema } from "@/lib/schemas/auth.schema";
 import { toast } from "sonner";
+import {
+  incrementFailedAttempts,
+  resetFailedAttempts,
+  // DISABLED: Lock mechanism after 5 failed attempts
+  // isLocked,
+  // getLockRemainingTime,
+  // formatLockTime,
+} from "@/lib/security/rate-limit";
+import { hashPassword } from "@/lib/security/password-hash";
 
 type LoginApiError = {
   message?: string;
@@ -37,6 +48,19 @@ type StoredAccount = {
 
 const RECENT_ACCOUNTS_KEY = "orchard_recent_logins";
 const MAX_SAVED_ACCOUNTS = 3;
+
+// Lazy load Turnstile to reduce initial bundle size and avoid lag
+const Turnstile = dynamic(
+  () => import("react-turnstile").then((mod) => mod.default),
+  {
+    ssr: false, // Turnstile only works on client-side
+    loading: () => (
+      <div className="h-[65px] w-[300px] flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50">
+        <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+      </div>
+    ),
+  }
+);
 
 const getStoredAccounts = (): StoredAccount[] => {
   if (typeof window === "undefined") return [];
@@ -56,6 +80,35 @@ export default function LoginPage() {
     useState<StoredAccount[]>(getStoredAccounts);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionRef = useRef<HTMLDivElement | null>(null);
+  const [isSubmittingDebounced, setIsSubmittingDebounced] = useState(false);
+  const submitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Security: Turnstile & Rate Limiting
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [showTurnstile, setShowTurnstile] = useState(false);
+  // DISABLED: Lock mechanism after 5 failed attempts
+  // const [isLockedState, setIsLockedState] = useState(false);
+  // const [lockRemaining, setLockRemaining] = useState(0);
+  const turnstileKeyRef = useRef<number>(0); // Use key to force re-render instead of ref
+  // const lockCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Password hashing (optional - chỉ bật nếu Backend hỗ trợ)
+  const ENABLE_PASSWORD_HASHING =
+    process.env.NEXT_PUBLIC_ENABLE_PASSWORD_HASHING === "true";
+
+  // Check if Turnstile is configured
+  const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const isTurnstileConfigured = Boolean(
+    TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY.trim() !== ""
+  );
+
+  // Show Turnstile if configured (works in both dev and production)
+  // In development, SSL errors will be handled gracefully
+  useEffect(() => {
+    if (isTurnstileConfigured) {
+      setShowTurnstile(true);
+    }
+  }, [isTurnstileConfigured]);
 
   const {
     register,
@@ -99,6 +152,46 @@ export default function LoginPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Security: Check rate limiting on mount and email change
+  // DISABLED: Lock mechanism after 5 failed attempts
+  // useEffect(() => {
+  //   const checkSecurity = () => {
+  //     const locked = isLocked();
+
+  //     setIsLockedState(locked);
+  //     // Turnstile is always shown from start, no need to check requiresCaptcha
+
+  //     if (locked) {
+  //       const remaining = getLockRemainingTime();
+  //       setLockRemaining(remaining);
+
+  //       // Update lock timer every second
+  //       lockCheckIntervalRef.current = setInterval(() => {
+  //         const newRemaining = getLockRemainingTime();
+  //         setLockRemaining(newRemaining);
+  //         if (newRemaining === 0) {
+  //           setIsLockedState(false);
+  //           if (lockCheckIntervalRef.current) {
+  //             clearInterval(lockCheckIntervalRef.current);
+  //           }
+  //         }
+  //       }, 1000);
+  //     } else {
+  //       if (lockCheckIntervalRef.current) {
+  //         clearInterval(lockCheckIntervalRef.current);
+  //       }
+  //     }
+  //   };
+
+  //   checkSecurity();
+
+  //   return () => {
+  //     if (lockCheckIntervalRef.current) {
+  //       clearInterval(lockCheckIntervalRef.current);
+  //     }
+  //   };
+  // }, [emailValue]);
 
   const persistRecentAccount = (email: string, password: string) => {
     if (typeof window === "undefined" || !email || !password) {
@@ -146,8 +239,95 @@ export default function LoginPage() {
   };
 
   const onSubmit = async (values: LoginSchema) => {
+    // Prevent double submission
+    if (isSubmittingDebounced) {
+      return;
+    }
+
+    // Security: Check if locked
+    // DISABLED: Lock mechanism after 5 failed attempts
+    // if (isLocked()) {
+    //   const remaining = formatLockTime(getLockRemainingTime());
+    //   toast.error(
+    //     `Tài khoản tạm thời bị khóa. Vui lòng thử lại sau ${remaining}.`
+    //   );
+    //   return;
+    // }
+
+    // Security: Verify Turnstile token if configured
+    // DISABLED in development to allow login without Turnstile issues
+    if (
+      showTurnstile &&
+      isTurnstileConfigured &&
+      process.env.NODE_ENV === "production"
+    ) {
+      // Check if token exists (only in production)
+      if (!turnstileToken) {
+        toast.error("Vui lòng hoàn thành xác minh bảo mật");
+        return;
+      }
+
+      // Verify token with Cloudflare (only in production)
+      try {
+        const verifyResponse = await fetch("/api/auth/verify-turnstile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
+
+        if (!verifyResponse.ok) {
+          throw new Error("Verification request failed");
+        }
+
+        const verifyData = await verifyResponse.json();
+        if (!verifyData.success) {
+          toast.error("Xác minh bảo mật thất bại. Vui lòng thử lại.");
+          setTurnstileToken(null);
+          // Reset Turnstile widget by changing key
+          turnstileKeyRef.current += 1;
+          return; // Block login in production
+        }
+      } catch (error) {
+        console.error("Turnstile verification error:", error);
+        toast.error("Không thể xác minh bảo mật. Vui lòng thử lại.");
+        setTurnstileToken(null);
+        turnstileKeyRef.current += 1;
+        return; // Block login in production
+      }
+    } else if (
+      showTurnstile &&
+      isTurnstileConfigured &&
+      process.env.NODE_ENV === "development"
+    ) {
+      // In development, skip Turnstile verification completely
+      console.log("Development mode: Skipping Turnstile verification");
+    }
+
+    setIsSubmittingDebounced(true);
+    console.log("After Turnstile check, proceeding to login...");
+
     try {
-      await login(values);
+      // Security: Hash password if enabled (optional)
+      let passwordToSend = values.password;
+      if (ENABLE_PASSWORD_HASHING) {
+        passwordToSend = await hashPassword(values.password);
+      }
+
+      console.log("Calling login API...");
+      // Login với password đã hash (nếu bật)
+      await login({
+        ...values,
+        password: passwordToSend,
+      });
+      console.log("Login API success!");
+
+      // Security: Reset failed attempts on success
+      resetFailedAttempts();
+      // Keep Turnstile visible (always shown), just reset token
+      setTurnstileToken(null);
+      // Reset Turnstile widget for next login by changing key
+      turnstileKeyRef.current += 1;
+
       persistRecentAccount(values.email, values.password);
       toast.success("Signed in successfully");
 
@@ -157,12 +337,62 @@ export default function LoginPage() {
       router.replace(nextUrl);
     } catch (error: unknown) {
       const axiosError = error as AxiosError<LoginApiError>;
-      const apiMessage =
-        axiosError.response?.data?.message ?? "Email hoặc mật khẩu không đúng";
-      setError("root", { type: "server", message: apiMessage });
-      toast.error(apiMessage);
+
+      // Security: Increment failed attempts
+      incrementFailedAttempts(values.email);
+
+      // Turnstile is always shown, just reset it on error
+      setTurnstileToken(null);
+      // Reset Turnstile widget by changing key
+      turnstileKeyRef.current += 1;
+
+      // Handle timeout specifically
+      if (
+        axiosError.code === "ECONNABORTED" ||
+        axiosError.message?.includes("timeout")
+      ) {
+        const timeoutMessage = "Kết nối quá hạn, vui lòng kiểm tra mạng";
+        setError("root", { type: "server", message: timeoutMessage });
+        toast.error(timeoutMessage);
+      } else {
+        const apiMessage =
+          axiosError.response?.data?.message ??
+          "Email hoặc mật khẩu không đúng";
+        setError("root", { type: "server", message: apiMessage });
+        toast.error(apiMessage);
+
+        // Check if locked after this attempt
+        // DISABLED: Lock mechanism after 5 failed attempts
+        // if (isLocked()) {
+        //   const remaining = formatLockTime(getLockRemainingTime());
+        //   toast.error(
+        //     `Đăng nhập sai quá nhiều lần. Tài khoản bị khóa trong ${remaining}.`
+        //   );
+        //   setIsLockedState(true);
+        // }
+      }
+    } finally {
+      // BẮT BUỘC reset state trong finally để tránh stuck loading
+      // Clear any pending timeout
+      if (submitTimeoutRef.current) {
+        clearTimeout(submitTimeoutRef.current);
+      }
+
+      // Reset debounce state after a short delay to prevent rapid clicks
+      submitTimeoutRef.current = setTimeout(() => {
+        setIsSubmittingDebounced(false);
+      }, 500);
     }
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (submitTimeoutRef.current) {
+        clearTimeout(submitTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const renderSavedAccounts = () => {
     if (recentAccounts.length === 0) {
@@ -318,7 +548,7 @@ export default function LoginPage() {
                     type="email"
                     placeholder="admin@orchard.com"
                     autoComplete="email"
-                    className="h-11 border-slate-300 focus:border-slate-500 focus:ring-slate-500"
+                    className="h-11 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
                     {...register("email")}
                     onFocus={() => {
                       if (recentAccounts.length > 0) {
@@ -344,7 +574,7 @@ export default function LoginPage() {
                     </Label>
                     <Link
                       href="/forgot-password"
-                      className="text-sm font-medium text-slate-700 hover:text-slate-900"
+                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
                     >
                       Forgot password?
                     </Link>
@@ -355,7 +585,7 @@ export default function LoginPage() {
                       type="password"
                       placeholder="Enter your password"
                       autoComplete="current-password"
-                      className="h-11 border-slate-300 pr-20 focus:border-blue-500 focus:ring-blue-500"
+                      className="h-11 border-slate-300 pr-20 focus:border-indigo-500 focus:ring-indigo-500"
                       {...register("password")}
                       onFocus={() => {
                         if (recentAccounts.length > 0) {
@@ -409,7 +639,7 @@ export default function LoginPage() {
                       <Checkbox
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        className="border-slate-300 data-[state=checked]:bg-slate-900 data-[state=checked]:border-slate-900"
+                        className="border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                       />
                       <span className="text-sm text-slate-700">
                         Remember me for 7 days
@@ -428,13 +658,106 @@ export default function LoginPage() {
                 </div>
               )}
 
+              {/* Security: Lock Message */}
+              {/* DISABLED: Lock mechanism after 5 failed attempts */}
+              {/* {isLockedState && (
+                <div className="rounded-lg bg-orange-50 border border-orange-200 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-orange-600" />
+                    <p className="text-sm font-medium text-orange-800">
+                      Tài khoản tạm thời bị khóa do đăng nhập sai quá nhiều lần.
+                      {lockRemaining > 0 && (
+                        <span className="block mt-1 text-xs">
+                          Vui lòng thử lại sau: {formatLockTime(lockRemaining)}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )} */}
+
+              {/* Security: Turnstile Widget - Show if configured */}
+              {showTurnstile && isTurnstileConfigured && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-indigo-700">
+                    Xác minh bảo mật
+                    {process.env.NODE_ENV === "development" && (
+                      <span className="ml-2 text-xs font-normal text-slate-400">
+                        (Development Mode)
+                      </span>
+                    )}
+                  </Label>
+                  <div className="flex justify-center">
+                    <Turnstile
+                      key={turnstileKeyRef.current}
+                      sitekey={TURNSTILE_SITE_KEY || ""}
+                      theme="light"
+                      onSuccess={(token: string) => {
+                        setTurnstileToken(token);
+                        console.log("Turnstile verified successfully");
+                      }}
+                      onError={(error: unknown) => {
+                        setTurnstileToken(null);
+                        // Ignore SSL errors in development (ERR_SSL_PROTOCOL_ERROR)
+                        // This is a known issue when Turnstile tries to connect to localhost with HTTPS
+                        const errorMessage =
+                          error instanceof Error
+                            ? error.message
+                            : String(error || "");
+                        if (
+                          process.env.NODE_ENV === "development" &&
+                          (errorMessage.includes("SSL") ||
+                            errorMessage.includes("ERR_SSL_PROTOCOL_ERROR"))
+                        ) {
+                          console.warn(
+                            "Turnstile SSL error in development (ignored). This is normal when using HTTP localhost."
+                          );
+                          return;
+                        }
+                        // Only show error in production
+                        if (process.env.NODE_ENV === "production") {
+                          toast.error(
+                            "Xác minh bảo mật thất bại. Vui lòng thử lại."
+                          );
+                        }
+                      }}
+                      onExpire={() => {
+                        setTurnstileToken(null);
+                        console.log("Turnstile token expired");
+                        if (process.env.NODE_ENV === "production") {
+                          toast.warning(
+                            "Phiên xác minh đã hết hạn. Vui lòng xác minh lại."
+                          );
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 text-center">
+                    {process.env.NODE_ENV === "development"
+                      ? "Xác minh bảo mật (không bắt buộc trong development)"
+                      : "Vui lòng hoàn thành xác minh bảo mật để đăng nhập"}
+                  </p>
+                </div>
+              )}
+
               {/* Sign In Button */}
               <Button
                 type="submit"
-                className="h-11 w-full rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-all shadow-sm"
-                isLoading={isSubmitting}
+                variant="default"
+                className="h-11 w-full rounded-lg shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={
+                  isSubmitting ||
+                  isSubmittingDebounced ||
+                  // DISABLED: isLockedState || // Lock mechanism disabled
+                  // Require Turnstile token in production, optional in development
+                  (showTurnstile &&
+                    isTurnstileConfigured &&
+                    !turnstileToken &&
+                    process.env.NODE_ENV === "production")
+                }
+                isLoading={isSubmitting || isSubmittingDebounced}
               >
-                {isSubmitting ? (
+                {isSubmitting || isSubmittingDebounced ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing in...
@@ -442,6 +765,15 @@ export default function LoginPage() {
                 ) : (
                   "Sign in"
                 )}
+                {/* DISABLED: Lock mechanism */}
+                {/* ) : isLockedState ? (
+                  <>
+                    <ShieldAlert className="mr-2 h-4 w-4" />
+                    Tài khoản bị khóa
+                  </>
+                ) : (
+                  "Sign in"
+                )} */}
               </Button>
             </form>
 
@@ -450,7 +782,7 @@ export default function LoginPage() {
               Don&apos;t have an account?{" "}
               <Link
                 href="#"
-                className="font-semibold text-slate-900 hover:text-slate-700"
+                className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
               >
                 Contact Admin
               </Link>

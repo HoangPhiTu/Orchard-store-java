@@ -566,6 +566,203 @@ Swap these with live API hooks once endpoints are available (e.g., via TanStack 
 - Add new protected pages → create routes under `src/app/(admin)/admin/*`; middleware will guard them automatically.
 - Update token key → change both `.env.local` and `TOKEN_KEY` fallback in `middleware.ts`.
 
+### Image Upload Module
+
+**Mục đích**: Upload và quản lý ảnh (avatar, product images) lên MinIO (S3 Compatible).
+
+**Implementation**:
+
+- **Service**: `src/services/upload.service.ts`
+
+  - Method: `uploadImage(file: File, folder: string): Promise<string>`
+  - Validate file type (chỉ ảnh) và size (tối đa 5MB)
+  - Gọi API `POST /api/admin/upload` với FormData
+  - Trả về URL ảnh từ backend response
+
+- **Component**: `src/components/shared/image-upload.tsx`
+  - Reusable component cho upload ảnh
+  - Props: `value`, `onChange`, `disabled`, `folder`, `size`
+  - UI: Avatar tròn với ảnh hoặc placeholder, nút X để xóa, loading spinner
+  - Tích hợp với React Hook Form qua `form.setValue()`
+
+**Tích hợp vào User Form**:
+
+- File: `src/components/features/user/user-form-sheet.tsx`
+- `ImageUpload` component được đặt ở đầu form, căn giữa
+- Folder: `"users"` cho avatar
+- Kết nối với form state qua `form.watch("avatarUrl")` và `form.setValue()`
+- Schema: `avatarUrl` field đã được thêm vào `user.schema.ts` (optional, nullable, URL validation)
+
+**Tính năng**:
+
+- ✅ Upload ảnh lên MinIO qua backend API
+- ✅ Validate file type và size (5MB max)
+- ✅ Loading state với spinner
+- ✅ Error handling với toast notifications
+- ✅ Xóa ảnh (set `avatarUrl` về `null`)
+- ✅ Hiển thị ảnh hiện tại hoặc placeholder
+- ✅ Disable state khi form đang submit
+
+**Cách sử dụng**:
+
+```tsx
+import { ImageUpload } from "@/components/shared/image-upload";
+
+<ImageUpload
+  value={form.watch("avatarUrl")}
+  onChange={(url) => form.setValue("avatarUrl", url || null)}
+  folder="users"
+  size="lg"
+  disabled={isPending}
+/>;
+```
+
+**Backend API**:
+
+- `POST /api/admin/upload` - Upload ảnh (cần authentication)
+  - Request: `multipart/form-data` với `file` và `folder`
+  - Response: `ApiResponse<string>` với URL ảnh
+
+**MinIO Configuration**:
+
+- Endpoint: `http://127.0.0.1:9000`
+- Bucket: `orchard-bucket`
+- Folder structure: `users/`, `products/`, `others/`
+- Access Policy: PUBLIC (cho phép đọc công khai)
+
+Xem thêm: `orchard-store-backend/MINIO_SETUP_GUIDE.md`
+
+---
+
+### User Management Module
+
+**Mục đích**: Quản lý users (nhân viên/admin) với đầy đủ CRUD operations và các tính năng bổ sung.
+
+**Implementation**:
+
+- **Service**: `src/services/user.service.ts`
+
+  - Methods: `getUsers`, `getUser`, `createUser`, `updateUser`, `toggleUserStatus`, `resetPassword`, `deleteUser`
+  - Tất cả methods đều unwrap `ApiResponse<T>` format từ backend
+
+- **Hooks**: `src/hooks/use-users.ts`
+
+  - `useUsers(filters)`: TanStack Query hook để lấy danh sách users với search, pagination, status filter
+  - `useUserHistory(userId, pagination)`: Hook để lấy lịch sử đăng nhập của user
+  - `useCurrentUser()`: Hook để lấy thông tin user hiện tại (`GET /api/auth/me`)
+
+- **Components**:
+  - `UserTable`: Data table hiển thị danh sách users với actions
+  - `UserFormSheet`: Form tạo/sửa user (có tích hợp ImageUpload cho avatar)
+  - `DeleteUserDialog`: Dialog xác nhận xóa user
+  - `ToggleStatusDialog`: Dialog xác nhận khóa/mở khóa user
+  - `ResetPasswordDialog`: Dialog reset password cho user khác
+
+**User Management Page** (`/admin/users`):
+
+- **Features**:
+
+  - Search users theo keyword (email, fullName, phone)
+  - Filter theo status (ACTIVE, INACTIVE, BANNED, SUSPENDED)
+  - Pagination (20 items per page)
+  - Actions dropdown cho mỗi user:
+    - **Edit**: Mở form sheet để chỉnh sửa
+    - **Lock/Unlock**: Toggle status với confirmation dialog
+    - **Reset Password**: Admin reset password cho user khác
+    - **Delete**: Xóa user với confirmation dialog
+  - Role-based access control:
+    - Disable "Lock/Unlock" nếu user đang cố toggle chính mình
+    - Disable "Lock/Unlock" nếu user không có quyền ADMIN/SUPER_ADMIN
+    - Tooltip hiển thị lý do disable
+
+- **User Form** (`UserFormSheet`):
+  - Create mode: Tạo user mới với password bắt buộc
+  - Edit mode: Cập nhật user (email không thể thay đổi)
+  - Tabs: "Thông tin" và "Lịch sử" (chỉ hiển thị khi edit)
+  - Fields:
+    - Avatar upload (ImageUpload component)
+    - Full Name (required)
+    - Email (required, không thể sửa khi edit)
+    - Password (required khi create, optional khi edit)
+    - Phone (optional)
+    - Roles (multi-select với cards, min 1 role)
+    - Status (switch: ACTIVE/INACTIVE)
+  - Validation: Zod schema với Vietnamese error messages
+  - Error handling: Tự động map backend errors vào form fields
+  - Success handling: Tự động đóng sheet và refresh danh sách
+
+**Profile Page** (`/admin/profile`):
+
+- **Mục đích**: Hiển thị thông tin user hiện tại
+- **Features**:
+  - Avatar với initials fallback
+  - Full Name, Email, User ID
+  - Roles với badges (màu sắc theo role level)
+  - Permissions (nếu có)
+  - Loading state và error handling
+- **Hook**: `useCurrentUser()` để fetch data từ `GET /api/auth/me`
+
+**Delete User**:
+
+- **Component**: `DeleteUserDialog`
+- **Features**:
+  - Confirmation dialog với user name và email
+  - Backend validation: Không thể xóa chính mình (self-protection)
+  - Hierarchy check: Chỉ có thể xóa user có level thấp hơn
+  - Success toast và auto-refresh danh sách
+  - Error handling với toast notifications
+
+**Toggle Status (Lock/Unlock)**:
+
+- **Component**: `ToggleStatusDialog`
+- **Features**:
+  - Confirmation dialog với action (Lock/Unlock) dựa trên status hiện tại
+  - Backend validation: Không thể toggle chính mình
+  - Hierarchy check: Chỉ có thể toggle user có level thấp hơn
+  - Success toast và auto-refresh danh sách
+  - UI: Disable button và tooltip nếu không có quyền
+
+**Reset Password**:
+
+- **Component**: `ResetPasswordDialog`
+- **Features**:
+  - Form nhập password mới và confirm
+  - Backend validation:
+    - Cho phép self-reset (user có thể reset password của chính mình)
+    - Hierarchy check khi reset password của user khác
+  - Success toast và auto-close dialog
+  - Error handling với form field mapping
+
+**Backend APIs**:
+
+- `GET /api/admin/users` - Lấy danh sách users (search, pagination, status filter)
+- `POST /api/admin/users` - Tạo user mới
+- `PUT /api/admin/users/{id}` - Cập nhật user
+- `PATCH /api/admin/users/{id}/status` - Toggle status (Lock/Unlock)
+- `PUT /api/admin/users/{id}/reset-password` - Admin reset password
+- `DELETE /api/admin/users/{id}` - Xóa user
+- `GET /api/admin/users/{id}/history` - Lấy lịch sử đăng nhập
+- `GET /api/auth/me` - Lấy thông tin user hiện tại
+
+**Security & Validation**:
+
+- **Hierarchy Levels**: RBAC với hierarchy (1-10), chỉ có thể thao tác user có level thấp hơn
+- **Self-Protection**: Không thể xóa, toggle status, hoặc thay đổi role của chính mình
+- **Role-Based Access**: Chỉ ADMIN và SUPER_ADMIN mới có quyền quản lý users
+- **Form Validation**: Zod schema với Vietnamese error messages
+- **Error Handling**: Centralized error handling với `handleApiError` utility
+
+**Tính năng đặc biệt**:
+
+- ✅ Avatar upload tích hợp vào User Form
+- ✅ Login History tab trong Edit mode
+- ✅ Role-based UI (disable actions nếu không có quyền)
+- ✅ Self-protection UI (disable và tooltip)
+- ✅ Comprehensive error messages (Vietnamese)
+- ✅ Auto-refresh danh sách sau mỗi mutation
+
+---
+
 ### Catalog Management Module
 
 **Services & Hooks**:
@@ -697,6 +894,51 @@ Swap these with live API hooks once endpoints are available (e.g., via TanStack 
 ---
 
 ## 📋 Changelog
+
+### Version 1.3.0 (2025-11-23)
+
+#### ✨ New Features
+
+- **Image Upload Component**:
+
+  - Reusable `ImageUpload` component cho upload ảnh lên MinIO
+  - Tích hợp vào User Form để upload avatar
+  - Validate file type (chỉ ảnh) và size (5MB max)
+  - Loading state, error handling, và success toast
+  - Xóa ảnh và hiển thị placeholder
+
+- **User Avatar Support**:
+
+  - Thêm `avatarUrl` field vào User schema và types
+  - Avatar upload trong User Form (create/edit)
+  - Hiển thị avatar trong Profile page
+  - Backend support cho `avatarUrl` trong User entity và DTOs
+
+- **Upload Service**:
+
+  - `upload.service.ts` để gọi API upload
+  - Tích hợp với MinIO qua backend API
+  - Error handling và validation
+
+- **User Management Features**:
+  - **Profile Page** (`/admin/profile`): Hiển thị thông tin user hiện tại với avatar, roles, permissions
+  - **Delete User**: Dialog xác nhận xóa user với self-protection và hierarchy checks
+  - **Toggle Status (Lock/Unlock)**: Dialog xác nhận khóa/mở khóa user với role-based access control
+  - **Reset Password**: Dialog reset password với support cho self-reset và hierarchy validation
+  - **User Form Enhancements**: Tích hợp ImageUpload, Login History tab, comprehensive validation
+  - **Role-Based UI**: Disable actions và tooltips dựa trên permissions và hierarchy
+
+#### 🔧 Improvements
+
+- **User Form**: Thêm ImageUpload component ở đầu form, căn giữa
+- **Schema Validation**: Thêm `avatarUrl` validation (URL format, max 500 chars)
+- **Type Safety**: Cập nhật User types để bao gồm `avatarUrl`
+
+#### 🐛 Bug Fixes
+
+- Fixed avatar không hiển thị do bucket policy PRIVATE (cần đổi sang PUBLIC)
+
+---
 
 ### Version 1.2.0 (2025-11-21)
 

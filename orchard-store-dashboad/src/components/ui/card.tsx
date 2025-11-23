@@ -49,3 +49,13 @@ export const CardDescription = ({
     {...props}
   />
 );
+
+export const CardFooter = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn("flex items-center px-8 pb-8 pt-0", className)}
+    {...props}
+  />
+);

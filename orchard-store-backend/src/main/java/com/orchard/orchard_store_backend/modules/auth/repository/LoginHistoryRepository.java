@@ -41,5 +41,14 @@ public interface LoginHistoryRepository extends JpaRepository<LoginHistory, Long
             User user,
             LoginHistory.LoginStatus status
     );
+
+    /**
+     * Lấy lịch sử đăng nhập theo User ID, sắp xếp giảm dần theo thời gian
+     * @param userId ID của user
+     * @param pageable Pagination và sorting
+     * @return Page<LoginHistory>
+     */
+    @Query("SELECT lh FROM LoginHistory lh WHERE lh.user.id = :userId ORDER BY lh.loginAt DESC")
+    Page<LoginHistory> findByUserId(@Param("userId") Long userId, Pageable pageable);
 }
 

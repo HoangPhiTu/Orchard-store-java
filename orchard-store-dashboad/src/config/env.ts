@@ -18,6 +18,12 @@ export const env = {
   // JWT secret for token verification (optional, but recommended for security)
   // If not provided, middleware will decode token without verification (less secure but faster)
   jwtSecret: process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET,
+  // Cloudflare Turnstile (Security)
+  turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+  turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY,
+  // Password hashing (optional - only enable if Backend supports)
+  enablePasswordHashing:
+    process.env.NEXT_PUBLIC_ENABLE_PASSWORD_HASHING === "true",
 };
 
 export const REFRESH_TOKEN_STORAGE_KEY = "orchard_refresh_token";

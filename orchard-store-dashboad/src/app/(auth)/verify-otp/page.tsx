@@ -172,8 +172,8 @@ export default function VerifyOtpPage() {
             <CardHeader className="space-y-4 pb-6">
               <ProgressSteps currentStep={3} />
               <div className="space-y-2 pt-4 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                  <CheckCircle2 className="h-8 w-8 text-slate-700" />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+                  <CheckCircle2 className="h-8 w-8 text-indigo-600" />
                 </div>
                 <CardTitle className="text-2xl">OTP Verified</CardTitle>
                 <CardDescription>
@@ -200,7 +200,7 @@ export default function VerifyOtpPage() {
         <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
           <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
               <p className="mt-4 text-sm text-slate-600">Loading...</p>
             </CardContent>
           </Card>
@@ -231,7 +231,7 @@ export default function VerifyOtpPage() {
               <CardDescription>
                 Enter the 6-digit code sent to
                 <br />
-                <span className="font-semibold text-slate-900">{email}</span>
+                <span className="font-semibold text-indigo-600">{email}</span>
               </CardDescription>
             </div>
           </CardHeader>
@@ -251,7 +251,7 @@ export default function VerifyOtpPage() {
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
-                      className="h-14 w-14 text-center text-2xl font-bold border-slate-200 focus:border-slate-500 focus:ring-slate-500"
+                      className="h-14 w-14 text-center text-2xl font-bold border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
                       value={otpValue?.[index] || ""}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
@@ -276,7 +276,8 @@ export default function VerifyOtpPage() {
 
               <Button
                 type="submit"
-                className="h-11 w-full rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors shadow-sm"
+                variant="default"
+                className="h-11 w-full rounded-lg shadow-sm"
                 isLoading={isSubmitting}
                 disabled={!otpValue || otpValue.length !== 6}
               >
@@ -295,7 +296,7 @@ export default function VerifyOtpPage() {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={isResending}
-                  className="text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
                   {isResending ? (
                     <>
@@ -313,7 +314,7 @@ export default function VerifyOtpPage() {
                 <div>
                   <Link
                     href="/login"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Back to login

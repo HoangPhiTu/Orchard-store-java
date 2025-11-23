@@ -7,9 +7,9 @@ const baseClasses =
   "inline-flex items-center justify-center rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 ring-offset-background";
 
 const variants = {
-  default: "bg-indigo-600 text-white hover:bg-indigo-600/90",
+  default: "bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm shadow-indigo-200",
   outline:
-    "border border-input bg-transparent text-foreground hover:bg-indigo-50",
+    "border-2 border-slate-400 bg-white text-gray-900 font-semibold hover:bg-slate-100 hover:border-slate-500",
   ghost: "bg-transparent text-foreground hover:bg-muted/50",
 } as const;
 

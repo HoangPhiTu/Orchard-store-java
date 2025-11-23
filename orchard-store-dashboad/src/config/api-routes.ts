@@ -13,5 +13,5 @@ export const API_ROUTES = {
   CATEGORIES: "/api/categories",
   USERS: "/api/admin/users",
   ROLES: "/api/admin/roles",
+  UPLOAD: "/api/admin/upload",
 };
-

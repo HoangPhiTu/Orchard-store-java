@@ -1,6 +1,8 @@
 package com.orchard.orchard_store_backend.modules.auth.controller;
 
 import com.orchard.orchard_store_backend.dto.ApiResponse;
+import com.orchard.orchard_store_backend.modules.auth.dto.AdminResetPasswordDTO;
+import com.orchard.orchard_store_backend.modules.auth.dto.LoginHistoryDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserCreateRequestDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserUpdateRequestDTO;
@@ -133,6 +135,75 @@ public class UserAdminController {
             : "Khóa user thành công";
         
         return ResponseEntity.ok(ApiResponse.success(message, updatedUser));
+    }
+
+    /**
+     * Admin reset password của user khác.
+     * 
+     * PUT /api/admin/users/{id}/reset-password
+     * 
+     * Security: Chỉ ADMIN mới được reset password (Staff không được).
+     * 
+     * @param id ID của user cần reset password
+     * @param request AdminResetPasswordDTO với newPassword
+     * @return ApiResponse với success message
+     */
+    @PutMapping("/{id}/reset-password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminResetPasswordDTO request
+    ) {
+        log.info("PUT /api/admin/users/{}/reset-password", id);
+        
+        userAdminService.resetPassword(id, request.getNewPassword());
+        
+        return ResponseEntity.ok(ApiResponse.success("Đặt lại mật khẩu thành công", null));
+    }
+
+    /**
+     * Xóa user.
+     * 
+     * DELETE /api/admin/users/{id}
+     * 
+     * Security: Chỉ ADMIN mới được xóa user.
+     * Logic: Kiểm tra self-protection (không cho xóa chính mình) và hierarchy permission.
+     * 
+     * @param id ID của user cần xóa
+     * @return ApiResponse với success message
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
+        log.info("DELETE /api/admin/users/{}", id);
+        
+        userAdminService.deleteUser(id);
+        
+        return ResponseEntity.ok(ApiResponse.success("Xóa user thành công", null));
+    }
+
+    /**
+     * Lấy lịch sử đăng nhập của user.
+     * 
+     * GET /api/admin/users/{id}/history?page=0&size=20
+     * 
+     * @param id ID của user cần xem lịch sử
+     * @param page Số trang (bắt đầu từ 0)
+     * @param size Số lượng items mỗi trang
+     * @return Page<LoginHistoryDTO> wrapped in ApiResponse
+     */
+    @GetMapping("/{id}/history")
+    public ResponseEntity<ApiResponse<Page<LoginHistoryDTO>>> getUserLoginHistory(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        log.info("GET /api/admin/users/{}/history - page: {}, size: {}", id, page, size);
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "loginAt"));
+        Page<LoginHistoryDTO> history = userAdminService.getUserLoginHistory(id, pageable);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử đăng nhập thành công", history));
     }
 }
 
