@@ -1,6 +1,6 @@
 package com.orchard.orchard_store_backend.modules.auth.service;
 
-import com.orchard.orchard_store_backend.modules.auth.dto.LoginHistoryDTO;
+import com.orchard.orchard_store_backend.modules.auth.dto.LoginHistoryResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserCreateRequestDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserUpdateRequestDTO;
@@ -10,11 +10,11 @@ import com.orchard.orchard_store_backend.modules.auth.entity.UserRole;
 import com.orchard.orchard_store_backend.exception.ResourceAlreadyExistsException;
 import com.orchard.orchard_store_backend.exception.ResourceNotFoundException;
 import com.orchard.orchard_store_backend.exception.OperationNotPermittedException;
-import com.orchard.orchard_store_backend.modules.auth.mapper.LoginHistoryMapper;
 import com.orchard.orchard_store_backend.modules.auth.mapper.UserAdminMapper;
 import com.orchard.orchard_store_backend.modules.auth.repository.LoginHistoryRepository;
 import com.orchard.orchard_store_backend.modules.auth.repository.RoleRepository;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
+import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -41,8 +41,8 @@ public class UserAdminServiceImpl implements UserAdminService {
     private final RoleRepository roleRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserAdminMapper userAdminMapper;
-    private final LoginHistoryMapper loginHistoryMapper;
     private final PasswordEncoder passwordEncoder;
+    private final ImageUploadService imageUploadService;
 
     @Override
     @Transactional(readOnly = true)
@@ -311,8 +311,22 @@ public class UserAdminServiceImpl implements UserAdminService {
         if (request.getPhone() != null) {
             targetUser.setPhone(request.getPhone());
         }
-        if (request.getAvatarUrl() != null) {
-            targetUser.setAvatarUrl(request.getAvatarUrl());
+
+        String oldAvatarUrl = targetUser.getAvatarUrl();
+        String newAvatarUrl = request.getAvatarUrl();
+        boolean isAvatarChanged = (newAvatarUrl == null && oldAvatarUrl != null)
+                || (newAvatarUrl != null && !newAvatarUrl.equals(oldAvatarUrl));
+
+        if (isAvatarChanged && oldAvatarUrl != null) {
+            try {
+                imageUploadService.deleteImage(oldAvatarUrl);
+            } catch (Exception e) {
+                log.warn("Không thể xóa avatar cũ của user {}: {}", targetUser.getId(), e.getMessage());
+            }
+        }
+
+        if (isAvatarChanged) {
+            targetUser.setAvatarUrl(newAvatarUrl);
         }
         // Chỉ cho phép update status nếu không phải tự sửa
         if (request.getStatus() != null && !isSelfEdit) {
@@ -522,24 +536,34 @@ public class UserAdminServiceImpl implements UserAdminService {
         // Gác cổng: Kiểm tra quyền phân cấp trước khi xóa
         checkHierarchyPermission(user, currentUser);
 
+        String avatarUrl = user.getAvatarUrl();
+
         // Xóa user (cascade delete sẽ xóa các bản ghi liên quan như UserRole, LoginHistory)
         userRepository.delete(user);
         log.info("Deleted user: {} with email: {} by user: {}", 
                 user.getId(), user.getEmail(), 
                 currentUser != null ? currentUser.getEmail() : "SYSTEM");
+
+        if (avatarUrl != null && !avatarUrl.trim().isEmpty()) {
+            try {
+                imageUploadService.deleteImage(avatarUrl);
+            } catch (Exception e) {
+                log.warn("Không thể xóa avatar của user {} sau khi xóa: {}", userId, e.getMessage());
+            }
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<LoginHistoryDTO> getUserLoginHistory(Long userId, Pageable pageable) {
+    public Page<LoginHistoryResponseDTO> getUserLoginHistory(Long userId, Pageable pageable) {
         // Kiểm tra user có tồn tại không
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("Không tìm thấy user với ID: " + userId);
         }
 
         // Lấy lịch sử đăng nhập theo userId, sắp xếp giảm dần theo loginAt
-        return loginHistoryRepository.findByUserId(userId, pageable)
-                .map(loginHistoryMapper::toDTO);
+        return loginHistoryRepository.findByUserIdOrderByLoginAtDesc(userId, pageable)
+                .map(userAdminMapper::toLoginHistoryResponseDTO);
     }
 }
 

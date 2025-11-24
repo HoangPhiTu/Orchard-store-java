@@ -86,6 +86,7 @@ export function ToggleStatusDialog({
           <AlertDialogCancel
             onClick={onClose}
             disabled={toggleStatusMutation.isPending}
+            className="rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
           >
             Hủy
           </AlertDialogCancel>
@@ -94,8 +95,8 @@ export function ToggleStatusDialog({
             disabled={toggleStatusMutation.isPending}
             className={`rounded-lg ${
               isLocking
-                ? "bg-orange-600 hover:bg-orange-700 text-white"
-                : "bg-green-600 hover:bg-green-700 text-white"
+                ? "bg-orange-600 hover:bg-orange-700 text-white focus:ring-2 focus:ring-orange-300"
+                : "bg-green-600 hover:bg-green-700 text-white focus:ring-2 focus:ring-green-300"
             }`}
           >
             {toggleStatusMutation.isPending ? (

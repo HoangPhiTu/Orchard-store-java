@@ -8,20 +8,24 @@ import com.orchard.orchard_store_backend.modules.auth.dto.SendOtpRequestDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.SendOtpResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.VerifyOtpRequestDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.VerifyOtpResponseDTO;
+import com.orchard.orchard_store_backend.modules.auth.entity.LoginHistory;
 import com.orchard.orchard_store_backend.modules.auth.entity.User;
 import com.orchard.orchard_store_backend.modules.auth.exception.InvalidOtpException;
 import com.orchard.orchard_store_backend.modules.auth.exception.RateLimitExceededException;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
 import com.orchard.orchard_store_backend.modules.auth.service.AdminOtpService;
+import com.orchard.orchard_store_backend.modules.auth.service.LoginHistoryService;
 import com.orchard.orchard_store_backend.modules.auth.service.PasswordResetService;
 import com.orchard.orchard_store_backend.security.CustomUserDetailsService;
 import com.orchard.orchard_store_backend.security.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -61,6 +65,9 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private LoginHistoryService loginHistoryService;
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -91,7 +98,10 @@ public class AuthController {
      * }
      */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
+    public ResponseEntity<LoginResponseDTO> login(
+            @Valid @RequestBody LoginRequestDTO loginRequest,
+            HttpServletRequest request
+    ) {
         try {
             log.info("Login attempt for email: {}", loginRequest.getEmail());
             
@@ -119,7 +129,7 @@ public class AuthController {
             }
             
             // Authenticate user
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginRequest.getEmail(),
                             loginRequest.getPassword()
@@ -194,6 +204,8 @@ public class AuthController {
                             .id(user.getId())
                             .email(user.getEmail())
                             .fullName(user.getFullName())
+                            .phone(user.getPhone()) // Thêm phone
+                            .avatarUrl(user.getAvatarUrl()) // Thêm avatarUrl
                             .roles(roles)
                             .authorities(permissions)
                             .build())
@@ -203,9 +215,26 @@ public class AuthController {
                     accessToken != null ? accessToken.length() : 0, 
                     user.getId(), 
                     roles);
+
+            loginHistoryService.logLogin(
+                    user,
+                    request,
+                    LoginHistory.LoginStatus.SUCCESS,
+                    null
+            );
             
             return ResponseEntity.ok(response);
 
+        } catch (LockedException e) {
+            log.error("Account locked for email: {}", loginRequest.getEmail());
+            User lockedUser = userRepository.findByEmail(loginRequest.getEmail()).orElse(null);
+            loginHistoryService.logLogin(
+                    lockedUser,
+                    request,
+                    LoginHistory.LoginStatus.LOCKED,
+                    "Tài khoản bị khóa"
+            );
+            throw e;
         } catch (BadCredentialsException e) {
             log.error("Authentication failed for email: {}", loginRequest.getEmail());
             log.error("BadCredentialsException message: {}", e.getMessage());
@@ -218,8 +247,20 @@ public class AuthController {
                 user.incrementFailedLoginAttempts();
                 userRepository.save(user);
                 log.info("Incremented failed login attempts. New count: {}", user.getFailedLoginAttempts());
+                loginHistoryService.logLogin(
+                        user,
+                        request,
+                        LoginHistory.LoginStatus.FAILED,
+                        "Sai mật khẩu"
+                );
             } else {
                 log.warn("User not found for email: {}", loginRequest.getEmail());
+                loginHistoryService.logLogin(
+                        null,
+                        request,
+                        LoginHistory.LoginStatus.FAILED,
+                        "Sai mật khẩu"
+                );
             }
             throw e;
         } catch (Exception e) {
@@ -345,6 +386,8 @@ public class AuthController {
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .phone(user.getPhone()) // Thêm phone
+                .avatarUrl(user.getAvatarUrl()) // Thêm avatarUrl
                 .roles(roles)
                 .authorities(permissions)
                 .build();

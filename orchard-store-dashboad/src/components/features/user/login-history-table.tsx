@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { LoginHistory } from "@/types/login-history.types";
+import type { LoginHistory } from "@/types/user.types";
 
 interface LoginHistoryTableProps {
   history: LoginHistory[];
@@ -83,16 +83,16 @@ export function LoginHistoryTable({
           {history.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium text-slate-900">
-                {formatDateTime(item.loginAt)}
+                {formatDateTime(item.loginTime)}
               </TableCell>
               <TableCell className="text-sm text-slate-600">
                 {item.ipAddress || "—"}
               </TableCell>
               <TableCell>
-                <Badge variant={getStatusBadgeVariant(item.loginStatus)}>
-                  {item.loginStatus === "SUCCESS"
+                <Badge variant={getStatusBadgeVariant(item.status)}>
+                  {item.status === "SUCCESS"
                     ? "Thành công"
-                    : item.loginStatus === "FAILED"
+                    : item.status === "FAILED"
                     ? "Thất bại"
                     : "Đã khóa"}
                 </Badge>

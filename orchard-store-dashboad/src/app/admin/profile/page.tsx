@@ -1,9 +1,12 @@
 "use client";
 
-import { Loader2, User, Mail, Shield } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2, User, Mail, Shield, Edit, Phone } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useAuthStore } from "@/stores/auth-store";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -13,18 +16,55 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { ImageUpload } from "@/components/shared/image-upload";
+import { uploadService } from "@/services/upload.service";
+import { userService } from "@/services/user.service";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { User as UserType } from "@/types/auth.types";
 
-/**
- * Get initials from full name (first 2 letters)
- */
-const getInitials = (fullName: string): string => {
-  const words = fullName.trim().split(/\s+/);
-  if (words.length >= 2) {
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-  }
-  return fullName.substring(0, 2).toUpperCase();
-};
+// Schema cho profile edit (fullName, phone, và avatarUrl)
+const profileEditSchema = z.object({
+  fullName: z
+    .string()
+    .min(1, "Vui lòng nhập họ tên")
+    .min(2, "Họ tên phải có ít nhất 2 ký tự")
+    .max(50, "Họ tên không được vượt quá 50 ký tự")
+    .regex(
+      /^[a-zA-ZÀ-ỹĂăÂâĐđÊêÔôƠơƯư\s]+$/,
+      "Họ tên chỉ được chứa chữ cái và khoảng trắng"
+    ),
+  phone: z
+    .union([
+      z
+        .string()
+        .regex(
+          /^(0|\+84|84)(3[2-9]|5[6|8|9]|7[0|6-9]|8[1-6|8|9]|9[0-4|6-9])[0-9]{7}$/,
+          "Số điện thoại không hợp lệ (phải là số điện thoại Việt Nam)"
+        ),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
+  avatarUrl: z
+    .union([z.string().url(), z.instanceof(File), z.null()])
+    .optional()
+    .nullable(),
+});
+
+type ProfileEditFormData = z.infer<typeof profileEditSchema>;
 
 /**
  * Get badge variant for role
@@ -45,9 +85,144 @@ const getRoleBadgeVariant = (
 export default function ProfilePage() {
   const { data: user, isLoading, error } = useCurrentUser();
   const { user: storeUser } = useAuthStore();
+  const queryClient = useQueryClient();
 
   // Fallback to store user if query fails
   const displayUser: UserType | null = (user as UserType) || storeUser;
+
+  // State for edit profile sheet
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+
+  // Form cho edit profile
+  const editForm = useForm<ProfileEditFormData>({
+    resolver: zodResolver(profileEditSchema),
+    defaultValues: {
+      fullName: "",
+      phone: null,
+      avatarUrl: null,
+    },
+  });
+
+  // State cho avatar trong form
+  const [formAvatarFile, setFormAvatarFile] = useState<File | null>(null);
+
+  // Reset form khi user data thay đổi hoặc mở sheet
+  useEffect(() => {
+    if (displayUser && isEditSheetOpen) {
+      editForm.reset({
+        fullName: displayUser.fullName || "",
+        phone: displayUser.phone || null,
+        avatarUrl: displayUser.avatarUrl || null,
+      });
+    }
+  }, [displayUser, isEditSheetOpen, editForm]);
+
+  const handleEditSheetOpenChange = (open: boolean) => {
+    setIsEditSheetOpen(open);
+    setFormAvatarFile(null);
+  };
+
+  // Mutation để update profile info
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: ProfileEditFormData) => {
+      if (!displayUser?.id) {
+        throw new Error("User ID không tồn tại");
+      }
+
+      const previousAvatarUrl = displayUser.avatarUrl || null;
+      let avatarUrl = data.avatarUrl;
+      let uploadedAvatarUrl: string | null = null;
+      const isRemovingAvatar =
+        !formAvatarFile &&
+        (data.avatarUrl === null || data.avatarUrl === undefined) &&
+        !!previousAvatarUrl;
+
+      // Nếu có file avatar mới, upload trước
+      if (formAvatarFile) {
+        try {
+          uploadedAvatarUrl = await uploadService.uploadImage(
+            formAvatarFile,
+            "users"
+          );
+          avatarUrl = uploadedAvatarUrl;
+        } catch (error) {
+          throw new Error(
+            error instanceof Error
+              ? error.message
+              : "Upload ảnh thất bại. Vui lòng thử lại."
+          );
+        }
+      }
+
+      const normalizedAvatarUrl =
+        avatarUrl && typeof avatarUrl === "string" ? avatarUrl : null;
+
+      // Update user với thông tin mới
+      try {
+        const response = await userService.updateUser(displayUser.id, {
+          fullName: data.fullName,
+          phone: data.phone,
+          avatarUrl: normalizedAvatarUrl,
+        });
+
+        const hasNewAvatar =
+          !!uploadedAvatarUrl &&
+          typeof normalizedAvatarUrl === "string" &&
+          normalizedAvatarUrl !== previousAvatarUrl;
+
+        if ((hasNewAvatar || isRemovingAvatar) && previousAvatarUrl) {
+          try {
+            await uploadService.deleteImage(previousAvatarUrl);
+          } catch (deleteError) {
+            console.warn("⚠️ Không thể xóa ảnh cũ:", deleteError);
+          }
+        }
+
+        return response;
+      } catch (error) {
+        // Nếu update thất bại, xóa ảnh mới đã upload để tránh rác
+        if (uploadedAvatarUrl) {
+          try {
+            await uploadService.deleteImage(uploadedAvatarUrl);
+          } catch (cleanupError) {
+            console.warn("⚠️ Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
+          }
+        }
+        throw error;
+      }
+    },
+    onSuccess: (updatedUser) => {
+      // Invalidate và refetch current user data
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      if (updatedUser) {
+        useAuthStore.setState({ user: updatedUser as UserType });
+      }
+      toast.success("Cập nhật thông tin thành công");
+      setIsEditSheetOpen(false);
+      setFormAvatarFile(null); // Reset avatar file sau khi thành công
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Cập nhật thông tin thất bại");
+    },
+  });
+
+  // Helper function để lấy initials từ fullName
+  const getInitials = (fullName: string): string => {
+    const words = fullName.trim().split(/\s+/);
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    return fullName.substring(0, 2).toUpperCase();
+  };
+
+  // Debug: Log avatarUrl
+  console.log("👤 Profile Page - displayUser:", {
+    id: displayUser?.id,
+    email: displayUser?.email,
+    avatarUrl: displayUser?.avatarUrl,
+    hasAvatarUrl: Boolean(displayUser?.avatarUrl),
+    fullUser: displayUser, // Log toàn bộ user object để debug
+  });
 
   if (isLoading) {
     return (
@@ -91,8 +266,29 @@ export default function ProfilePage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
+            {/* Avatar chỉ để hiển thị */}
             <Avatar className="h-20 w-20">
-              <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-bold text-white">
+              {displayUser?.avatarUrl ? (
+                <AvatarImage
+                  src={displayUser.avatarUrl}
+                  alt={displayUser.fullName || "Avatar"}
+                  onError={(
+                    e: React.SyntheticEvent<HTMLImageElement, Event>
+                  ) => {
+                    console.error("❌ Error loading profile avatar:", {
+                      url: displayUser.avatarUrl,
+                      error: e,
+                    });
+                  }}
+                  onLoad={() => {
+                    console.log(
+                      "✅ Profile avatar loaded:",
+                      displayUser.avatarUrl
+                    );
+                  }}
+                />
+              ) : null}
+              <AvatarFallback className="bg-linear-to-br from-indigo-500 to-violet-600 text-lg font-bold text-white">
                 {displayUser ? getInitials(displayUser.fullName) : "U"}
               </AvatarFallback>
             </Avatar>
@@ -131,6 +327,21 @@ export default function ProfilePage() {
               <p className="text-sm font-medium text-slate-700">Email</p>
               <p className="text-sm text-slate-500 mt-0.5">
                 {displayUser?.email || "N/A"}
+              </p>
+            </div>
+          </div>
+
+          {/* Phone */}
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
+              <Phone className="h-5 w-5 text-slate-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-slate-700">
+                Số điện thoại
+              </p>
+              <p className="text-sm text-slate-500 mt-0.5">
+                {displayUser?.phone || "Chưa cập nhật"}
               </p>
             </div>
           </div>
@@ -195,7 +406,129 @@ export default function ProfilePage() {
             </>
           )}
         </CardContent>
+        <div className="px-6 pb-6">
+          <Button
+            onClick={() => handleEditSheetOpenChange(true)}
+            className="w-full"
+            variant="outline"
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Chỉnh sửa thông tin cá nhân
+          </Button>
+        </div>
       </Card>
+
+      {/* Edit Profile Sheet */}
+      <Sheet open={isEditSheetOpen} onOpenChange={handleEditSheetOpenChange}>
+        <SheetContent className="sm:max-w-[500px]">
+          <SheetHeader>
+            <SheetTitle>Chỉnh sửa thông tin cá nhân</SheetTitle>
+            <SheetDescription>
+              Cập nhật thông tin cá nhân của bạn. Email và vai trò không thể
+              thay đổi.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form
+            onSubmit={editForm.handleSubmit((data) => {
+              // Gán avatarFile vào data trước khi submit
+              const formData = {
+                ...data,
+                avatarUrl: formAvatarFile || data.avatarUrl,
+              };
+              updateProfileMutation.mutate(formData);
+            })}
+            className="space-y-6 mt-6"
+          >
+            {/* Avatar Upload */}
+            <div className="space-y-2">
+              <Label>Ảnh đại diện</Label>
+              <div className="flex justify-center">
+                <ImageUpload
+                  value={formAvatarFile}
+                  previewUrl={displayUser?.avatarUrl || null}
+                  onChange={(file) => {
+                    setFormAvatarFile(file);
+                    editForm.setValue("avatarUrl", file || null);
+                  }}
+                  disabled={updateProfileMutation.isPending}
+                  size="md"
+                />
+              </div>
+              <p className="text-xs text-slate-500 text-center">
+                Nhấn vào avatar để chọn ảnh mới
+              </p>
+            </div>
+
+            {/* Full Name */}
+            <div className="space-y-2">
+              <Label htmlFor="fullName">
+                Họ tên <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="fullName"
+                {...editForm.register("fullName")}
+                placeholder="Nhập họ tên"
+                disabled={updateProfileMutation.isPending}
+              />
+              {editForm.formState.errors.fullName && (
+                <p className="text-sm text-red-500">
+                  {editForm.formState.errors.fullName.message}
+                </p>
+              )}
+            </div>
+
+            {/* Phone */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">Số điện thoại</Label>
+              <Input
+                id="phone"
+                {...editForm.register("phone")}
+                placeholder="Nhập số điện thoại (VD: 0912345678)"
+                disabled={updateProfileMutation.isPending}
+              />
+              {editForm.formState.errors.phone && (
+                <p className="text-sm text-red-500">
+                  {editForm.formState.errors.phone.message}
+                </p>
+              )}
+            </div>
+
+            {/* Email (Read-only) */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                value={displayUser?.email || ""}
+                disabled
+                className="bg-slate-50"
+              />
+              <p className="text-xs text-slate-500">Email không thể thay đổi</p>
+            </div>
+
+            <SheetFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleEditSheetOpenChange(false)}
+                disabled={updateProfileMutation.isPending}
+              >
+                Hủy
+              </Button>
+              <Button type="submit" disabled={updateProfileMutation.isPending}>
+                {updateProfileMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  "Lưu thay đổi"
+                )}
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

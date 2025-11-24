@@ -77,19 +77,25 @@ const statusSchema = z.enum(["ACTIVE", "INACTIVE", "BANNED", "SUSPENDED"]);
 
 /**
  * Schema cho Avatar URL (Optional)
- * - URL ảnh avatar của user
+ * - URL ảnh avatar của user hoặc File object (trong form)
  * - Tối đa 500 ký tự
  * - Cho phép null, undefined, hoặc empty string
- * - Nếu có giá trị thì phải là URL hợp lệ
+ * - Nếu có giá trị thì phải là URL hợp lệ hoặc File object
+ * - File object sẽ được convert sang URL khi submit
  */
 const avatarUrlSchema = z.preprocess(
   (val) => {
     // Chuyển empty string thành null
     if (typeof val === "string" && val.trim() === "") return null;
+    // Nếu là File object, giữ nguyên (sẽ được xử lý trong onSubmit)
+    if (val instanceof File) return val;
     return val;
   },
   z
     .union([
+      // Cho phép File object (trong form, trước khi upload)
+      z.instanceof(File),
+      // Hoặc URL string hợp lệ
       z
         .string()
         .url("URL ảnh không hợp lệ")

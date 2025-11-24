@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -41,6 +42,28 @@ public class S3ImageService implements ImageUploadService {
 
     @Value("${cloud.aws.s3.bucket-name}")
     private String bucketName;
+
+    /**
+     * Validate cấu hình endpoint sau khi inject
+     */
+    @PostConstruct
+    public void validateConfiguration() {
+        if (s3Endpoint == null || s3Endpoint.trim().isEmpty()) {
+            log.error("❌ S3 endpoint chưa được cấu hình trong application.properties");
+            throw new IllegalStateException("cloud.aws.s3.endpoint is required");
+        }
+        
+        if (bucketName == null || bucketName.trim().isEmpty()) {
+            log.error("❌ S3 bucket name chưa được cấu hình trong application.properties");
+            throw new IllegalStateException("cloud.aws.s3.bucket-name is required");
+        }
+        
+        // Log cấu hình để debug
+        log.info("✅ S3ImageService initialized:");
+        log.info("   - Endpoint: {}", s3Endpoint);
+        log.info("   - Bucket: {}", bucketName);
+        log.info("   - URL Format: {}/{}/{{keyPath}}", s3Endpoint, bucketName);
+    }
 
     /**
      * Upload ảnh lên MinIO bucket
@@ -105,7 +128,8 @@ public class S3ImageService implements ImageUploadService {
             amazonS3.putObject(putObjectRequest);
 
             // Tạo URL đầy đủ: endpoint/bucketName/keyPath
-            String imageUrl = s3Endpoint + "/" + bucketName + "/" + keyPath;
+            // Đảm bảo format chuẩn: http://127.0.0.1:9000/orchard-bucket/users/filename.jpg
+            String imageUrl = buildImageUrl(keyPath);
 
             log.info("Image uploaded successfully: {}", imageUrl);
 
@@ -156,38 +180,32 @@ public class S3ImageService implements ImageUploadService {
      * @return true nếu xóa thành công, false nếu không tìm thấy file
      */
     @Override
-    public boolean deleteImage(String imageUrl) {
-        if (imageUrl == null || imageUrl.isEmpty()) {
-            log.warn("Image URL không được để trống");
-            return false;
+    public void deleteImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            log.warn("Image URL không được để trống khi xóa ảnh");
+            return;
         }
 
         try {
-            // Parse key từ URL
-            // Format URL: http://127.0.0.1:9000/orchard-bucket/folderName/fileName
             String key = extractKeyFromUrl(imageUrl);
 
             if (key == null || key.isEmpty()) {
-                log.warn("Không thể parse key từ URL: {}", imageUrl);
-                return false;
+                log.warn("Không thể trích xuất object key từ URL: {}", imageUrl);
+                return;
             }
 
             log.info("Deleting image from S3: bucket={}, key={}", bucketName, key);
 
-            // Kiểm tra xem object có tồn tại không
             if (!amazonS3.doesObjectExist(bucketName, key)) {
                 log.warn("Image không tồn tại trong bucket: bucket={}, key={}", bucketName, key);
-                return false;
+                return;
             }
 
-            // Xóa object từ S3/MinIO
             amazonS3.deleteObject(bucketName, key);
 
             log.info("Image deleted successfully: {}", imageUrl);
-            return true;
         } catch (Exception e) {
             log.error("Error deleting image from S3: url={}", imageUrl, e);
-            return false;
         }
     }
 
@@ -224,6 +242,37 @@ public class S3ImageService implements ImageUploadService {
                 throw new IllegalArgumentException("Định dạng file không được hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allowedExtensions));
             }
         }
+    }
+
+    /**
+     * Build URL đầy đủ cho ảnh từ MinIO
+     * 
+     * Format: http://127.0.0.1:9000/orchard-bucket/users/filename.jpg
+     * 
+     * @param keyPath Key path trong bucket (VD: "users/avatar-123.jpg")
+     * @return URL đầy đủ có thể truy cập từ trình duyệt
+     */
+    private String buildImageUrl(String keyPath) {
+        // Loại bỏ trailing slash từ endpoint nếu có
+        String normalizedEndpoint = s3Endpoint;
+        if (normalizedEndpoint.endsWith("/")) {
+            normalizedEndpoint = normalizedEndpoint.substring(0, normalizedEndpoint.length() - 1);
+        }
+        
+        // Loại bỏ leading slash từ keyPath nếu có
+        String normalizedKeyPath = keyPath;
+        if (normalizedKeyPath.startsWith("/")) {
+            normalizedKeyPath = normalizedKeyPath.substring(1);
+        }
+        
+        // Ghép URL: endpoint/bucketName/keyPath
+        // Ví dụ: http://127.0.0.1:9000/orchard-bucket/users/avatar-123.jpg
+        String imageUrl = normalizedEndpoint + "/" + bucketName + "/" + normalizedKeyPath;
+        
+        log.debug("Built image URL: endpoint={}, bucket={}, key={}, url={}", 
+                normalizedEndpoint, bucketName, normalizedKeyPath, imageUrl);
+        
+        return imageUrl;
     }
 
     /**

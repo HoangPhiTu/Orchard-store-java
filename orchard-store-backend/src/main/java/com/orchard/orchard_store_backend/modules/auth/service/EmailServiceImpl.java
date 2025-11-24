@@ -12,6 +12,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 @Service
 public class EmailServiceImpl implements EmailService {
@@ -97,17 +98,54 @@ public class EmailServiceImpl implements EmailService {
         sendHtmlEmail(to, subject, content);
     }
 
+    @Override
+    public void sendEmailChangeOtp(String to, String otpCode, String userName, String currentEmail) {
+        String subject = "Orchard Store Admin - Xác nhận đổi email";
+        String name = (userName == null || userName.isBlank()) ? "bạn" : userName;
+        String current = (currentEmail == null || currentEmail.isBlank()) ? "tài khoản hiện tại của bạn" : currentEmail;
+
+        String content = """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #111827; margin-bottom: 20px;">Xin chào %s,</h2>
+                    <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+                        Bạn (hoặc quản trị viên) vừa yêu cầu đổi email cho tài khoản quản trị Orchard Store (%s).
+                        Vui lòng xác thực yêu cầu bằng mã OTP bên dưới:
+                    </p>
+                    <div style="background-color: #f3f4f6; border: 2px dashed #9ca3af; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
+                        <h1 style="color: #111827; font-size: 36px; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">
+                            %s
+                        </h1>
+                    </div>
+                    <ul style="color: #6b7280; font-size: 14px; line-height: 1.8; padding-left: 20px;">
+                        <li>Mã OTP có hiệu lực trong <strong>5 phút</strong></li>
+                        <li>Chỉ hoàn tất đổi email sau khi nhập OTP trên trang quản trị</li>
+                        <li>Nếu bạn không yêu cầu thao tác này, vui lòng bỏ qua email và liên hệ quản trị viên</li>
+                    </ul>
+                    <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                        Trân trọng,<br/>
+                        <strong>Orchard Store Team</strong>
+                    </p>
+                </div>
+                """.formatted(name, current, otpCode);
+
+        sendHtmlEmail(to, subject, content);
+    }
+
     private void sendHtmlEmail(String to, String subject, String htmlContent) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true);
+            String safeFrom = (fromEmail == null || fromEmail.isBlank()) ? "no-reply@orchard-store.com" : fromEmail;
+            String safeTo = Objects.requireNonNull(to, "Recipient email is required");
+            String safeSubject = Objects.requireNonNull(subject, "Email subject is required");
+            String safeContent = Objects.requireNonNull(htmlContent, "Email content is required");
+            helper.setFrom(Objects.requireNonNull(safeFrom, "From email is required"));
+            helper.setTo(safeTo);
+            helper.setSubject(safeSubject);
+            helper.setText(safeContent, true);
 
             mailSender.send(message);
-            logger.info("Sent email '{}' to {}", subject, to);
+            logger.info("Sent email '{}' to {}", safeSubject, safeTo);
         } catch (MessagingException ex) {
             logger.error("Failed to send email '{}' to {}", subject, to, ex);
             throw new RuntimeException("Unable to send email. Please try again later.");

@@ -6,11 +6,9 @@ import type {
   UserCreateRequestDTO,
   UserUpdateRequestDTO,
   Page,
+  LoginHistory,
+  PagingParams,
 } from "@/types/user.types";
-import type {
-  LoginHistoryPage,
-  LoginHistoryFilters,
-} from "@/types/login-history.types";
 import type { ApiResponse } from "@/types/api.types";
 
 /**
@@ -114,12 +112,37 @@ export const userService = {
       .then(() => undefined), // Return void on success
 
   /**
+   * Khởi tạo đổi email (gửi OTP)
+   * POST /api/admin/users/{id}/email/init
+   */
+  initiateChangeEmail: (userId: number, newEmail: string) =>
+    http
+      .post<ApiResponse<void>>(`${API_ROUTES.USERS}/${userId}/email/init`, {
+        userId,
+        newEmail,
+      })
+      .then(() => undefined),
+
+  /**
+   * Xác thực đổi email bằng OTP
+   * POST /api/admin/users/{id}/email/verify
+   */
+  verifyChangeEmail: (userId: number, newEmail: string, otp: string) =>
+    http
+      .post<ApiResponse<void>>(`${API_ROUTES.USERS}/${userId}/email/verify`, {
+        userId,
+        newEmail,
+        otp,
+      })
+      .then(() => undefined),
+
+  /**
    * Lấy lịch sử đăng nhập của user
    * GET /api/admin/users/{id}/history?page=0&size=20
    */
-  getLoginHistory: (id: number, params?: LoginHistoryFilters) =>
+  getLoginHistory: (id: number, params?: PagingParams) =>
     http
-      .get<ApiResponse<LoginHistoryPage>>(`${API_ROUTES.USERS}/${id}/history`, {
+      .get<ApiResponse<Page<LoginHistory>>>(`${API_ROUTES.USERS}/${id}/history`, {
         params,
       })
       .then((res) => unwrapPage(res)),

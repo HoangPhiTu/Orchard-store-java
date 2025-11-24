@@ -22,6 +22,7 @@ interface FormFieldProps {
   children: React.ReactNode;
   className?: string;
   description?: string;
+  labelExtra?: React.ReactNode;
 }
 
 export function FormField({
@@ -32,21 +33,25 @@ export function FormField({
   children,
   className,
   description,
+  labelExtra,
 }: FormFieldProps) {
   const hasError = Boolean(error);
 
   return (
     <div className={cn("space-y-2", className)}>
-      <Label
-        htmlFor={htmlFor}
-        className={cn(
-          "text-sm font-medium transition-colors",
-          hasError ? "text-red-600" : "text-slate-700"
-        )}
-      >
-        {label}
-        {required && <span className="ml-1 text-red-500">*</span>}
-      </Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label
+          htmlFor={htmlFor}
+          className={cn(
+            "text-sm font-medium transition-colors",
+            hasError ? "text-red-600" : "text-slate-700"
+          )}
+        >
+          {label}
+          {required && <span className="ml-1 text-red-500">*</span>}
+        </Label>
+        {labelExtra}
+      </div>
 
       {/* Input wrapper với error state */}
       <div className={cn("relative", hasError && "animate-pulse-error")}>

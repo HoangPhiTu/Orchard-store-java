@@ -2,10 +2,13 @@ package com.orchard.orchard_store_backend.modules.auth.controller;
 
 import com.orchard.orchard_store_backend.dto.ApiResponse;
 import com.orchard.orchard_store_backend.modules.auth.dto.AdminResetPasswordDTO;
-import com.orchard.orchard_store_backend.modules.auth.dto.LoginHistoryDTO;
+import com.orchard.orchard_store_backend.modules.auth.dto.EmailChangeInitRequest;
+import com.orchard.orchard_store_backend.modules.auth.dto.EmailChangeVerifyRequest;
+import com.orchard.orchard_store_backend.modules.auth.dto.LoginHistoryResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserCreateRequestDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserResponseDTO;
 import com.orchard.orchard_store_backend.modules.auth.dto.UserUpdateRequestDTO;
+import com.orchard.orchard_store_backend.modules.auth.service.AdminOtpService;
 import com.orchard.orchard_store_backend.modules.auth.service.UserAdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +47,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserAdminController {
 
     private final UserAdminService userAdminService;
+    private final AdminOtpService adminOtpService;
 
     /**
      * Lấy danh sách users với tìm kiếm và phân trang.
@@ -182,6 +186,28 @@ public class UserAdminController {
         return ResponseEntity.ok(ApiResponse.success("Xóa user thành công", null));
     }
 
+    @PostMapping("/{id}/email/init")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> initiateEmailChange(
+            @PathVariable Long id,
+            @Valid @RequestBody EmailChangeInitRequest request
+    ) {
+        validateUserId(id, request.getUserId());
+        adminOtpService.initiateEmailChange(id, request.getNewEmail());
+        return ResponseEntity.ok(ApiResponse.success("Đã gửi OTP xác nhận email mới", null));
+    }
+
+    @PostMapping("/{id}/email/verify")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> verifyEmailChange(
+            @PathVariable Long id,
+            @Valid @RequestBody EmailChangeVerifyRequest request
+    ) {
+        validateUserId(id, request.getUserId());
+        adminOtpService.confirmEmailChange(id, request.getNewEmail(), request.getOtp());
+        return ResponseEntity.ok(ApiResponse.success("Đổi email thành công", null));
+    }
+
     /**
      * Lấy lịch sử đăng nhập của user.
      * 
@@ -193,17 +219,23 @@ public class UserAdminController {
      * @return Page<LoginHistoryDTO> wrapped in ApiResponse
      */
     @GetMapping("/{id}/history")
-    public ResponseEntity<ApiResponse<Page<LoginHistoryDTO>>> getUserLoginHistory(
+    public ResponseEntity<ApiResponse<Page<LoginHistoryResponseDTO>>> getUserLoginHistory(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "10") int size
     ) {
         log.info("GET /api/admin/users/{}/history - page: {}, size: {}", id, page, size);
         
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "loginAt"));
-        Page<LoginHistoryDTO> history = userAdminService.getUserLoginHistory(id, pageable);
+        Page<LoginHistoryResponseDTO> history = userAdminService.getUserLoginHistory(id, pageable);
         
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử đăng nhập thành công", history));
+    }
+
+    private void validateUserId(Long pathId, Long bodyId) {
+        if (bodyId != null && !pathId.equals(bodyId)) {
+            throw new IllegalArgumentException("UserId trong request không khớp với đường dẫn");
+        }
     }
 }
 

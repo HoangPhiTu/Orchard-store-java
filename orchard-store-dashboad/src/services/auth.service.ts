@@ -17,7 +17,12 @@ export const authService = {
   login: (payload: LoginRequest) =>
     http.post<LoginResponse>(API_ROUTES.LOGIN, payload).then((res) => res),
   logout: () => http.post(API_ROUTES.LOGOUT).catch(() => undefined),
-  getCurrentUser: () => http.get<User>(API_ROUTES.ME).then((res) => res),
+  getCurrentUser: () =>
+    http.get<User>(API_ROUTES.ME).then((res) => {
+      // Debug: Log response để kiểm tra avatarUrl
+      console.log("🔍 API /api/auth/me response:", res);
+      return res;
+    }),
   refreshToken: (refreshToken: string) =>
     http
       .post<LoginResponse>(API_ROUTES.REFRESH_TOKEN, { refreshToken })

@@ -19,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationList } from "@/components/features/notification/notification-list";
 import { useNotificationStore } from "@/stores/notification-store";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -50,9 +51,10 @@ import { cn } from "@/lib/utils";
 interface HeaderProps {
   userName?: string | null;
   userEmail?: string | null;
+  userAvatar?: string | null;
 }
 
-export function Header({ userName, userEmail }: HeaderProps) {
+export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const router = useRouter();
@@ -74,6 +76,29 @@ export function Header({ userName, userEmail }: HeaderProps) {
       router.push(href);
     }
   };
+
+  const avatarInitial =
+    userName?.trim()?.[0]?.toUpperCase() ??
+    userEmail?.trim()?.[0]?.toUpperCase() ??
+    "A";
+
+  const renderAvatar = (sizeClass = "h-9 w-9") => (
+    <Avatar className={`${sizeClass} border border-slate-100`}>
+      {userAvatar ? (
+        <AvatarImage
+          src={userAvatar}
+          alt={userName || "Avatar"}
+          className="object-cover"
+          onError={(e) => {
+            console.warn("⚠️ Header avatar failed to load:", userAvatar, e);
+          }}
+        />
+      ) : null}
+      <AvatarFallback className="bg-indigo-100 text-indigo-700 font-semibold">
+        {avatarInitial}
+      </AvatarFallback>
+    </Avatar>
+  );
 
   return (
     <>
@@ -158,9 +183,7 @@ export function Header({ userName, userEmail }: HeaderProps) {
                   type="button"
                   className="flex items-center gap-2.5 focus:outline-none"
                 >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold">
-                    {userName?.[0]?.toUpperCase() ?? "A"}
-                  </div>
+                  {renderAvatar()}
                   <span className="hidden text-sm font-semibold text-slate-900 lg:block">
                     {userName ?? "Admin"}
                   </span>
@@ -171,16 +194,14 @@ export function Header({ userName, userEmail }: HeaderProps) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-56 z-[100]"
+                className="w-56 z-100"
                 align="end"
                 sideOffset={8}
               >
                 {/* Header Section */}
                 <div className="p-2">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold">
-                      {userName?.[0]?.toUpperCase() ?? "A"}
-                    </div>
+                    {renderAvatar("h-10 w-10")}
                     <div className="flex flex-col min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-900 truncate">
                         {userName ?? "Admin User"}
@@ -242,7 +263,7 @@ export function Header({ userName, userEmail }: HeaderProps) {
             {/* Logo Header */}
             <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-white font-bold">
                   O
                 </div>
                 <div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { MoreHorizontal, Edit, Lock, Unlock, Key, Trash2 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,6 +145,22 @@ export function UserTable({
             <TableCell>
               <div className="flex items-center gap-3">
                 <Avatar>
+                  {user.avatarUrl ? (
+                    <AvatarImage
+                      src={user.avatarUrl}
+                      alt={user.fullName}
+                      onError={(e) => {
+                        console.error("❌ Error loading user avatar:", {
+                          url: user.avatarUrl,
+                          userId: user.id,
+                          error: e,
+                        });
+                      }}
+                      onLoad={() => {
+                        console.log("✅ User avatar loaded:", user.avatarUrl);
+                      }}
+                    />
+                  ) : null}
                   <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">

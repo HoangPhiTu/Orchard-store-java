@@ -28,6 +28,8 @@ public class LoginResponseDTO {
         private Long id;
         private String email;
         private String fullName;
+        private String phone; // Số điện thoại
+        private String avatarUrl; // URL ảnh avatar
         private List<String> roles;
         private List<String> authorities;
     }

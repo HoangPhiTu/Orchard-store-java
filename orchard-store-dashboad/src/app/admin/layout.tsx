@@ -93,7 +93,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           isSidebarCollapsed ? "lg:ml-[70px]" : "lg:ml-64"
         )}
       >
-        <Header userName={user?.fullName} userEmail={user?.email} />
+        <Header
+          userName={user?.fullName}
+          userEmail={user?.email}
+          userAvatar={user?.avatarUrl ?? null}
+        />
         <main className="min-h-[calc(100vh-4rem)] flex-1 overflow-y-auto px-4 py-6 lg:px-8">
           {children}
         </main>

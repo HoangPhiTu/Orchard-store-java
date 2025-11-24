@@ -1,5 +1,8 @@
 package com.orchard.orchard_store_backend.modules.auth.service;
 
+import com.orchard.orchard_store_backend.exception.OperationNotPermittedException;
+import com.orchard.orchard_store_backend.exception.ResourceAlreadyExistsException;
+import com.orchard.orchard_store_backend.exception.ResourceNotFoundException;
 import com.orchard.orchard_store_backend.modules.auth.entity.User;
 import com.orchard.orchard_store_backend.modules.auth.exception.InvalidOtpException;
 import com.orchard.orchard_store_backend.modules.auth.exception.RateLimitExceededException;
@@ -7,6 +10,8 @@ import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
 import com.orchard.orchard_store_backend.modules.customer.service.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +46,7 @@ public class AdminOtpService {
     private static final String OTP_KEY_PREFIX = "admin:otp:";
     private static final String OTP_RATE_LIMIT_KEY_PREFIX = "admin:otp_limit:";
     private static final String RESET_TOKEN_KEY_PREFIX = "admin:reset_token:";
+    private static final String EMAIL_CHANGE_OTP_PREFIX = "user:email_change_otp:";
 
     private static final long OTP_TTL_SECONDS = 300; // 5 phút
     private static final long OTP_RATE_LIMIT_TTL_SECONDS = 300; // 5 phút
@@ -232,6 +238,68 @@ public class AdminOtpService {
         log.debug("Reset token and OTP deleted for email: {}", email);
     }
 
+    public void initiateEmailChange(Long userId, String newEmail) {
+        if (userId == null) {
+            throw new IllegalArgumentException("UserId không được để trống");
+        }
+        if (newEmail == null || newEmail.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email mới không được để trống");
+        }
+
+        String normalizedEmail = newEmail.trim().toLowerCase();
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new ResourceAlreadyExistsException("Email đã tồn tại trong hệ thống");
+        }
+
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        if (normalizedEmail.equalsIgnoreCase(targetUser.getEmail())) {
+            throw new IllegalArgumentException("Email mới phải khác email hiện tại");
+        }
+
+        ensureSuperAdminSelfEdit(targetUser);
+
+        String otpCode = generateOtpCode();
+        String redisKey = buildEmailChangeOtpKey(userId, normalizedEmail);
+        redisService.setValue(redisKey, otpCode, OTP_TTL_SECONDS);
+        emailService.sendEmailChangeOtp(normalizedEmail, otpCode, targetUser.getFullName(), targetUser.getEmail());
+        log.info("OTP email-change sent to {} for user {}", normalizedEmail, userId);
+    }
+
+    @Transactional
+    public void confirmEmailChange(Long userId, String newEmail, String otp) {
+        if (userId == null) {
+            throw new IllegalArgumentException("UserId không được để trống");
+        }
+        if (newEmail == null || newEmail.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email mới không được để trống");
+        }
+
+        String normalizedEmail = newEmail.trim().toLowerCase();
+        String redisKey = buildEmailChangeOtpKey(userId, normalizedEmail);
+        String storedOtp = redisService.getValue(redisKey);
+
+        if (storedOtp == null || !storedOtp.equals(otp)) {
+            throw new InvalidOtpException("OTP không hợp lệ hoặc đã hết hạn");
+        }
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new ResourceAlreadyExistsException("Email đã tồn tại trong hệ thống");
+        }
+
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        ensureSuperAdminSelfEdit(targetUser);
+
+        targetUser.setEmail(normalizedEmail);
+        userRepository.save(targetUser);
+        redisService.deleteKey(redisKey);
+        log.info("User {} email changed to {}", userId, normalizedEmail);
+    }
+
     private void checkRateLimit(String email) {
         String rateLimitKey = OTP_RATE_LIMIT_KEY_PREFIX + email;
         Long attempts = redisService.increment(rateLimitKey, OTP_RATE_LIMIT_TTL_SECONDS);
@@ -250,9 +318,49 @@ public class AdminOtpService {
         return RESET_TOKEN_KEY_PREFIX + email;
     }
 
+    private String buildEmailChangeOtpKey(Long userId, String email) {
+        return EMAIL_CHANGE_OTP_PREFIX + userId + ":" + email;
+    }
+
     private String generateOtpCode() {
         int otp = 100000 + secureRandom.nextInt(900000);
         return String.valueOf(otp);
+    }
+
+    private void ensureSuperAdminSelfEdit(User targetUser) {
+        if (!isSuperAdmin(targetUser)) {
+            return;
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new OperationNotPermittedException("Bạn không có quyền thay đổi email của SUPER_ADMIN");
+        }
+
+        String currentEmail = authentication.getName();
+        if (!targetUser.getEmail().equalsIgnoreCase(currentEmail)) {
+            throw new OperationNotPermittedException("Chỉ SUPER_ADMIN đó mới có quyền thay đổi email của chính mình");
+        }
+    }
+
+    private boolean isSuperAdmin(User user) {
+        if (user == null) {
+            return false;
+        }
+        if (user.getRole() != null && user.getRole().name().contains("SUPER_ADMIN")) {
+            return true;
+        }
+        if (user.getPrimaryRole() != null && user.getPrimaryRole().getRoleCode() != null
+                && user.getPrimaryRole().getRoleCode().contains("SUPER_ADMIN")) {
+            return true;
+        }
+        if (user.getUserRoles() != null) {
+            return user.getUserRoles().stream()
+                    .anyMatch(ur -> ur.getRole() != null
+                            && ur.getRole().getRoleCode() != null
+                            && ur.getRole().getRoleCode().contains("SUPER_ADMIN"));
+        }
+        return false;
     }
 }
 

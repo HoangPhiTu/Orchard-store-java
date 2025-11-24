@@ -67,4 +67,23 @@ export const uploadService = {
       throw error;
     }
   },
+
+  /**
+   * Xóa ảnh khỏi MinIO
+   *
+   * @param imageUrl URL đầy đủ của ảnh cần xóa
+   */
+  deleteImage: async (imageUrl: string): Promise<void> => {
+    if (!imageUrl) {
+      return;
+    }
+
+    try {
+      await http.delete<ApiResponse<void>>(API_ROUTES.UPLOAD, {
+        params: { imageUrl },
+      });
+    } catch (error) {
+      throw error;
+    }
+  },
 };

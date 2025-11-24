@@ -34,11 +34,10 @@ public interface ImageUploadService {
 
     /**
      * Xóa file ảnh theo URL.
-     * 
+     *
      * @param imageUrl URL của file cần xóa
-     * @return true nếu xóa thành công, false nếu không tìm thấy file
      */
-    boolean deleteImage(String imageUrl);
+    void deleteImage(String imageUrl);
 
     /**
      * Validate file ảnh (kiểm tra extension, size, etc.).

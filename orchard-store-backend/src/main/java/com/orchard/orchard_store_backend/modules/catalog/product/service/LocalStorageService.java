@@ -97,24 +97,24 @@ public class LocalStorageService implements ImageUploadService {
     }
 
     @Override
-    public boolean deleteImage(String imageUrl) {
+    public void deleteImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            log.warn("Image URL không được để trống khi xóa ảnh (local storage)");
+            return;
+        }
+
         try {
-            // Parse URL để lấy path
-            // Ví dụ: /uploads/products/image-123.jpg -> uploads/products/image-123.jpg
             String relativePath = imageUrl.replaceFirst("^" + baseUrl, "");
             Path filePath = Paths.get(uploadDirectory, relativePath);
 
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
                 log.info("Đã xóa file: {}", filePath);
-                return true;
             } else {
                 log.warn("Không tìm thấy file để xóa: {}", filePath);
-                return false;
             }
         } catch (IOException e) {
             log.error("Lỗi khi xóa file: {}", imageUrl, e);
-            return false;
         }
     }
 

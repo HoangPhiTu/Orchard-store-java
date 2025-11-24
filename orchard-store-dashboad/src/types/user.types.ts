@@ -36,6 +36,25 @@ export interface Page<T> {
   last: boolean;
 }
 
+export interface PagingParams {
+  page?: number;
+  size?: number;
+}
+
+export type LoginHistoryStatus = "SUCCESS" | "FAILED" | "LOCKED";
+
+export interface LoginHistory {
+  id: number;
+  loginTime: string; // ISO date string
+  ipAddress: string | null;
+  userAgent?: string | null;
+  status: LoginHistoryStatus;
+  browser?: string | null;
+  os?: string | null;
+  deviceType?: string | null;
+  failureReason?: string | null;
+}
+
 // Re-export schemas from user.schema.ts for backward compatibility
 // userFormSchema: Dùng cho form cần tất cả fields (có thể dùng createUserSchema)
 export const userFormSchema = createUserSchema;

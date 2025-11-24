@@ -1,34 +1,33 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { User, X, Loader2, Upload } from "lucide-react";
+import { useRef, useEffect, useState } from "react";
+import { User, X, Upload } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { uploadService } from "@/services/upload.service";
 import { toast } from "sonner";
 
 interface ImageUploadProps {
   /**
-   * URL ảnh hiện tại (nếu có)
+   * File mới được chọn (File object) hoặc URL ảnh cũ (string) hoặc null
    */
-  value?: string | null;
+  value?: File | string | null;
 
   /**
-   * Callback được gọi khi upload thành công hoặc xóa ảnh
-   * @param url URL ảnh mới (hoặc null nếu xóa)
+   * URL ảnh cũ từ database (để hiển thị preview khi chưa chọn file mới)
    */
-  onChange: (url: string | null) => void;
+  previewUrl?: string | null;
+
+  /**
+   * Callback được gọi khi chọn file mới hoặc xóa ảnh
+   * @param value File object (nếu chọn ảnh mới) hoặc null (nếu xóa)
+   */
+  onChange: (value: File | null) => void;
 
   /**
    * Có disable component không
    */
   disabled?: boolean;
-
-  /**
-   * Tên folder trong bucket (default: "others")
-   */
-  folder?: string;
 
   /**
    * Kích thước avatar (default: "lg")
@@ -50,27 +49,60 @@ const sizeClasses = {
 
 export function ImageUpload({
   value,
+  previewUrl,
   onChange,
   disabled = false,
-  folder = "others",
   size = "lg",
   className,
 }: ImageUploadProps) {
-  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
+  // Tạo preview URL từ File object (dùng FileReader để tạo data URL thay vì blob URL)
+  // Data URL không bị CSP chặn và an toàn hơn
+  useEffect(() => {
+    // Cleanup object URL cũ trước khi tạo mới
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+
+    if (value instanceof File) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        setFilePreview(dataUrl);
+      };
+      reader.onerror = () => {
+        toast.error("Không thể đọc file ảnh. Vui lòng thử lại.");
+        setFilePreview(null);
+      };
+      reader.readAsDataURL(value);
+    }
+
+    // Cleanup: Revoke object URL khi component unmount hoặc value thay đổi
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, [value]);
 
   /**
    * Mở file dialog để chọn ảnh
    */
   const handleClick = () => {
-    if (disabled || isUploading) return;
+    if (disabled) return;
     fileInputRef.current?.click();
   };
 
   /**
    * Xử lý khi chọn file
+   * KHÔNG upload ngay, chỉ trả về File object
    */
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -92,22 +124,8 @@ export function ImageUpload({
       fileInputRef.current.value = "";
     }
 
-    // Upload file
-    setIsUploading(true);
-    try {
-      const imageUrl = await uploadService.uploadImage(file, folder);
-      onChange(imageUrl);
-      toast.success("Upload ảnh thành công");
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Không thể upload ảnh. Vui lòng thử lại.";
-      toast.error(errorMessage);
-    } finally {
-      setIsUploading(false);
-    }
+    // Chỉ trả về File object, KHÔNG upload
+    onChange(file);
   };
 
   /**
@@ -115,13 +133,29 @@ export function ImageUpload({
    */
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation(); // Ngăn trigger click vào avatar
-    if (disabled || isUploading) return;
+    if (disabled) return;
     onChange(null);
-    toast.success("Đã xóa ảnh");
   };
 
+  const effectivePreview = (() => {
+    if (value instanceof File) {
+      return filePreview;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+      return value;
+    }
+    if (
+      previewUrl &&
+      typeof previewUrl === "string" &&
+      previewUrl.trim() !== ""
+    ) {
+      return previewUrl;
+    }
+    return null;
+  })();
+
   const sizeClass = sizeClasses[size];
-  const hasImage = Boolean(value);
+  const hasImage = Boolean(effectivePreview);
 
   return (
     <div className={cn("flex flex-col items-center gap-3", className)}>
@@ -131,38 +165,35 @@ export function ImageUpload({
           className={cn(
             sizeClass,
             "cursor-pointer transition-all hover:ring-2 hover:ring-indigo-500 hover:ring-offset-2",
-            disabled && "cursor-not-allowed opacity-50",
-            isUploading && "cursor-wait"
+            disabled && "cursor-not-allowed opacity-50"
           )}
           onClick={handleClick}
         >
-          {hasImage && !isUploading ? (
-            <AvatarImage src={value || undefined} alt="Avatar" />
+          {hasImage && effectivePreview ? (
+            <AvatarImage
+              key={effectivePreview} // Force re-render when preview changes
+              src={effectivePreview}
+              alt="Avatar"
+              onError={() => {
+                toast.error(
+                  "Không thể tải ảnh xem trước. Vui lòng chọn ảnh khác."
+                );
+              }}
+            />
           ) : (
-            <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-violet-100">
-              {isUploading ? (
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-              ) : (
-                <User className="h-8 w-8 text-indigo-600" />
-              )}
+            <AvatarFallback className="bg-linear-to-br from-indigo-100 to-violet-100">
+              <User className="h-8 w-8 text-indigo-600" />
             </AvatarFallback>
           )}
         </Avatar>
 
-        {/* Loading Overlay */}
-        {isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-900/50 backdrop-blur-sm">
-            <Loader2 className="h-6 w-6 animate-spin text-white" />
-          </div>
-        )}
-
-        {/* Remove Button (chỉ hiển thị khi có ảnh và không đang upload) */}
-        {hasImage && !isUploading && !disabled && (
+        {/* Remove Button (chỉ hiển thị khi có ảnh) */}
+        {hasImage && !disabled && (
           <Button
             type="button"
-            variant="destructive"
+            variant="default"
             size="icon"
-            className="absolute -right-2 -top-2 h-6 w-6 rounded-full shadow-md"
+            className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-md"
             onClick={handleRemove}
             disabled={disabled}
           >
@@ -173,7 +204,7 @@ export function ImageUpload({
       </div>
 
       {/* Upload Button (optional - có thể ẩn nếu chỉ click vào avatar) */}
-      {!hasImage && !isUploading && (
+      {!hasImage && (
         <Button
           type="button"
           variant="outline"
@@ -194,9 +225,8 @@ export function ImageUpload({
         accept="image/*"
         onChange={handleFileChange}
         className="hidden"
-        disabled={disabled || isUploading}
+        disabled={disabled}
       />
     </div>
   );
 }
-

@@ -65,7 +65,9 @@ export default function RootLayout({
     `style-src 'self' 'unsafe-inline'${
       turnstileDomains ? ` ${turnstileDomains}` : ""
     }`,
-    `img-src 'self' data:${turnstileDomains ? ` ${turnstileDomains}` : ""}`,
+    `img-src 'self' data: blob: http://127.0.0.1:9000 http://localhost:9000${
+      turnstileDomains ? ` ${turnstileDomains}` : ""
+    }`,
     "font-src 'self' data:",
     `connect-src 'self'${
       turnstileDomains ? ` ${turnstileDomains}` : ""

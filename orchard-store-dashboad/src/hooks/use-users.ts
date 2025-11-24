@@ -13,10 +13,6 @@ import type {
   UserUpdateRequestDTO,
   Page,
 } from "@/types/user.types";
-import type {
-  LoginHistoryPage,
-  LoginHistoryFilters,
-} from "@/types/login-history.types";
 
 const USERS_QUERY_KEY = ["admin", "users"] as const;
 
@@ -115,21 +111,40 @@ export const useToggleUserStatus = (
 };
 
 /**
- * Hook để lấy lịch sử đăng nhập của user
+ * Hook để khởi tạo đổi email (gửi OTP)
  */
-export const useUserHistory = (
-  userId: number | null,
-  filters?: LoginHistoryFilters
+export const useChangeEmailInit = (
+  options?: UseMutationOptions<void, Error, { id: number; newEmail: string }>
 ) => {
-  return useQuery<LoginHistoryPage, Error>({
-    queryKey: [...USERS_QUERY_KEY, "history", userId, filters] as const,
-    queryFn: () => {
-      if (!userId) {
-        throw new Error("User ID is required");
-      }
-      return userService.getLoginHistory(userId, filters);
+  return useMutation<void, Error, { id: number; newEmail: string }>({
+    mutationFn: ({ id, newEmail }) =>
+      userService.initiateChangeEmail(id, newEmail),
+    ...options,
+  });
+};
+
+/**
+ * Hook để xác thực đổi email bằng OTP
+ */
+export const useChangeEmailVerify = (
+  options?: UseMutationOptions<
+    void,
+    Error,
+    { id: number; newEmail: string; otp: string }
+  >
+) => {
+  const queryClient = useQueryClient();
+  return useMutation<
+    void,
+    Error,
+    { id: number; newEmail: string; otp: string }
+  >({
+    mutationFn: ({ id, newEmail, otp }) =>
+      userService.verifyChangeEmail(id, newEmail, otp),
+    ...options,
+    onSuccess: (data, variables, context, mutation) => {
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      options?.onSuccess?.(data, variables, context, mutation);
     },
-    enabled: !!userId, // Chỉ query khi có userId
-    placeholderData: keepPreviousData,
   });
 };

@@ -89,14 +89,14 @@ export function DeleteUserDialog({
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={deleteUserMutation.isPending}
-              className="rounded-lg"
+              className="rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
             >
               Hủy
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleteUserMutation.isPending}
-              className="rounded-lg bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              className="rounded-lg bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-300"
             >
               {deleteUserMutation.isPending ? (
                 <>

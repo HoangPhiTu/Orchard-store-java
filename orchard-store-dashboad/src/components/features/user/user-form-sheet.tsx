@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useCallback, useState, useRef } from "react";
-import { useForm, type FieldError } from "react-hook-form";
+import { useForm, Controller, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { X, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { X, Loader2, AlertCircle, PenLine } from "lucide-react";
 import { useAppMutation } from "@/hooks/use-app-mutation";
 import { FormField } from "@/components/ui/form-field";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
+import { toast } from "sonner";
 
 import {
   Sheet,
@@ -24,22 +26,26 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SheetBody } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { useUserHistory } from "@/hooks/use-users";
+import { UserHistoryTable } from "@/components/features/users/user-history-table";
 import { useRoles } from "@/hooks/use-roles";
 import { userService } from "@/services/user.service";
-import { LoginHistoryTable } from "@/components/features/user/login-history-table";
 import { ImageUpload } from "@/components/shared/image-upload";
+import { ChangeEmailDialog } from "@/components/features/user/change-email-dialog";
+import { uploadService } from "@/services/upload.service";
 import type { User } from "@/types/user.types";
-import type { LoginHistoryPage } from "@/types/login-history.types";
 import {
   createUserSchema,
   updateUserSchema,
   type CreateUserSchema,
   type UpdateUserSchema,
 } from "@/lib/schemas/user.schema";
+import { useAuthStore } from "@/stores/auth-store";
 
 // Union type cho form data (có thể là create hoặc update)
-type UserFormData = CreateUserSchema | UpdateUserSchema;
+// avatarUrl có thể là File (ảnh mới) hoặc string (URL ảnh cũ)
+type UserFormData = (CreateUserSchema | UpdateUserSchema) & {
+  avatarUrl?: File | string | null;
+};
 
 interface UserFormSheetProps {
   open: boolean;
@@ -67,10 +73,6 @@ export function UserFormSheet({
   const { data: roles = [], isLoading: rolesLoading } = useRoles();
 
   // Fetch login history only when editing and History tab is active
-  const { data: historyData, isLoading: historyLoading } = useUserHistory(
-    user?.id ?? null,
-    { page: 0, size: 20 }
-  );
 
   // Sử dụng schema phù hợp với mode (create/edit)
   const formSchema = isEditing ? updateUserSchema : createUserSchema;
@@ -84,7 +86,9 @@ export function UserFormSheet({
   // ✅ Sử dụng useAppMutation - Tự động xử lý error, success, invalidate queries
   // ✅ Tự động đóng sheet khi thành công, giữ mở khi có lỗi
   const createUserMutation = useAppMutation({
-    mutationFn: (data: CreateUserSchema) => userService.createUser(data),
+    mutationFn: (
+      data: Omit<CreateUserSchema, "avatarUrl"> & { avatarUrl?: string | null }
+    ) => userService.createUser(data),
     queryKey: ["admin", "users"], // Tự động refresh danh sách users
     form: form, // Tự động setError và reset form
     onClose: () => onOpenChange(false), // Tự động đóng sheet khi thành công
@@ -93,8 +97,13 @@ export function UserFormSheet({
   });
 
   const updateUserMutation = useAppMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateUserSchema }) =>
-      userService.updateUser(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Omit<UpdateUserSchema, "avatarUrl"> & { avatarUrl?: string | null };
+    }) => userService.updateUser(id, data),
     queryKey: ["admin", "users"], // Tự động refresh danh sách users
     form: form, // ✅ Tự động map lỗi vào form fields
     onClose: () => onOpenChange(false), // ✅ Tự động đóng sheet khi thành công (chỉ khi không có lỗi)
@@ -109,6 +118,9 @@ export function UserFormSheet({
   // Refs để trigger shake animation khi có lỗi
   const formRef = useRef<HTMLFormElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const queryClient = useQueryClient();
+  const authUser = useAuthStore((state) => state.user);
+  const [isChangeEmailDialogOpen, setChangeEmailDialogOpen] = useState(false);
 
   // ✅ Shake animation khi có lỗi validation
   const handleSubmitError = () => {
@@ -137,7 +149,16 @@ export function UserFormSheet({
       .map((role) => role.id);
   }, [user, roles]);
 
+  const isSuperAdmin = useMemo(() => {
+    if (!authUser?.roles?.length) return false;
+    return authUser.roles.some((role) =>
+      role?.toUpperCase().includes("SUPER_ADMIN")
+    );
+  }, [authUser]);
+  const canEditEmail = Boolean(user) && isEditing && isSuperAdmin;
+
   // Reset form when user changes
+  // Use user?.id as dependency to avoid infinite loop
   useEffect(() => {
     if (user) {
       form.reset({
@@ -153,10 +174,11 @@ export function UserFormSheet({
       form.reset(DEFAULT_VALUES);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userRoleIds]); // Removed 'form' from deps to prevent infinite loop
+  }, [user?.id, userRoleIds.join(",")]); // Use user.id and stringified roleIds to prevent infinite loop
 
   const watchedRoleIds = form.watch("roleIds");
   const watchedStatus = form.watch("status");
+  const watchedEmail = form.watch("email");
 
   const handleRoleToggle = useCallback(
     (roleId: number) => {
@@ -185,28 +207,141 @@ export function UserFormSheet({
     });
   };
 
-  // ✅ Hàm submit cực kỳ ngắn gọn - không cần try-catch, không cần validation thủ công
-  // ✅ Không cần gọi onClose() hay toast - Hook tự động xử lý!
-  // ✅ Schema validation + useAppMutation tự động xử lý tất cả!
-  // ✅ Nếu thành công: Hook tự động gọi onClose() để đóng Sheet
-  // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, giữ Sheet mở để user sửa
+  // ✅ Hàm submit với logic upload ảnh trước khi submit
+  // ✅ Nếu có File mới -> Upload trước, lấy URL, rồi mới submit
+  // ✅ Nếu không có File -> Submit trực tiếp với URL cũ (hoặc null)
   const onSubmit = async (data: UserFormData) => {
-    if (isEditing) {
-      // Update user
-      const updateData = data as UpdateUserSchema;
-      // ✅ Dùng mutateAsync để có thể await
-      // ✅ Không cần try-catch: Hook tự động xử lý lỗi và gán vào form
-      // ✅ Nếu thành công: Hook tự động gọi onClose() trong onSuccess
-      // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, không gọi onClose()
-      await updateUserMutation.mutateAsync({ id: user!.id, data: updateData });
-    } else {
-      // Create user
-      const createData = data as CreateUserSchema;
-      // ✅ Dùng mutateAsync để có thể await
-      // ✅ Không cần try-catch: Hook tự động xử lý lỗi và gán vào form
-      // ✅ Nếu thành công: Hook tự động gọi onClose() trong onSuccess
-      // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, không gọi onClose()
-      await createUserMutation.mutateAsync(createData);
+    console.log("🚀 onSubmit called with data:", {
+      ...data,
+      avatarUrl:
+        data.avatarUrl instanceof File
+          ? `File: ${data.avatarUrl.name}`
+          : data.avatarUrl,
+    });
+
+    const previousAvatarUrl = isEditing ? user?.avatarUrl || null : null;
+    let uploadedAvatarUrl: string | null = null;
+    let shouldDeleteOldAvatar = false;
+
+    try {
+      // Xử lý upload ảnh nếu có File mới
+      let finalAvatarUrl: string | null = null;
+
+      if (data.avatarUrl instanceof File) {
+        // Có ảnh mới được chọn -> Upload trước
+        console.log("📤 Uploading image:", data.avatarUrl.name);
+        try {
+          finalAvatarUrl = await uploadService.uploadImage(
+            data.avatarUrl,
+            "users"
+          );
+          uploadedAvatarUrl = finalAvatarUrl;
+          if (
+            isEditing &&
+            previousAvatarUrl &&
+            finalAvatarUrl &&
+            finalAvatarUrl !== previousAvatarUrl
+          ) {
+            shouldDeleteOldAvatar = true;
+          }
+          console.log("✅ Image uploaded successfully:", finalAvatarUrl);
+        } catch (error) {
+          // Nếu upload thất bại, set error vào form
+          console.error("❌ Image upload failed:", error);
+          const errorMessage =
+            error instanceof Error ? error.message : "Không thể upload ảnh";
+          form.setError("avatarUrl", {
+            type: "manual",
+            message: errorMessage,
+          });
+          toast.error(errorMessage);
+          return; // Dừng submit
+        }
+      } else if (typeof data.avatarUrl === "string") {
+        // URL ảnh cũ (không thay đổi)
+        console.log("📷 Using existing avatar URL:", data.avatarUrl);
+        finalAvatarUrl = data.avatarUrl;
+      } else {
+        // null hoặc undefined
+        console.log("📷 No avatar URL");
+        finalAvatarUrl = null;
+        if (isEditing && previousAvatarUrl) {
+          shouldDeleteOldAvatar = true;
+        }
+      }
+
+      // Tạo data cuối cùng với URL ảnh đã được xử lý (chỉ string | null, không có File)
+      // Loại bỏ File object và chỉ giữ string | null
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { avatarUrl: _avatarUrl, ...restData } = data;
+      const finalData = {
+        ...restData,
+        avatarUrl: finalAvatarUrl, // finalAvatarUrl đã là string | null
+      } as Omit<CreateUserSchema, "avatarUrl"> & {
+        avatarUrl?: string | null;
+      } & Omit<UpdateUserSchema, "avatarUrl"> & { avatarUrl?: string | null };
+
+      console.log("📝 Final data to submit:", {
+        ...finalData,
+        avatarUrl: finalAvatarUrl,
+      });
+
+      if (isEditing) {
+        // Update user
+        console.log("🔄 Updating user:", user!.id);
+        const updateData = finalData as Omit<UpdateUserSchema, "avatarUrl"> & {
+          avatarUrl?: string | null;
+        };
+        const updatedUser = (await updateUserMutation.mutateAsync({
+          id: user!.id,
+          data: updateData,
+        })) as User;
+        if (updatedUser && authUser && updatedUser.id === authUser.id) {
+          useAuthStore.setState({ user: updatedUser });
+          queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+        }
+        if (shouldDeleteOldAvatar && previousAvatarUrl) {
+          try {
+            await uploadService.deleteImage(previousAvatarUrl);
+          } catch (deleteError) {
+            console.warn("⚠️ Không thể xóa ảnh cũ:", deleteError);
+          }
+        }
+      } else {
+        // Create user
+        console.log("➕ Creating new user");
+        const createData = finalData as Omit<CreateUserSchema, "avatarUrl"> & {
+          avatarUrl?: string | null;
+        };
+        await createUserMutation.mutateAsync(createData);
+      }
+    } catch (error) {
+      if (uploadedAvatarUrl) {
+        try {
+          await uploadService.deleteImage(uploadedAvatarUrl);
+        } catch (cleanupError) {
+          console.warn("⚠️ Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
+        }
+      }
+      // useAppMutation sẽ tự động xử lý lỗi và gán vào form
+      // Nhưng vẫn log để debug
+      console.error("❌ Error in onSubmit:", error);
+      // Hiển thị toast error nếu có
+      if (error instanceof Error) {
+        toast.error(error.message || "Có lỗi xảy ra khi xử lý");
+      }
+    }
+  };
+
+  const handleChangeEmailSuccess = (updatedEmail: string) => {
+    if (!updatedEmail) return;
+    form.setValue("email", updatedEmail, { shouldDirty: false });
+    queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    if (user && authUser && user.id === authUser.id) {
+      useAuthStore.setState((state) => ({
+        user: state.user ? { ...state.user, email: updatedEmail } : state.user,
+      }));
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     }
   };
 
@@ -260,19 +395,40 @@ export function UserFormSheet({
                 <TabsContent value="profile" className="mt-4">
                   <div className="space-y-6">
                     {/* Avatar Upload - Căn giữa */}
-                    <div className="flex justify-center">
-                      <ImageUpload
-                        value={form.watch("avatarUrl")}
-                        onChange={(url) =>
-                          form.setValue("avatarUrl", url || null, {
-                            shouldValidate: true,
-                            shouldDirty: true,
-                          })
-                        }
-                        folder="users"
-                        size="lg"
-                        disabled={isPending}
-                      />
+                    <div className="space-y-2">
+                      <div className="flex justify-center">
+                        <Controller
+                          name="avatarUrl"
+                          control={form.control}
+                          render={({ field }) => {
+                            // Debug: Log form values
+                            console.log("📝 UserForm - Edit mode:", {
+                              fieldValue: field.value,
+                              userAvatarUrl: user?.avatarUrl,
+                              formAvatarUrl: form.watch("avatarUrl"),
+                            });
+                            return (
+                              <ImageUpload
+                                value={field.value}
+                                previewUrl={user?.avatarUrl || null}
+                                onChange={(file) => {
+                                  field.onChange(file || null);
+                                  form.trigger("avatarUrl"); // Trigger validation
+                                }}
+                                size="lg"
+                                disabled={isPending}
+                              />
+                            );
+                          }}
+                        />
+                      </div>
+                      {/* Error message cho avatarUrl */}
+                      {form.formState.errors.avatarUrl && (
+                        <div className="flex items-start justify-center gap-1.5 text-xs text-red-600">
+                          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>{form.formState.errors.avatarUrl.message}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Full Name */}
@@ -306,24 +462,39 @@ export function UserFormSheet({
                         isEditing ? "Email không thể thay đổi" : undefined
                       }
                     >
-                      <Input
-                        id="email"
-                        type="email"
-                        {...form.register("email" as keyof UserFormData)}
-                        placeholder="Enter email address"
-                        disabled={isEditing}
-                        value={user?.email || ""}
-                        className={cn(
-                          (
-                            form.formState.errors as Record<
-                              string,
-                              { message?: string }
-                            >
-                          ).email &&
-                            "border-red-500 focus:border-red-500 focus:ring-red-500",
-                          isEditing && "bg-slate-100 cursor-not-allowed"
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="email"
+                          type="email"
+                          {...form.register("email" as keyof UserFormData)}
+                          placeholder="Enter email address"
+                          disabled={isEditing}
+                          className={cn(
+                            "flex-1",
+                            (
+                              form.formState.errors as Record<
+                                string,
+                                { message?: string }
+                              >
+                            ).email &&
+                              "border-red-500 focus:border-red-500 focus:ring-red-500",
+                            isEditing && "bg-slate-100 cursor-not-allowed"
+                          )}
+                        />
+                        {canEditEmail && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            className="shrink-0 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300"
+                            onClick={() => setChangeEmailDialogOpen(true)}
+                            disabled={isPending}
+                            title="Đổi email người dùng"
+                          >
+                            <PenLine className="h-4 w-4" />
+                            <span className="sr-only">Đổi email</span>
+                          </Button>
                         )}
-                      />
+                      </div>
                     </FormField>
 
                     {/* Password */}
@@ -462,32 +633,45 @@ export function UserFormSheet({
 
                 {/* Tab 2: History - Lịch sử đăng nhập */}
                 <TabsContent value="history" className="mt-4">
-                  <LoginHistoryTable
-                    history={
-                      (historyData as LoginHistoryPage | undefined)?.content ||
-                      []
-                    }
-                    isLoading={historyLoading}
-                  />
+                  {user ? (
+                    <UserHistoryTable userId={user.id} />
+                  ) : (
+                    <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                      Không tìm thấy thông tin người dùng
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             ) : (
               /* Create mode: Chỉ hiển thị form, không có Tabs */
               <div className="space-y-6">
                 {/* Avatar Upload - Căn giữa */}
-                <div className="flex justify-center">
-                  <ImageUpload
-                    value={form.watch("avatarUrl")}
-                    onChange={(url) =>
-                      form.setValue("avatarUrl", url || null, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                    folder="users"
-                    size="lg"
-                    disabled={isPending}
-                  />
+                <div className="space-y-2">
+                  <div className="flex justify-center">
+                    <Controller
+                      name="avatarUrl"
+                      control={form.control}
+                      render={({ field }) => (
+                        <ImageUpload
+                          value={field.value}
+                          previewUrl={null}
+                          onChange={(file) => {
+                            field.onChange(file || null);
+                            form.trigger("avatarUrl"); // Trigger validation
+                          }}
+                          size="lg"
+                          disabled={isPending}
+                        />
+                      )}
+                    />
+                  </div>
+                  {/* Error message cho avatarUrl */}
+                  {form.formState.errors.avatarUrl && (
+                    <div className="flex items-start justify-center gap-1.5 text-xs text-red-600">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{form.formState.errors.avatarUrl.message}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Full Name */}
@@ -644,7 +828,7 @@ export function UserFormSheet({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1 rounded-lg"
+                className="flex-1 rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
                 disabled={isPending}
               >
                 Cancel
@@ -653,7 +837,7 @@ export function UserFormSheet({
                 ref={submitButtonRef}
                 type="submit"
                 disabled={isPending}
-                className="flex-1 rounded-lg"
+                className="flex-1 rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 disabled:opacity-60"
               >
                 {isPending ? (
                   <>
@@ -670,6 +854,16 @@ export function UserFormSheet({
           </SheetFooter>
         </form>
       </SheetContent>
+      {canEditEmail && user && (
+        <ChangeEmailDialog
+          userId={user.id}
+          userName={user.fullName}
+          currentEmail={watchedEmail || user.email}
+          isOpen={isChangeEmailDialogOpen}
+          onClose={() => setChangeEmailDialogOpen(false)}
+          onSuccess={(updatedEmail) => handleChangeEmailSuccess(updatedEmail)}
+        />
+      )}
     </Sheet>
   );
 }

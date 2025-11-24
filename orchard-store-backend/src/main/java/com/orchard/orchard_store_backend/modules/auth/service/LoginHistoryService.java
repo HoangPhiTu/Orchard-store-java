@@ -12,7 +12,16 @@ import java.util.List;
 
 public interface LoginHistoryService {
 
-    void saveLoginHistory(User user, HttpServletRequest request, LoginHistory.LoginStatus status, String failureReason);
+    void logLogin(User user, HttpServletRequest request, LoginHistory.LoginStatus status, String failureReason);
+
+    default void saveLoginHistory(
+            User user,
+            HttpServletRequest request,
+            LoginHistory.LoginStatus status,
+            String failureReason
+    ) {
+        logLogin(user, request, status, failureReason);
+    }
 
     Page<LoginHistoryDTO> getLoginHistory(User user, Pageable pageable);
 

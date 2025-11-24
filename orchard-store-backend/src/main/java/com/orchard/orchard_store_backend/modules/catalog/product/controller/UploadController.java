@@ -71,5 +71,33 @@ public class UploadController {
                     .body(ApiResponse.error(500, "Không thể upload ảnh: " + e.getMessage()));
         }
     }
+
+    /**
+     * Xóa file ảnh khỏi MinIO
+     *
+     * DELETE /api/admin/upload?imageUrl={url}
+     *
+     * @param imageUrl URL đầy đủ của ảnh cần xóa
+     */
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> deleteImage(
+            @RequestParam("imageUrl") String imageUrl
+    ) {
+        log.info("DELETE /api/admin/upload - imageUrl: {}", imageUrl);
+
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Thiếu tham số imageUrl"));
+        }
+
+        try {
+            imageUploadService.deleteImage(imageUrl);
+            return ResponseEntity.ok(ApiResponse.success("Đã xử lý yêu cầu xóa ảnh", null));
+        } catch (Exception e) {
+            log.error("Error deleting image: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "Không thể xóa ảnh: " + e.getMessage()));
+        }
+    }
 }
 

@@ -2,8 +2,10 @@ export interface User {
   id: number;
   email: string;
   fullName: string;
+  phone?: string | null; // Số điện thoại
   roles: string[];
   authorities?: string[];
+  avatarUrl?: string | null; // URL ảnh avatar
 }
 
 export interface LoginRequest {
