@@ -23,7 +23,7 @@ export interface UserFilters {
   keyword?: string;
   page?: number;
   size?: number;
-  status?: UserStatus; // Filter by status
+  status?: UserStatus | string;
 }
 
 export interface Page<T> {

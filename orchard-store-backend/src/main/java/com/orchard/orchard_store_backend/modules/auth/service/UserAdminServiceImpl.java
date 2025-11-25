@@ -46,7 +46,7 @@ public class UserAdminServiceImpl implements UserAdminService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<UserResponseDTO> getUsers(String keyword, Pageable pageable) {
+    public Page<UserResponseDTO> getUsers(String keyword, String status, Pageable pageable) {
         Specification<User> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -56,6 +56,15 @@ public class UserAdminServiceImpl implements UserAdminService {
                 Predicate fullNamePredicate = cb.like(cb.lower(root.get("fullName")), searchPattern);
                 Predicate phonePredicate = cb.like(cb.lower(root.get("phone")), searchPattern);
                 predicates.add(cb.or(emailPredicate, fullNamePredicate, phonePredicate));
+            }
+
+            if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+                try {
+                    User.Status userStatus = User.Status.valueOf(status.toUpperCase());
+                    predicates.add(cb.equal(root.get("status"), userStatus));
+                } catch (IllegalArgumentException ex) {
+                    log.warn("Invalid status filter: {}", status);
+                }
             }
 
             // Eagerly fetch userRoles and roles to avoid LazyInitializationException

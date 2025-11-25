@@ -12,7 +12,7 @@ interface PopoverProps {
 interface PopoverContextValue {
   open: boolean;
   setOpen: (open: boolean) => void;
-  triggerRef: React.RefObject<HTMLButtonElement>;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 const PopoverContext = React.createContext<PopoverContextValue | null>(null);
@@ -23,8 +23,8 @@ const Popover = ({
   children,
 }: PopoverProps) => {
   const [internalOpen, setInternalOpen] = React.useState(false);
-  const triggerRef = React.useRef<HTMLButtonElement>(null);
-  const contentRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
 
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = React.useCallback(
@@ -75,40 +75,38 @@ const Popover = ({
   );
 };
 
-interface PopoverTriggerProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  asChild?: boolean;
-  children?: React.ReactNode;
-}
+type PopoverTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 const PopoverTrigger = React.forwardRef<HTMLButtonElement, PopoverTriggerProps>(
-  ({ className, children, asChild, ...props }, ref) => {
+  ({ className, children, ...props }, ref) => {
     const context = React.useContext(PopoverContext);
+
+    const mergedRef = React.useCallback(
+      (node: HTMLButtonElement | null) => {
+        if (!context) return;
+        const triggerRef = context.triggerRef;
+        triggerRef.current = node;
+
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref) {
+          (ref as React.MutableRefObject<HTMLButtonElement | null>).current =
+            node;
+        }
+      },
+      [context, ref]
+    );
+
     if (!context) return null;
 
-    const buttonRef = React.useRef<HTMLButtonElement>(null);
-    React.useImperativeHandle(ref, () => buttonRef.current!);
-
-    React.useEffect(() => {
-      if (context.triggerRef && buttonRef.current) {
-        context.triggerRef.current = buttonRef.current;
-      }
-    }, [context.triggerRef]);
-
-    if (asChild && React.isValidElement(children)) {
-      return React.cloneElement(children, {
-        ref: buttonRef,
-        onClick: () => context.setOpen(!context.open),
-        ...props,
-      } as any);
-    }
+    const handleClick = () => context.setOpen(!context.open);
 
     return (
       <button
         type="button"
-        ref={buttonRef}
+        ref={mergedRef}
         className={cn(className)}
-        onClick={() => context.setOpen(!context.open)}
+        onClick={handleClick}
         {...props}
       >
         {children}
@@ -138,64 +136,73 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
     ref
   ) => {
     const context = React.useContext(PopoverContext);
-    const contentRef = React.useRef<HTMLDivElement>(null);
+    const triggerRef = context?.triggerRef ?? null;
+    const contentRef = React.useRef<HTMLDivElement | null>(null);
     const [positionStyle, setPositionStyle] =
       React.useState<React.CSSProperties>({});
+    const shouldRender = Boolean(context && context.open);
 
     React.useImperativeHandle(ref, () => contentRef.current!);
 
-    if (!context || !context.open) return null;
-
     React.useEffect(() => {
-      if (context.triggerRef.current && contentRef.current) {
-        const triggerRect = context.triggerRef.current.getBoundingClientRect();
-        const contentRect = contentRef.current.getBoundingClientRect();
-
-        let top = triggerRect.bottom + sideOffset;
-        let left = triggerRect.left;
-
-        if (side === "top") {
-          top = triggerRect.top - contentRect.height - sideOffset;
-        } else if (side === "bottom") {
-          top = triggerRect.bottom + sideOffset;
-        }
-
-        if (align === "end") {
-          left = triggerRect.right - contentRect.width;
-        } else if (align === "center") {
-          left = triggerRect.left + (triggerRect.width - contentRect.width) / 2;
-        } else {
-          left = triggerRect.left;
-        }
-
-        // Adjust if content goes off screen
-        if (left + contentRect.width > window.innerWidth) {
-          left = window.innerWidth - contentRect.width - 16;
-        }
-        if (left < 0) {
-          left = 16;
-        }
-        if (top + contentRect.height > window.innerHeight) {
-          top = triggerRect.top - contentRect.height - sideOffset;
-        }
-        if (top < 0) {
-          top = 8;
-        }
-
-        setPositionStyle({
-          position: "fixed",
-          top: `${top}px`,
-          left: `${left}px`,
-          minWidth: `${Math.max(triggerRect.width, 320)}px`,
-        });
+      if (!shouldRender || !triggerRef?.current || !contentRef.current) {
+        return;
       }
-    }, [context.triggerRef, context.open, align, side, sideOffset]);
+
+      const triggerNode = triggerRef.current;
+      const contentNode = contentRef.current;
+      if (!triggerNode || !contentNode) {
+        return;
+      }
+
+      const triggerRect = triggerNode.getBoundingClientRect();
+      const contentRect = contentNode.getBoundingClientRect();
+
+      let top = triggerRect.bottom + sideOffset;
+      let left = triggerRect.left;
+
+      if (side === "top") {
+        top = triggerRect.top - contentRect.height - sideOffset;
+      } else if (side === "bottom") {
+        top = triggerRect.bottom + sideOffset;
+      }
+
+      if (align === "end") {
+        left = triggerRect.right - contentRect.width;
+      } else if (align === "center") {
+        left = triggerRect.left + (triggerRect.width - contentRect.width) / 2;
+      } else {
+        left = triggerRect.left;
+      }
+
+      if (left + contentRect.width > window.innerWidth) {
+        left = window.innerWidth - contentRect.width - 16;
+      }
+      if (left < 0) {
+        left = 16;
+      }
+      if (top + contentRect.height > window.innerHeight) {
+        top = triggerRect.top - contentRect.height - sideOffset;
+      }
+      if (top < 0) {
+        top = 8;
+      }
+
+      setPositionStyle({
+        position: "fixed",
+        top: `${top}px`,
+        left: `${left}px`,
+        minWidth: `${Math.max(triggerRect.width, 320)}px`,
+      });
+    }, [shouldRender, triggerRef, align, side, sideOffset]);
+
+    if (!context || !shouldRender) return null;
 
     return (
       <div
         ref={contentRef}
         className={cn(
-          "z-[100] max-h-[400px] overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg",
+          "z-100 max-h-[400px] overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg",
           className
         )}
         style={positionStyle}

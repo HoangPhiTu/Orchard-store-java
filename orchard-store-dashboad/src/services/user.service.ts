@@ -36,10 +36,21 @@ export const userService = {
    * Lấy danh sách users với tìm kiếm và phân trang
    * GET /api/admin/users?keyword=...&page=0&size=20&status=ACTIVE
    */
-  getUsers: (params?: UserFilters) =>
-    http
-      .get<ApiResponse<Page<User>>>(API_ROUTES.USERS, { params })
-      .then((res) => unwrapPage(res)),
+  getUsers: (params?: UserFilters) => {
+    const queryParams: Record<string, string | number> = {};
+    if (params?.page !== undefined) queryParams.page = params.page;
+    if (params?.size !== undefined) queryParams.size = params.size;
+    if (params?.keyword && params.keyword.trim() !== "") {
+      queryParams.keyword = params.keyword.trim();
+    }
+    if (params?.status && params.status !== "ALL") {
+      queryParams.status = params.status;
+    }
+
+    return http
+      .get<ApiResponse<Page<User>>>(API_ROUTES.USERS, { params: queryParams })
+      .then((res) => unwrapPage(res));
+  },
 
   /**
    * Lấy chi tiết một user theo ID

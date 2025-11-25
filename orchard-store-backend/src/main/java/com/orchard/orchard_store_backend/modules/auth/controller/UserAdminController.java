@@ -62,13 +62,15 @@ public class UserAdminController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<UserResponseDTO>>> getUsers(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        log.info("GET /api/admin/users - keyword: {}, page: {}, size: {}", keyword, page, size);
+        log.info("GET /api/admin/users - keyword: {}, status: {}, page: {}, size: {}",
+                keyword, status, page, size);
         
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<UserResponseDTO> users = userAdminService.getUsers(keyword, pageable);
+        Page<UserResponseDTO> users = userAdminService.getUsers(keyword, status, pageable);
         
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách users thành công", users));
     }

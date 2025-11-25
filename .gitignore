@@ -42,7 +42,6 @@ dist/
 
 # Documentation files - exclude all .md files and docs/ folder
 *.md
-!README.md
 docs/
 
 # Test files

@@ -9,9 +9,11 @@ export interface Brand {
   description?: string | null;
   logoUrl?: string | null;
   country?: string | null;
-  websiteUrl?: string | null;
+  websiteUrl?: string | null; // Backend trả về websiteUrl
   displayOrder?: number | null;
   status: CatalogStatus;
+  createdAt?: string | null; // ISO date string
+  updatedAt?: string | null; // ISO date string
 }
 
 export interface Category {
@@ -32,6 +34,15 @@ export interface BrandQueryParams {
   size?: number;
   search?: string;
   status?: CatalogStatus;
+}
+
+export interface BrandFilter {
+  keyword?: string;
+  status?: CatalogStatus;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  direction?: "ASC" | "DESC";
 }
 
 export interface CategoryQueryParams {
@@ -62,15 +73,19 @@ export const brandFormSchema = z.object({
     .min(1, "Vui lòng nhập tên thương hiệu")
     .min(2, "Tên thương hiệu phải có ít nhất 2 ký tự")
     .max(255, "Tên thương hiệu không được vượt quá 255 ký tự"),
-  slug: slugSchema,
+  slug: emptyToUndefined(slugSchema), // Slug là optional - backend sẽ tự tạo nếu không có
   description: emptyToUndefined(
     z.string().max(5000, "Mô tả không được vượt quá 5000 ký tự")
   ),
-  logoUrl: emptyToUndefined(z.string().url("URL logo không hợp lệ")),
+  logoUrl: emptyToUndefined(
+    z.string().max(500, "URL logo không được vượt quá 500 ký tự")
+  ),
   country: emptyToUndefined(
     z.string().max(100, "Tên quốc gia không được vượt quá 100 ký tự")
   ),
-  websiteUrl: emptyToUndefined(z.string().url("URL website không hợp lệ")),
+  website: emptyToUndefined(
+    z.string().max(500, "URL website không được vượt quá 500 ký tự")
+  ), // Backend nhận "website", trả về "websiteUrl"
   displayOrder: emptyToUndefined(
     z.preprocess(
       (value) => (value === undefined ? undefined : Number(value)),
@@ -82,7 +97,7 @@ export const brandFormSchema = z.object({
         .min(0, "Thứ tự hiển thị phải lớn hơn hoặc bằng 0")
     )
   ),
-  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
 export type BrandFormData = z.infer<typeof brandFormSchema>;

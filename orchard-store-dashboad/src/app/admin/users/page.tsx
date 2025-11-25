@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Plus, Search, ChevronDown } from "lucide-react";
 
 import { useDebounce } from "@/hooks/use-debounce";
+import { useDataTable } from "@/hooks/use-data-table";
 import { useUsers } from "@/hooks/use-users";
-import type { User, UserStatus } from "@/types/user.types";
+import type { Page, User, UserStatus } from "@/types/user.types";
+import { STATUS_OPTIONS } from "@/config/options";
 import { UserTable } from "@/components/features/user/user-table";
 import { UserFormSheet } from "@/components/features/user/user-form-sheet";
 import { ResetPasswordDialog } from "@/components/features/user/reset-password-dialog";
@@ -14,18 +16,20 @@ import { DeleteUserDialog } from "@/components/features/user/delete-user-dialog"
 import { ToggleStatusDialog } from "@/components/features/user/toggle-status-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DataTablePagination } from "@/components/shared/data-table-pagination";
+import { DataTableFilter } from "@/components/shared/data-table-filter";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function UserManagementPage() {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<UserStatus | "ALL">("ALL");
-  const [page, setPage] = useState(0); // Backend uses 0-based pagination
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchParams = useSearchParams();
+  const { page, pageSize, onPaginationChange } = useDataTable();
+  const zeroBasedPage = Math.max(page - 1, 0);
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
@@ -37,30 +41,42 @@ export default function UserManagementPage() {
   const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] =
     useState(false);
 
-  const debouncedSearch = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(searchTerm, 500);
 
-  // Build filters for API
+  const rawStatus = searchParams.get("status");
+  const statusFilter: UserStatus | "ALL" =
+    rawStatus && ["ACTIVE", "INACTIVE", "BANNED"].includes(rawStatus)
+      ? (rawStatus as UserStatus)
+      : "ALL";
+
+  const prevStatusRef = useRef(statusFilter);
+  useEffect(() => {
+    if (prevStatusRef.current !== statusFilter) {
+      prevStatusRef.current = statusFilter;
+      onPaginationChange(1, pageSize);
+    }
+  }, [statusFilter, onPaginationChange, pageSize]);
+
   const filters = useMemo(
     () => ({
       keyword: debouncedSearch || undefined,
-      status: statusFilter !== "ALL" ? statusFilter : undefined,
-      page,
-      size: 20, // Items per page
+      status: statusFilter,
+      page: zeroBasedPage,
+      size: pageSize,
     }),
-    [debouncedSearch, statusFilter, page]
+    [debouncedSearch, statusFilter, zeroBasedPage, pageSize]
   );
 
   const { data, isLoading, error } = useUsers(filters);
+  const userPage = data as Page<User> | undefined;
+  const users = userPage?.content ?? [];
+  const totalElements = userPage?.totalElements ?? 0;
+  const totalPages = userPage?.totalPages ?? 0;
 
   // Reset to first page when search or filter changes
   const handleSearchChange = (value: string) => {
-    setSearch(value);
-    setPage(0);
-  };
-
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value as UserStatus | "ALL");
-    setPage(0);
+    setSearchTerm(value);
+    onPaginationChange(1, pageSize);
   };
 
   const handleEdit = (user: User) => {
@@ -93,18 +109,6 @@ export default function UserManagementPage() {
     setFormOpen(true);
   };
 
-  const handlePrevPage = () => {
-    if (data && !data.first) {
-      setPage((prev) => Math.max(0, prev - 1));
-    }
-  };
-
-  const handleNextPage = () => {
-    if (data && !data.last) {
-      setPage((prev) => prev + 1);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -131,25 +135,39 @@ export default function UserManagementPage() {
             <Input
               placeholder="Search by name, email, or phone..."
               className="pl-9"
-              value={search}
+              value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-3">
-            <Select
-              value={statusFilter}
-              onValueChange={handleStatusFilterChange}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Status</SelectItem>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="INACTIVE">Inactive</SelectItem>
-                <SelectItem value="BANNED">Banned</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
+            <DataTableFilter
+              title="Status"
+              options={STATUS_OPTIONS}
+              paramName="status"
+            />
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-10 min-w-[160px] justify-between rounded-lg border-slate-200 text-sm text-slate-600"
+                >
+                  Hiển thị: {pageSize}
+                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                {[15, 30, 50, 100].map((size) => (
+                  <DropdownMenuItem
+                    key={size}
+                    onClick={() => onPaginationChange(1, size)}
+                    data-active={size === pageSize}
+                    className="cursor-pointer text-sm text-slate-600 data-[active=true]:font-semibold"
+                  >
+                    {size} dòng / trang
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -163,7 +181,7 @@ export default function UserManagementPage() {
             </div>
           ) : (
             <UserTable
-              users={data?.content || []}
+              users={users}
               onEdit={handleEdit}
               onResetPassword={handleResetPassword}
               onToggleStatus={handleToggleStatus}
@@ -174,37 +192,14 @@ export default function UserManagementPage() {
         </div>
 
         {/* Pagination */}
-        {data && data.totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-            <div className="text-sm text-slate-600">
-              Showing {data.content.length > 0 ? data.page * data.size + 1 : 0}{" "}
-              to {Math.min((data.page + 1) * data.size, data.totalElements)} of{" "}
-              {data.totalElements} users
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrevPage}
-                disabled={data.first || isLoading}
-              >
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Previous
-              </Button>
-              <div className="text-sm text-slate-600">
-                Page {data.page + 1} of {data.totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNextPage}
-                disabled={data.last || isLoading}
-              >
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+        {data && (
+          <DataTablePagination
+            totalElements={totalElements}
+            totalPages={totalPages}
+            pageIndex={page}
+            pageSize={pageSize}
+            onPageChange={(nextPage) => onPaginationChange(nextPage, pageSize)}
+          />
         )}
       </div>
 

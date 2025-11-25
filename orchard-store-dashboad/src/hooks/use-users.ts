@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   useMutation,
   useQuery,
@@ -21,9 +22,19 @@ const USERS_QUERY_KEY = ["admin", "users"] as const;
  * Sử dụng keepPreviousData để tránh nháy khi phân trang
  */
 export const useUsers = (filters?: UserFilters) => {
+  const requestFilters = useMemo<UserFilters | undefined>(() => {
+    if (!filters) return undefined;
+    return {
+      ...filters,
+      keyword: filters.keyword?.trim() || undefined,
+      status:
+        filters.status && filters.status !== "ALL" ? filters.status : undefined,
+    };
+  }, [filters]);
+
   return useQuery<Page<User>, Error>({
-    queryKey: [...USERS_QUERY_KEY, "list", filters] as const,
-    queryFn: () => userService.getUsers(filters),
+    queryKey: [...USERS_QUERY_KEY, requestFilters] as const,
+    queryFn: () => userService.getUsers(requestFilters),
     placeholderData: keepPreviousData,
   });
 };

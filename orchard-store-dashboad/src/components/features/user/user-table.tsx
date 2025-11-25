@@ -1,9 +1,8 @@
 "use client";
 
-import { MoreHorizontal, Edit, Lock, Unlock, Key, Trash2 } from "lucide-react";
+import { Pencil, Lock, Unlock, Key, Trash2 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,12 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types/user.types";
 
@@ -201,69 +195,64 @@ export function UserTable({
               </Badge>
             </TableCell>
 
-            {/* Actions Column: DropdownMenu */}
             <TableCell className="text-right">
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Open menu</span>
+              <div className="flex items-center justify-end gap-1">
+                {onEdit && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+                    onClick={() => onEdit(user)}
+                    title="Edit user"
+                  >
+                    <Pencil className="h-4 w-4" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {onEdit && (
-                    <DropdownMenuItem onClick={() => onEdit(user)}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                  )}
-                  {onResetPassword && (
-                    <DropdownMenuItem onClick={() => onResetPassword(user)}>
-                      <Key className="mr-2 h-4 w-4" />
-                      Reset Password
-                    </DropdownMenuItem>
-                  )}
-                  {onToggleStatus && (
-                    <DropdownMenuItem
-                      onClick={() => onToggleStatus(user)}
-                      disabled={!canToggleStatus(user)}
-                      className={
-                        !canToggleStatus(user)
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }
-                    >
-                      {user.status === "ACTIVE" ? (
-                        <>
-                          <Lock className="mr-2 h-4 w-4" />
-                          Lock
-                        </>
-                      ) : (
-                        <>
-                          <Unlock className="mr-2 h-4 w-4" />
-                          Unlock
-                        </>
-                      )}
-                      {!canToggleStatus(user) && (
-                        <span className="ml-auto text-xs text-slate-400">
-                          {currentUser && currentUser.email === user.email
-                            ? "Không thể khóa chính mình"
-                            : "Không có quyền"}
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  )}
-                  {onDelete && (
-                    <DropdownMenuItem
-                      onClick={() => onDelete(user)}
-                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                )}
+                {onResetPassword && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                    onClick={() => onResetPassword(user)}
+                    title="Reset password"
+                  >
+                    <Key className="h-4 w-4" />
+                  </Button>
+                )}
+                {onToggleStatus && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${
+                      canToggleStatus(user)
+                        ? "text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                        : "text-slate-300 cursor-not-allowed"
+                    }`}
+                    onClick={() => onToggleStatus(user)}
+                    disabled={!canToggleStatus(user)}
+                    title={
+                      user.status === "ACTIVE" ? "Lock user" : "Unlock user"
+                    }
+                  >
+                    {user.status === "ACTIVE" ? (
+                      <Lock className="h-4 w-4" />
+                    ) : (
+                      <Unlock className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                    onClick={() => onDelete(user)}
+                    title="Delete user"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}
