@@ -24,8 +24,12 @@ export interface Category {
   imageUrl?: string | null;
   parentId?: number | null;
   parentName?: string | null;
+  level?: number | null;
+  path?: string | null;
   status: CatalogStatus;
   displayOrder?: number | null;
+  createdAt?: string | null; // ISO date string
+  updatedAt?: string | null; // ISO date string
   children?: Category[];
 }
 
@@ -51,6 +55,15 @@ export interface CategoryQueryParams {
   search?: string;
   status?: CatalogStatus;
   parentId?: number;
+}
+
+export interface CategoryFilter {
+  keyword?: string;
+  status?: CatalogStatus;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  direction?: "ASC" | "DESC";
 }
 
 const slugSchema = z
@@ -102,7 +115,7 @@ export const brandFormSchema = z.object({
 
 export type BrandFormData = z.infer<typeof brandFormSchema>;
 
-export const categoryFormSchema = z.object({
+const categoryFormSchemaBase = z.object({
   name: z
     .string()
     .min(1, "Vui lòng nhập tên danh mục")
@@ -112,18 +125,28 @@ export const categoryFormSchema = z.object({
   description: emptyToUndefined(
     z.string().max(5000, "Mô tả không được vượt quá 5000 ký tự")
   ),
-  imageUrl: emptyToUndefined(z.string().url("URL hình ảnh không hợp lệ")),
-  parentId: emptyToUndefined(
-    z.preprocess(
-      (value) => (value === undefined ? undefined : Number(value)),
+  imageUrl: emptyToUndefined(
+    z.string().max(500, "URL hình ảnh không được vượt quá 500 ký tự")
+  ),
+  parentId: z
+    .preprocess(
+      (value) => {
+        if (value === "" || value === null || value === undefined) {
+          return null;
+        }
+        return Number(value);
+      },
       z
         .number({
           invalid_type_error: "Vui lòng nhập số hợp lệ",
         })
         .int("ID danh mục cha phải là số nguyên")
         .positive("ID danh mục cha phải lớn hơn 0")
+        .nullable()
+        .optional()
     )
-  ),
+    .optional()
+    .nullable(),
   displayOrder: emptyToUndefined(
     z.preprocess(
       (value) => (value === undefined ? undefined : Number(value)),
@@ -135,7 +158,27 @@ export const categoryFormSchema = z.object({
         .min(0, "Thứ tự hiển thị phải lớn hơn hoặc bằng 0")
     )
   ),
-  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
+
+export const categoryFormSchema = categoryFormSchemaBase;
+
+export const createCategoryFormSchema = (
+  options?: { currentCategoryId?: number | null }
+) =>
+  categoryFormSchemaBase.superRefine((data, ctx) => {
+    if (
+      options?.currentCategoryId &&
+      data.parentId !== null &&
+      data.parentId !== undefined &&
+      data.parentId === options.currentCategoryId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parentId"],
+        message: "Không thể chọn chính danh mục làm cha",
+      });
+    }
+  });
 
 export type CategoryFormData = z.infer<typeof categoryFormSchema>;

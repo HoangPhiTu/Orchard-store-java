@@ -19,12 +19,26 @@ interface GlobalErrorProps {
 /**
  * Extract user-friendly error message from error object
  */
+function isAxiosErrorLike(
+  error: unknown
+): error is AxiosError<unknown> & { isAxiosError?: boolean } {
+  if (error instanceof AxiosError) {
+    return true;
+  }
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "isAxiosError" in error &&
+    Boolean((error as { isAxiosError?: boolean }).isAxiosError)
+  );
+}
+
 function getErrorMessage(error: Error | undefined): string {
   if (!error) return "";
 
   // Check if it's an AxiosError
-  if (error instanceof AxiosError || (error as any).isAxiosError) {
-    const axiosError = error as AxiosError<unknown>;
+  if (isAxiosErrorLike(error)) {
+    const axiosError = error;
     const response = axiosError.response?.data;
 
     if (response && typeof response === "object") {

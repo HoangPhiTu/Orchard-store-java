@@ -36,18 +36,6 @@ public class Category {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private Category parent;
-
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<Category> children = new ArrayList<>();
-
-    @Column(name = "level")
-    @Builder.Default
-    private Integer level = 0;
-
     @Column(name = "display_order")
     @Builder.Default
     private Integer displayOrder = 0;
@@ -56,6 +44,24 @@ public class Category {
     @Column(length = 20)
     @Builder.Default
     private Status status = Status.ACTIVE;
+
+    // Hierarchy fields
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Category parent;
+
+    @Column(name = "parent_id", insertable = false, updatable = false)
+    private Long parentId;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
+    private List<Category> children = new ArrayList<>();
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer level = 0;
+
+    @Column(length = 500)
+    private String path; // e.g., "1/5/10" for easy querying
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -68,17 +74,4 @@ public class Category {
     public enum Status {
         ACTIVE, INACTIVE
     }
-
-    public void addChild(Category child) {
-        children.add(child);
-        child.setParent(this);
-        child.setLevel(this.level + 1);
-    }
-
-    public void removeChild(Category child) {
-        children.remove(child);
-        child.setParent(null);
-        child.setLevel(0);
-    }
 }
-

@@ -3,10 +3,21 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
   /* Indigo Theme Colors */
   --primary: #4f46e5; /* indigo-600 */
   --primary-foreground: #ffffff;
   --accent: #eef2ff; /* indigo-50 */
+  
+  /* ✅ MÀU XÁM ĐẬM CHO NÚT CANCEL/HỦY */
+  /* Tăng từ 35% lên 20% để chữ đậm hơn rõ ràng */
+  --muted-foreground: hsl(215 16% 20%); 
+  
+  /* ✅ THÊM MÀU CHO OUTLINE BUTTON */
+  --outline-text: #1e293b; /* slate-800 - rất đậm */
+  --outline-border: #94a3b8; /* slate-400 */
+  --outline-hover-bg: #f1f5f9; /* slate-100 */
+  --outline-hover-border: #64748b; /* slate-500 */
 }
 
 @theme inline {
@@ -15,6 +26,11 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-outline-text: var(--outline-text);
+  --color-outline-border: var(--outline-border);
+  --color-outline-hover-bg: var(--outline-hover-bg);
+  --color-outline-hover-border: var(--outline-hover-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -86,27 +102,29 @@ textarea:not(:placeholder-shown) {
   font-weight: 500 !important;
 }
 
+/* ✅ FORCE OUTLINE BUTTON TEXT COLOR TO BE VERY DARK */
+/* ✅ FORCE OUTLINE BUTTON TEXT TO BE VERY DARK & BOLD */
+button[class*="outline"],
+button[data-variant="outline"] {
+  color: #1e293b !important; /* slate-800 - rất đậm */
+  font-weight: 700 !important; /* font-bold */
+  border-color: #94a3b8 !important; /* slate-400 */
+}
+
+button[class*="outline"]:hover,
+button[data-variant="outline"]:hover {
+  color: #0f172a !important; /* slate-900 - cực đậm */
+  background-color: #f1f5f9 !important; /* slate-100 */
+  border-color: #64748b !important; /* slate-500 */
+}
+
 /* ===== FORM VALIDATION ANIMATIONS ===== */
 
 /* Shake animation for form errors */
 @keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  10%,
-  30%,
-  50%,
-  70%,
-  90% {
-    transform: translateX(-4px);
-  }
-  20%,
-  40%,
-  60%,
-  80% {
-    transform: translateX(4px);
-  }
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
 }
 
 .animate-shake {
@@ -115,23 +133,9 @@ textarea:not(:placeholder-shown) {
 
 /* Shake animation for submit button */
 @keyframes shake-button {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  10%,
-  30%,
-  50%,
-  70%,
-  90% {
-    transform: translateX(-3px);
-  }
-  20%,
-  40%,
-  60%,
-  80% {
-    transform: translateX(3px);
-  }
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+  20%, 40%, 60%, 80% { transform: translateX(3px); }
 }
 
 .animate-shake-button {
@@ -140,13 +144,8 @@ textarea:not(:placeholder-shown) {
 
 /* Pulse animation for error fields */
 @keyframes pulse-error {
-  0%,
-  100% {
-    border-color: rgb(239 68 68); /* red-500 */
-  }
-  50% {
-    border-color: rgb(220 38 38); /* red-600 */
-  }
+  0%, 100% { border-color: rgb(239 68 68); } /* red-500 */
+  50% { border-color: rgb(220 38 38); } /* red-600 */
 }
 
 .animate-pulse-error {

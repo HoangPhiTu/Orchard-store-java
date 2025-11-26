@@ -12,11 +12,11 @@ import { App as AntdApp, ConfigProvider, theme } from "antd";
 import { useAuthStore } from "@/stores/auth-store";
 
 function AuthBootstrapper() {
-  const checkAuth = useAuthStore((state) => state.checkAuth);
+  const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    initialize();
+  }, [initialize]);
 
   return null;
 }
@@ -44,6 +44,8 @@ export default function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             refetchOnWindowFocus: false,
+            staleTime: 60 * 1000,
+            gcTime: 5 * 60 * 1000,
             retry: 1,
             // Queries sẽ không throw error để UI có thể handle gracefully
             throwOnError: false,

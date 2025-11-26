@@ -76,7 +76,7 @@ export function BrandTableToolbar({
         </DropdownMenu>
         <Button
           onClick={onAddBrand}
-          className="h-10 rounded-lg bg-indigo-600 text-white shadow-md shadow-indigo-200/50 hover:bg-indigo-700"
+          className="h-10 rounded-lg"
         >
           <Plus className="mr-2 h-4 w-4" />
           Add Brand

@@ -401,14 +401,14 @@ export function BrandFormSheet({
                   variant="outline"
                   onClick={() => onOpenChange(false)}
                   disabled={isSubmitting}
-                  className="h-10 rounded-lg border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  className="h-10 rounded-lg border-slate-300 bg-white text-slate-900 font-semibold hover:bg-slate-100 hover:text-slate-950"
                 >
                   Hủy
                 </Button>
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="h-10 w-32 rounded-lg bg-indigo-600 text-white shadow-sm hover:bg-indigo-700"
+                  className="h-10 w-32 rounded-lg"
                 >
                   {isSubmitting ? (
                     <>

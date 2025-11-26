@@ -1,0 +1,7 @@
+ALTER TABLE categories
+    ADD COLUMN IF NOT EXISTS path VARCHAR(500);
+
+UPDATE categories
+SET path = CAST(id AS VARCHAR)
+WHERE path IS NULL;
+

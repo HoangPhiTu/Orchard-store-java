@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, MailCheck, MailPlus } from "lucide-react";
 import { toast } from "sonner";
 import type { AxiosError } from "axios";
@@ -58,7 +58,6 @@ export function ChangeEmailDialog({
   });
 
   const isEmailStep = step === "email";
-  const isOtpStep = step === "otp";
 
   const disabledEmailSubmit =
     !newEmail.trim() || initMutation.isPending || verifyMutation.isPending;
@@ -86,12 +85,6 @@ export function ChangeEmailDialog({
     resetState();
     onClose();
   };
-
-  useEffect(() => {
-    if (!isOpen) {
-      resetState();
-    }
-  }, [isOpen]);
 
   const handleSendOtp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -143,7 +136,7 @@ export function ChangeEmailDialog({
       </div>
       <Button
         type="submit"
-        className="w-full bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 disabled:opacity-60"
+        className="w-full"
         disabled={disabledEmailSubmit}
       >
         {initMutation.isPending ? (
@@ -196,7 +189,7 @@ export function ChangeEmailDialog({
         </Button>
         <Button
           type="submit"
-          className="w-full sm:w-auto bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 disabled:opacity-60"
+          className="w-full sm:w-auto"
           disabled={disabledOtpSubmit}
         >
           {verifyMutation.isPending ? (

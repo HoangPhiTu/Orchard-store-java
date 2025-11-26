@@ -43,8 +43,8 @@ export function FormField({
         <Label
           htmlFor={htmlFor}
           className={cn(
-            "text-sm font-medium transition-colors",
-            hasError ? "text-red-600" : "text-slate-700"
+            "text-sm font-semibold transition-colors",
+            hasError ? "text-red-600" : "text-slate-900"
           )}
         >
           {label}
@@ -68,7 +68,7 @@ export function FormField({
 
       {/* Description (không có lỗi) */}
       {!error && description && (
-        <p className="text-xs text-slate-500">{description}</p>
+        <p className="text-xs font-medium text-slate-700">{description}</p>
       )}
     </div>
   );

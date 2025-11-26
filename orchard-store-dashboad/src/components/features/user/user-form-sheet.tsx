@@ -485,7 +485,7 @@ export function UserFormSheet({
                           <Button
                             type="button"
                             size="icon"
-                            className="shrink-0 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300"
+                            className="shrink-0"
                             onClick={() => setChangeEmailDialogOpen(true)}
                             disabled={isPending}
                             title="Đổi email người dùng"
@@ -828,7 +828,7 @@ export function UserFormSheet({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1 rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
+                className="flex-1 rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-500"
                 disabled={isPending}
               >
                 Cancel
@@ -837,7 +837,7 @@ export function UserFormSheet({
                 ref={submitButtonRef}
                 type="submit"
                 disabled={isPending}
-                className="flex-1 rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 disabled:opacity-60"
+                className="flex-1 rounded-lg"
               >
                 {isPending ? (
                   <>

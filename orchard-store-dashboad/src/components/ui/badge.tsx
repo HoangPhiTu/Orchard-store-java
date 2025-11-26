@@ -9,11 +9,14 @@ interface BadgeProps {
 }
 
 const variantClasses: Record<NonNullable<BadgeProps["variant"]>, string> = {
-  default: "bg-slate-900 text-white",
-  secondary: "bg-slate-100 text-slate-600",
-  success: "bg-indigo-50 text-indigo-600",
-  warning: "bg-amber-50 text-amber-600",
-  danger: "bg-red-50 text-red-600",
+  default: "border border-dashed border-slate-700 bg-slate-900 text-white",
+  secondary:
+    "border border-dashed border-slate-200 bg-slate-100 text-slate-600",
+  success:
+    "border border-dashed border-indigo-200 bg-indigo-50 text-indigo-600",
+  warning:
+    "border border-dashed border-amber-200 bg-amber-50 text-amber-600",
+  danger: "border border-dashed border-red-200 bg-red-50 text-red-600",
 };
 
 export function Badge({

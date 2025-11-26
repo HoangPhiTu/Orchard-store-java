@@ -12,6 +12,7 @@ export const API_ROUTES = {
   BRANDS: "/api/brands",
   ADMIN_BRANDS: "/api/admin/brands",
   CATEGORIES: "/api/categories",
+  ADMIN_CATEGORIES: "/api/admin/categories",
   USERS: "/api/admin/users",
   ROLES: "/api/admin/roles",
   UPLOAD: "/api/admin/upload",

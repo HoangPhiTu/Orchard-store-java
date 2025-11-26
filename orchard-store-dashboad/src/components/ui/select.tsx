@@ -184,17 +184,31 @@ const SelectContent = ({ children, className }: SelectContentProps) => {
     {}
   );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!context?.open || !context.triggerRef.current) return;
 
     const trigger = context.triggerRef.current;
     const rect = trigger.getBoundingClientRect();
+    const viewportPadding = 16;
+    const maxWidth = window.innerWidth - viewportPadding * 2;
+    const width = Math.min(rect.width, maxWidth);
+
+    let left = rect.left;
+    if (left + width > window.innerWidth - viewportPadding) {
+      left = window.innerWidth - viewportPadding - width;
+    }
+    left = Math.max(left, viewportPadding);
+
+    let top = rect.bottom + 4;
+    if (top > window.innerHeight - viewportPadding) {
+      top = window.innerHeight - viewportPadding;
+    }
 
     setPositionStyle({
       position: "fixed",
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: rect.width,
+      top,
+      left,
+      width,
       zIndex: 100,
     });
   }, [context?.open, context?.triggerRef]);
@@ -223,17 +237,34 @@ interface SelectItemProps extends React.HTMLAttributes<HTMLDivElement> {
   value: string;
   children: React.ReactNode;
   disabled?: boolean;
+  textValue?: string;
 }
 
+const getTextContent = (node: React.ReactNode): string => {
+  if (node === null || node === undefined || typeof node === "boolean") {
+    return "";
+  }
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(getTextContent).join("");
+  }
+  if (React.isValidElement(node)) {
+    return getTextContent(node.props.children);
+  }
+  return "";
+};
+
 const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
-  ({ className, value, children, disabled, ...props }, ref) => {
+  ({ className, value, children, disabled, textValue, ...props }, ref) => {
     const context = React.useContext(SelectContext);
 
     React.useEffect(() => {
       if (!context) return;
-      const text = typeof children === "string" ? children : String(children);
+      const text = textValue ?? (getTextContent(children) || value);
       context.registerValue(value, text);
-    }, [value, children, context]);
+    }, [value, children, context, textValue]);
 
     if (!context) return null;
 

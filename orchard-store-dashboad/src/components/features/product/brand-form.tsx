@@ -266,7 +266,7 @@ export function BrandForm({ open, onOpenChange, initialData }: BrandFormProps) {
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
-                className="flex-1 rounded-lg"
+                className="flex-1 rounded-lg border-slate-400 bg-white text-slate-900 font-semibold hover:bg-slate-100 hover:text-slate-950"
               >
                 Cancel
               </Button>

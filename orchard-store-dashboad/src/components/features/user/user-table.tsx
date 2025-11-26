@@ -1,6 +1,14 @@
 "use client";
 
-import { Pencil, Lock, Unlock, Key, Trash2 } from "lucide-react";
+import {
+  Pencil,
+  Lock,
+  Unlock,
+  Key,
+  Trash2,
+  MoreHorizontal,
+  Copy,
+} from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,6 +22,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types/user.types";
+import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface UserTableProps {
   users: User[];
@@ -49,24 +66,6 @@ const getRoleBadgeVariant = (
     return "default"; // Dark for Manager
   }
   return "success"; // Green/Blue for Staff/Viewer
-};
-
-/**
- * Get badge variant for status
- */
-const getStatusBadgeVariant = (
-  status: string
-): "default" | "secondary" | "success" | "warning" | "danger" => {
-  switch (status.toUpperCase()) {
-    case "ACTIVE":
-      return "success"; // Green
-    case "INACTIVE":
-      return "secondary"; // Gray
-    case "BANNED":
-      return "danger"; // Red
-    default:
-      return "secondary";
-  }
 };
 
 export function UserTable({
@@ -188,71 +187,71 @@ export function UserTable({
               </div>
             </TableCell>
 
-            {/* Status Column: Badge */}
+            {/* Status Column: unified StatusBadge */}
             <TableCell>
-              <Badge variant={getStatusBadgeVariant(user.status)}>
-                {user.status}
-              </Badge>
+              <StatusBadge status={user.status} />
             </TableCell>
 
             <TableCell className="text-right">
-              <div className="flex items-center justify-end gap-1">
-                {onEdit && (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-                    onClick={() => onEdit(user)}
-                    title="Edit user"
+                    className="h-8 w-8 p-0 text-slate-500 data-[state=open]:bg-slate-100"
                   >
-                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
-                )}
-                {onResetPassword && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-                    onClick={() => onResetPassword(user)}
-                    title="Reset password"
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[180px]">
+                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                  {onEdit && (
+                    <DropdownMenuItem onClick={() => onEdit(user)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
+                  {onResetPassword && (
+                    <DropdownMenuItem onClick={() => onResetPassword(user)}>
+                      <Key className="mr-2 h-4 w-4" />
+                      Reset Password
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => navigator.clipboard.writeText(String(user.id))}
                   >
-                    <Key className="h-4 w-4" />
-                  </Button>
-                )}
-                {onToggleStatus && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`h-8 w-8 ${
-                      canToggleStatus(user)
-                        ? "text-slate-400 hover:bg-amber-50 hover:text-amber-600"
-                        : "text-slate-300 cursor-not-allowed"
-                    }`}
-                    onClick={() => onToggleStatus(user)}
-                    disabled={!canToggleStatus(user)}
-                    title={
-                      user.status === "ACTIVE" ? "Lock user" : "Unlock user"
-                    }
-                  >
-                    {user.status === "ACTIVE" ? (
-                      <Lock className="h-4 w-4" />
-                    ) : (
-                      <Unlock className="h-4 w-4" />
-                    )}
-                  </Button>
-                )}
-                {onDelete && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-                    onClick={() => onDelete(user)}
-                    title="Delete user"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy ID
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {onToggleStatus && (
+                    <DropdownMenuItem
+                      onClick={() => onToggleStatus(user)}
+                      disabled={!canToggleStatus(user)}
+                    >
+                      {user.status === "ACTIVE" ? (
+                        <Lock className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Unlock className="mr-2 h-4 w-4" />
+                      )}
+                      {user.status === "ACTIVE"
+                        ? "Lock Account"
+                        : "Unlock Account"}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  {onDelete && (
+                    <DropdownMenuItem
+                      onClick={() => onDelete(user)}
+                      className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TableCell>
           </TableRow>
         ))}

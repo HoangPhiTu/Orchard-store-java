@@ -124,7 +124,7 @@ export function ResetPasswordDialog({
               variant="outline"
               onClick={handleClose}
               disabled={resetPasswordMutation.isPending}
-              className="rounded-lg"
+              className="rounded-lg border-slate-400 bg-white text-slate-900 font-semibold hover:bg-slate-100 hover:text-slate-950"
             >
               Hủy
             </Button>

@@ -2,14 +2,18 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 const baseClasses =
-  "inline-flex items-center justify-center rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 ring-offset-background";
+  "inline-flex items-center justify-center rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none ring-offset-background";
 
 const variants = {
-  default: "bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm shadow-indigo-200",
+  // Nút chính (ví dụ: Tạo mới, Cập nhật)
+  default:
+    "bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm shadow-indigo-200",
+  // Nút phụ/Hủy – nền trắng, chữ đen rất đậm
   outline:
-    "border-2 border-slate-400 bg-white text-gray-900 font-semibold hover:bg-slate-100 hover:border-slate-500",
+    "border border-slate-300 bg-white text-black font-bold hover:bg-slate-100 hover:text-black hover:border-slate-500",
   ghost: "bg-transparent text-foreground hover:bg-muted/50",
 } as const;
 
@@ -48,6 +52,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isLoading || props.disabled}
         {...props}
       >
+        {/* Logic hiển thị Spinner khi loading */}
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {children}
       </button>
     );

@@ -185,7 +185,7 @@ export function AlertDialogCancel({
   return (
     <Button
       variant="outline"
-      className={cn("rounded-lg", className)}
+      className={cn("rounded-lg text-black font-semibold", className)}
       onClick={() => context?.onOpenChange(false)}
       {...props}
     >

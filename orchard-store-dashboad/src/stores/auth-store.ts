@@ -1,13 +1,14 @@
 "use client";
 
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import Cookies from "js-cookie";
 import { authService } from "@/services/auth.service";
 import { LoginRequest, LoginResponse, User } from "@/types/auth.types";
 import { env, REFRESH_TOKEN_STORAGE_KEY } from "@/config/env";
 
 const TOKEN_KEY = env.accessTokenKey;
-const USER_KEY = "orchard_admin_user";
+const STORAGE_KEY = "orchard-auth-storage";
 
 interface AuthState {
   user: User | null;
@@ -27,22 +28,12 @@ const readToken = () => {
   return Cookies.get(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
 };
 
-const readUser = (): User | null => {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(USER_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as User;
-  } catch {
-    return null;
-  }
+const clearPersistedAuth = () => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(STORAGE_KEY);
 };
 
-const persistSession = (
-  token: string | null,
-  user: User | null,
-  remember = false
-) => {
+const persistToken = (token: string | null, remember = false) => {
   if (typeof window === "undefined") return;
 
   if (token) {
@@ -64,93 +55,108 @@ const persistSession = (
     localStorage.removeItem(TOKEN_KEY);
     Cookies.remove(TOKEN_KEY, { path: "/" });
   }
-
-  if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(USER_KEY);
-  }
 };
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  // ⭐ FIX HYDRATION MISMATCH: Không đọc localStorage khi initialize
-  // Server render: null, Client render: null (consistent!)
-  // Chỉ đọc sau khi component mount (trong checkAuth/initialize)
+const initialState = {
   user: null,
   isAuthenticated: false,
   isLoading: false,
   isInitialized: false,
+};
 
-  login: async (payload) => {
-    set({ isLoading: true });
-    try {
-      const data = await authService.login(payload);
+export const useAuthStore = create(
+  persist<AuthState>(
+    (set, get) => ({
+      ...initialState,
 
-      if (data.refreshToken && typeof window !== "undefined") {
-        localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
-      }
+      login: async (payload) => {
+        set({ isLoading: true });
+        try {
+          const data = await authService.login(payload);
 
-      persistSession(data.accessToken, data.user, payload.remember);
+          if (data.refreshToken && typeof window !== "undefined") {
+            localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
+          }
 
-      set({
-        user: data.user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-      return data;
-    } catch (error) {
-      persistSession(null, null);
-      set({ user: null, isAuthenticated: false, isLoading: false });
-      throw error;
+          persistToken(data.accessToken, payload.remember);
+
+          set({
+            user: data.user,
+            isAuthenticated: true,
+            isLoading: false,
+            isInitialized: true,
+          });
+
+          return data;
+        } catch (error) {
+          persistToken(null);
+          set({ ...initialState, isInitialized: true });
+          throw error;
+        }
+      },
+
+      logout: async () => {
+        try {
+          await authService.logout();
+        } catch (error) {
+          console.error("Logout failed on server", error);
+        } finally {
+          persistToken(null);
+          clearPersistedAuth();
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+          }
+          set({ ...initialState, isInitialized: true });
+          window.location.href = "/login";
+        }
+      },
+
+      checkAuth: async () => {
+        const token = readToken();
+        const storedUser = get().user;
+
+        if (storedUser && token) {
+          set({ isAuthenticated: true, isInitialized: true });
+          return;
+        }
+
+        if (!token) {
+          set({ ...initialState, isInitialized: true });
+          return;
+        }
+
+        try {
+          const user = await authService.getCurrentUser();
+          set({ user, isAuthenticated: true, isInitialized: true });
+        } catch (error) {
+          console.warn("Token validation failed", error);
+          persistToken(null);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+          }
+          set({ ...initialState, isInitialized: true });
+        }
+      },
+
+      initialize: async () => {
+        const { isInitialized } = get();
+        if (isInitialized) return;
+
+        set({ isLoading: true });
+        await get().checkAuth();
+        set({ isLoading: false });
+      },
+    }),
+    {
+      name: STORAGE_KEY,
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
-  },
-
-  logout: async () => {
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error("Logout failed on server", error);
-    } finally {
-      persistSession(null, null);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-      }
-      set({ user: null, isAuthenticated: false, isInitialized: true });
-      window.location.href = "/login";
-    }
-  },
-
-  checkAuth: async () => {
-    const token = readToken();
-
-    if (!token) {
-      set({ user: null, isAuthenticated: false, isInitialized: true });
-      return;
-    }
-
-    try {
-      const user = await authService.getCurrentUser();
-      persistSession(token, user, false);
-      set({ user, isAuthenticated: true, isInitialized: true });
-    } catch (error) {
-      console.warn("Token validation failed", error);
-      persistSession(null, null);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-      }
-      set({ user: null, isAuthenticated: false, isInitialized: true });
-    }
-  },
-
-  initialize: async () => {
-    const { isInitialized } = get();
-    if (isInitialized) return;
-
-    set({ isLoading: true });
-    await get().checkAuth();
-    set({ isLoading: false });
-  },
-}));
+  )
+);
 
 /**
  * Helper function để force logout (gọi từ axios interceptor)

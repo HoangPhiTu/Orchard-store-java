@@ -1,8 +1,7 @@
 "use client";
 
-import { Pencil, Trash2, ImageIcon } from "lucide-react";
+import { Pencil, Trash2, ImageIcon, MoreHorizontal } from "lucide-react";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,6 +12,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Brand } from "@/types/catalog.types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 interface BrandTableProps {
   brands: Brand[];
@@ -20,22 +28,6 @@ interface BrandTableProps {
   onDelete?: (brand: Brand) => void;
   isLoading?: boolean;
 }
-
-/**
- * Get badge variant for status
- */
-const getStatusBadgeVariant = (
-  status: string
-): "default" | "secondary" | "success" | "warning" | "danger" => {
-  switch (status.toUpperCase()) {
-    case "ACTIVE":
-      return "success"; // Green/Indigo
-    case "INACTIVE":
-      return "secondary"; // Gray
-    default:
-      return "secondary";
-  }
-};
 
 export function BrandTable({
   brands,
@@ -58,7 +50,10 @@ export function BrandTable({
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+              <TableCell
+                colSpan={5}
+                className="text-center py-8 text-slate-500"
+              >
                 Đang tải dữ liệu...
               </TableCell>
             </TableRow>
@@ -83,7 +78,10 @@ export function BrandTable({
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+              <TableCell
+                colSpan={5}
+                className="text-center py-8 text-slate-500"
+              >
                 Không có thương hiệu nào
               </TableCell>
             </TableRow>
@@ -112,7 +110,7 @@ export function BrandTable({
               <TableCell>
                 <div className="flex items-center gap-3">
                   {/* Logo */}
-                  <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
                     {brand.logoUrl && brand.logoUrl.trim() !== "" ? (
                       <Image
                         src={brand.logoUrl}
@@ -126,7 +124,10 @@ export function BrandTable({
                           const target = e.target as HTMLImageElement;
                           target.style.display = "none";
                           const parent = target.parentElement;
-                          if (parent && !parent.querySelector(".image-placeholder")) {
+                          if (
+                            parent &&
+                            !parent.querySelector(".image-placeholder")
+                          ) {
                             const placeholder = document.createElement("div");
                             placeholder.className =
                               "image-placeholder flex h-full w-full items-center justify-center bg-slate-100";
@@ -166,37 +167,42 @@ export function BrandTable({
 
               {/* Status */}
               <TableCell>
-                <Badge variant={getStatusBadgeVariant(brand.status)}>
-                  {brand.status === "ACTIVE" ? "Active" : "Inactive"}
-                </Badge>
+                <StatusBadge status={brand.status} />
               </TableCell>
 
               {/* Actions */}
               <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-1">
-                  {onEdit && (
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-                      onClick={() => onEdit(brand)}
-                      title="Chỉnh sửa"
+                      className="h-8 w-8 p-0 text-slate-500 data-[state=open]:bg-slate-100"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
                     </Button>
-                  )}
-                  {onDelete && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-                      onClick={() => onDelete(brand)}
-                      title="Xóa"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[160px]">
+                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    {onEdit && (
+                      <DropdownMenuItem onClick={() => onEdit(brand)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    {onDelete && (
+                      <DropdownMenuItem
+                        onClick={() => onDelete(brand)}
+                        className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
           ))}
@@ -205,4 +211,3 @@ export function BrandTable({
     </div>
   );
 }
-
