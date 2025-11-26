@@ -40,10 +40,6 @@ dist/
 *.temp
 .cache/
 
-# Documentation files - exclude all .md files and docs/ folder
-*.md
-docs/
-
 # Test files
 **/test/
 **/*Test.java
