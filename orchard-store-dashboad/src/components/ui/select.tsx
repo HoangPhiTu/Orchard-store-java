@@ -112,7 +112,9 @@ const SelectValue = ({ placeholder, children }: SelectValueProps) => {
   if (children) return <>{children}</>;
 
   if (!context) {
-    return <span className="text-slate-500">{placeholder || "Select..."}</span>;
+    return (
+      <span className="text-muted-foreground">{placeholder || "Select..."}</span>
+    );
   }
 
   const selectedText = context.value
@@ -120,7 +122,9 @@ const SelectValue = ({ placeholder, children }: SelectValueProps) => {
     : placeholder || "Select...";
 
   return (
-    <span className={context.value ? "text-slate-900" : "text-slate-500"}>
+    <span
+      className={context.value ? "text-foreground" : "text-muted-foreground"}
+    >
       {selectedText}
     </span>
   );
@@ -158,7 +162,7 @@ const SelectTrigger = React.forwardRef<HTMLButtonElement, SelectTriggerProps>(
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex h-11 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-sm ring-offset-background placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              "flex h-11 w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground shadow-sm transition-all duration-200 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         {...props}
@@ -219,7 +223,7 @@ const SelectContent = ({ children, className }: SelectContentProps) => {
     <div
       data-select-content
       className={cn(
-        "max-h-96 min-w-32 overflow-auto rounded-md border border-slate-200 bg-white text-slate-950 shadow-lg p-1",
+        "max-h-96 min-w-32 overflow-auto rounded-md border border-border bg-card text-card-foreground shadow-lg p-1",
         className
       )}
       style={positionStyle}
@@ -278,7 +282,7 @@ const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
         aria-selected={isSelected}
         onClick={() => !disabled && onValueChange(value)}
         className={cn(
-          "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 focus:bg-slate-100",
+          "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm text-foreground outline-none hover:bg-accent focus:bg-accent",
           disabled && "pointer-events-none opacity-50",
           className
         )}
@@ -303,7 +307,7 @@ const SelectLabel = React.forwardRef<HTMLDivElement, SelectLabelProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("py-1.5 pl-8 pr-2 text-sm font-semibold", className)}
+      className={cn("py-1.5 pl-8 pr-2 text-sm font-semibold text-muted-foreground", className)}
       {...props}
     >
       {children}
@@ -321,7 +325,7 @@ const SelectSeparator = React.forwardRef<HTMLDivElement, SelectSeparatorProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("-mx-1 my-1 h-px bg-slate-100", className)}
+      className={cn("-mx-1 my-1 h-px bg-border/60", className)}
       {...props}
     />
   )

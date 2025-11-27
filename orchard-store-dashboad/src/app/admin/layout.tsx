@@ -65,7 +65,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   const renderBlockingState = () => (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <LoadingSpinner />
     </div>
   );
@@ -79,7 +79,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-background">
       <Sidebar
         isMobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
@@ -90,7 +90,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         className={cn(
           "relative flex min-h-screen w-full flex-col transition-all duration-300 ease-in-out",
           "ml-0",
-          isSidebarCollapsed ? "lg:ml-[70px]" : "lg:ml-64"
+          isSidebarCollapsed ? "lg:ml-[84px]" : "lg:ml-64"
         )}
       >
         <Header

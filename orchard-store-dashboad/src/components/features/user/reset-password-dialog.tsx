@@ -82,11 +82,13 @@ export function ResetPasswordDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogClose />
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <Key className="h-5 w-5 text-indigo-600" />
-            <DialogTitle>Đặt lại mật khẩu</DialogTitle>
+          <div className="flex items-center gap-2 text-primary">
+            <Key className="h-5 w-5" />
+            <DialogTitle className="text-foreground">
+              Đặt lại mật khẩu
+            </DialogTitle>
           </div>
-          <DialogDescription>
+          <DialogDescription className="text-muted-foreground">
             {userName
               ? `Nhập mật khẩu mới cho user: ${userName}`
               : "Nhập mật khẩu mới cho user này"}
@@ -113,7 +115,7 @@ export function ResetPasswordDialog({
               {...form.register("newPassword")}
               className={cn(
                 form.formState.errors.newPassword &&
-                  "border-red-500 focus:border-red-500 focus:ring-red-500"
+                  "border-destructive focus:border-destructive focus:ring-destructive/60"
               )}
             />
           </FormField>
@@ -124,7 +126,7 @@ export function ResetPasswordDialog({
               variant="outline"
               onClick={handleClose}
               disabled={resetPasswordMutation.isPending}
-              className="rounded-lg border-slate-400 bg-white text-slate-900 font-semibold hover:bg-slate-100 hover:text-slate-950"
+              className="rounded-lg border-border bg-card text-card-foreground font-semibold hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
             >
               Hủy
             </Button>

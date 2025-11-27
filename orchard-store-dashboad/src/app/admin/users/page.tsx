@@ -17,7 +17,7 @@ import { ToggleStatusDialog } from "@/components/features/user/toggle-status-dia
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
-import { DataTableFilter } from "@/components/shared/data-table-filter";
+import DataTableFilter from "@/components/shared/data-table-filter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export default function UserManagementPage() {
+export default function Page() {
   const [searchTerm, setSearchTerm] = useState("");
   const searchParams = useSearchParams();
   const { page, pageSize, onPaginationChange } = useDataTable();
@@ -111,14 +111,14 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-sm">
         {/* Header */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
+            <h1 className="text-2xl font-semibold text-card-foreground">
               User Management
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Manage all staff members and their roles in the system.
             </p>
           </div>
@@ -131,7 +131,7 @@ export default function UserManagementPage() {
         {/* Toolbar: Search + Status Filter */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="relative flex-1 md:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by name, email, or phone..."
               className="pl-9"
@@ -149,10 +149,10 @@ export default function UserManagementPage() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-10 min-w-[160px] justify-between rounded-lg border-slate-200 text-sm text-slate-600"
+                  className="h-10 min-w-[160px] justify-between rounded-lg border-border text-sm text-muted-foreground"
                 >
                   Hiển thị: {pageSize}
-                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
@@ -161,7 +161,7 @@ export default function UserManagementPage() {
                     key={size}
                     onClick={() => onPaginationChange(1, size)}
                     data-active={size === pageSize}
-                    className="cursor-pointer text-sm text-slate-600 data-[active=true]:font-semibold"
+                    className="cursor-pointer text-sm text-muted-foreground data-[active=true]:font-semibold"
                   >
                     {size} dòng / trang
                   </DropdownMenuItem>
@@ -172,7 +172,7 @@ export default function UserManagementPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-2">
+        <div className="rounded-2xl border border-border bg-card p-2">
           {error ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-sm text-red-600">

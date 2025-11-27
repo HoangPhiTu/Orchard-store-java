@@ -46,6 +46,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ADMIN_MENU } from "@/config/menu";
+import { ModeToggle } from "@/components/shared/mode-toggle";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -83,7 +84,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
     "A";
 
   const renderAvatar = (sizeClass = "h-9 w-9") => (
-    <Avatar className={`${sizeClass} border border-slate-100`}>
+    <Avatar className={`${sizeClass} border border-border`}>
       {userAvatar ? (
         <AvatarImage
           src={userAvatar}
@@ -94,7 +95,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
           }}
         />
       ) : null}
-      <AvatarFallback className="bg-indigo-100 text-indigo-700 font-semibold">
+      <AvatarFallback className="bg-muted text-foreground font-semibold">
         {avatarInitial}
       </AvatarFallback>
     </Avatar>
@@ -102,12 +103,12 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-16 border-b border-slate-200 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex h-full w-full items-center justify-between px-4 lg:px-8">
+      <header className="sticky top-0 z-30 h-16 border-b border-border bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex h-full w-full items-center justify-between px-4 lg:px-8 text-foreground">
           <div className="flex flex-1 items-center gap-3 min-w-0">
             <button
               type="button"
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-50 lg:hidden"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-muted/40 lg:hidden"
               onClick={() => setIsMobileSidebarOpen(true)}
             >
               <Menu size={18} />
@@ -141,25 +142,26 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
             </div>
           </div>
 
-          <div className="relative flex items-center gap-2">
+          <div className="relative flex items-center gap-2 text-foreground">
             <button
               type="button"
-              className="hidden sm:flex rounded-lg p-2.5 text-slate-400 transition-colors hover:text-slate-900"
+              className="hidden sm:flex rounded-lg p-2.5 text-muted-foreground transition-colors hover:text-foreground"
               title="Help"
             >
               <HelpCircle size={18} />
             </button>
+            <ModeToggle />
             <Popover
               open={isNotificationOpen}
               onOpenChange={setIsNotificationOpen}
             >
               <PopoverTrigger
-                className="relative rounded-lg p-2.5 text-slate-400 transition-colors hover:text-slate-900"
+                className="relative rounded-lg p-2.5 text-muted-foreground transition-colors hover:text-foreground"
                 title="Notifications"
               >
                 <Bell size={18} />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-semibold text-white">
+                  <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -178,15 +180,15 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-2.5 focus:outline-none"
+                  className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all duration-200 focus:outline-none hover:bg-accent hover:text-accent-foreground focus:ring-1 focus:ring-primary/30"
                 >
                   {renderAvatar()}
-                  <span className="hidden text-sm font-semibold text-slate-900 lg:block">
+                  <span className="hidden text-sm font-semibold text-foreground transition-colors group-hover:text-accent-foreground lg:block">
                     {userName ?? "Admin"}
                   </span>
                   <ChevronDown
                     size={16}
-                    className="hidden text-slate-400 lg:block"
+                    className="hidden text-muted-foreground transition-colors group-hover:text-accent-foreground lg:block"
                   />
                 </button>
               </DropdownMenuTrigger>
@@ -196,14 +198,14 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                 sideOffset={8}
               >
                 {/* Header Section */}
-                <div className="p-2">
+                <div className="p-2 text-foreground">
                   <div className="flex items-center gap-3">
                     {renderAvatar("h-10 w-10")}
                     <div className="flex flex-col min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {userName ?? "Admin User"}
                       </p>
-                      <p className="text-xs text-slate-500 truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         {userEmail ?? "admin@example.com"}
                       </p>
                     </div>
@@ -241,7 +243,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     onClick={handleLogout}
-                    className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
@@ -255,19 +257,19 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
 
       {/* Mobile Sidebar Sheet */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent side="left" className="w-64 p-0 bg-background text-foreground">
           <div className="flex h-full flex-col">
             {/* Logo Header */}
-            <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
+            <div className="flex h-16 items-center justify-between border-b border-border px-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-white font-bold">
                   O
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-indigo-900">
+                  <p className="text-xs font-bold uppercase tracking-wider text-foreground">
                     Orchard
                   </p>
-                  <p className="text-sm font-semibold text-slate-700">
+                  <p className="text-sm font-semibold text-muted-foreground">
                     Admin Console
                   </p>
                 </div>
@@ -275,7 +277,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
               <button
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(false)}
-                className="rounded-lg p-2 text-slate-600 hover:bg-slate-50"
+                className="rounded-lg p-2 text-muted-foreground hover:bg-muted/40"
               >
                 <X size={18} />
               </button>
@@ -294,14 +296,14 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all",
                       isActive
-                        ? "bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        ? "bg-accent text-accent-foreground border-l-4 border-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
                     <Icon
                       className={cn(
                         "h-5 w-5 shrink-0",
-                        isActive ? "text-indigo-600" : "text-slate-500"
+                        isActive ? "text-accent-foreground" : "text-muted-foreground"
                       )}
                     />
                     <span>{item.label}</span>

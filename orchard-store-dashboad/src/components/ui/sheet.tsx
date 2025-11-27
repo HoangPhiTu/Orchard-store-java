@@ -71,14 +71,13 @@ export function SheetContent({
   return createPortal(
     <div className="fixed inset-0 z-50 flex">
       <div
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={() => context.onOpenChange(false)}
       />
       <div
         className={cn(
-          "relative flex h-full w-full max-w-sm flex-col bg-white shadow-2xl",
+          "relative flex h-full w-full max-w-sm flex-col border-border bg-card text-card-foreground shadow-2xl",
           sideClasses,
-          "border-slate-200",
           className
         )}
       >
@@ -98,7 +97,7 @@ export function SheetHeader({
 }) {
   return (
     <div
-      className={cn("border-b border-slate-100 bg-white px-6 py-5", className)}
+      className={cn("border-b border-border/60 bg-card px-6 py-5", className)}
     >
       {children}
     </div>
@@ -112,10 +111,10 @@ export function SheetTitle({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
+      return (
     <h2
       className={cn(
-        "text-xl font-semibold text-slate-900 leading-tight",
+        "text-xl font-semibold text-foreground leading-tight",
         className
       )}
     >
@@ -132,7 +131,12 @@ export function SheetDescription({
   className?: string;
 }) {
   return (
-    <p className={cn("mt-2 text-sm text-slate-500 leading-relaxed", className)}>
+    <p
+      className={cn(
+        "mt-2 text-sm text-muted-foreground leading-relaxed",
+        className
+      )}
+    >
       {children}
     </p>
   );
@@ -146,7 +150,12 @@ export function SheetBody({
   className?: string;
 }) {
   return (
-    <div className={cn("flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent", className)}>
+    <div
+      className={cn(
+        "flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-track-transparent",
+        className
+      )}
+    >
       {children}
     </div>
   );
@@ -162,7 +171,7 @@ export function SheetFooter({
   return (
     <div
       className={cn(
-        "sticky bottom-0 border-t border-slate-100 bg-white px-6 py-6",
+        "border-t border-border/60 bg-card px-6 py-6",
         className
       )}
     >

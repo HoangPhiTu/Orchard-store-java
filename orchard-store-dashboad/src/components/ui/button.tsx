@@ -8,13 +8,13 @@ const baseClasses =
   "inline-flex items-center justify-center rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none ring-offset-background";
 
 const variants = {
-  // Nút chính (ví dụ: Tạo mới, Cập nhật)
+  // Nút chính (ví dụ: Tạo mới, Cập nhật) - Rất nổi bật với shadow mạnh và border đậm
   default:
-    "bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm shadow-indigo-200",
-  // Nút phụ/Hủy – nền trắng, chữ đen rất đậm
+    "bg-primary text-primary-foreground font-bold hover:bg-primary/90 active:bg-primary/95 shadow-lg shadow-primary/50 hover:shadow-xl hover:shadow-primary/60 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ring-2 ring-primary/30 border-2 border-primary/40 hover:ring-primary/40 hover:border-primary/50",
+  // Nút phụ/Hủy – tối giản, border mỏng nhất
   outline:
-    "border border-slate-300 bg-white text-black font-bold hover:bg-slate-100 hover:text-black hover:border-slate-500",
-  ghost: "bg-transparent text-foreground hover:bg-muted/50",
+    "border border-border/20 bg-card text-muted-foreground font-medium hover:bg-muted/40 hover:text-foreground hover:border-border/30 transition-all duration-200 shadow-sm",
+  ghost: "bg-transparent text-foreground hover:bg-muted/50 transition-all duration-200",
 } as const;
 
 const sizes = {

@@ -9,7 +9,7 @@ export const Card = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "rounded-2xl border border-slate-100 bg-white shadow-xl shadow-slate-900/5",
+      "rounded-2xl border border-border bg-card shadow-xl",
       className
     )}
     {...props}
@@ -45,7 +45,7 @@ export const CardDescription = ({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) => (
   <p
-    className={cn("text-sm text-slate-500 leading-relaxed", className)}
+    className={cn("text-sm text-muted-foreground leading-relaxed", className)}
     {...props}
   />
 );

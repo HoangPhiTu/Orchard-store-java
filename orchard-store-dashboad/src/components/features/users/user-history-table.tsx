@@ -43,12 +43,12 @@ const formatDateTime = (value: string): string => {
 const getDeviceIcon = (deviceType?: string | null) => {
   const type = (deviceType || "").toUpperCase();
   if (type === "MOBILE") {
-    return <Smartphone className="h-4 w-4 text-indigo-600" />;
+    return <Smartphone className="h-4 w-4 text-primary" />;
   }
   if (type === "TABLET") {
-    return <Tablet className="h-4 w-4 text-indigo-600" />;
+    return <Tablet className="h-4 w-4 text-primary" />;
   }
-  return <Laptop className="h-4 w-4 text-indigo-600" />;
+  return <Laptop className="h-4 w-4 text-primary" />;
 };
 
 const getStatusBadgeVariant = (
@@ -93,7 +93,7 @@ export function UserHistoryTable({
 
   if (!userId) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+      <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
         Chưa chọn người dùng.
       </div>
     );
@@ -101,7 +101,7 @@ export function UserHistoryTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -115,8 +115,8 @@ export function UserHistoryTable({
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center">
-                  <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     Đang tải lịch sử đăng nhập...
                   </div>
                 </TableCell>
@@ -124,7 +124,7 @@ export function UserHistoryTable({
             ) : history.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4}>
-                  <div className="py-6 text-center text-sm text-slate-500">
+                  <div className="py-6 text-center text-sm text-muted-foreground">
                     Chưa có dữ liệu lịch sử
                   </div>
                 </TableCell>
@@ -155,25 +155,25 @@ export function UserHistoryTable({
 
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium text-slate-900">
+                    <TableCell className="font-medium text-foreground">
                       {formatDateTime(item.loginTime)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
                           {getDeviceIcon(item.deviceType)}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900">
+                          <p className="truncate text-sm font-medium text-foreground">
                             {deviceLabel || "Không rõ thiết bị"}
                           </p>
-                          <p className="text-xs uppercase text-slate-500">
+                          <p className="text-xs uppercase text-muted-foreground">
                             {item.deviceType || "UNKNOWN"}
                           </p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-600">
+                    <TableCell className="text-sm text-muted-foreground">
                       {ipLabel}
                     </TableCell>
                     <TableCell>
@@ -194,7 +194,7 @@ export function UserHistoryTable({
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Trang {totalPages === 0 ? 0 : page + 1}/{totalPages || 1}
         </p>
         <div className="flex gap-2">

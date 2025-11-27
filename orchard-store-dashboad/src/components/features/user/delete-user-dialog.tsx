@@ -63,23 +63,23 @@ export function DeleteUserDialog({
 
           <AlertDialogHeader>
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
-              <AlertDialogTitle className="text-xl font-semibold text-slate-900">
+              <AlertDialogTitle className="text-xl font-semibold text-card-foreground">
                 Xóa người dùng
               </AlertDialogTitle>
             </div>
-            <AlertDialogDescription className="pt-4 text-slate-600">
+            <AlertDialogDescription className="pt-4 text-muted-foreground">
               Bạn có chắc chắn muốn xóa người dùng này không? Hành động này
               không thể hoàn tác.
               {userName && (
-                <div className="mt-3 rounded-lg bg-slate-100 p-3">
-                  <p className="text-sm font-medium text-slate-900">
+                <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                  <p className="text-sm font-medium text-card-foreground">
                     {userName}
                   </p>
                   {userEmail && (
-                    <p className="text-xs text-slate-500">{userEmail}</p>
+                    <p className="text-xs text-muted-foreground">{userEmail}</p>
                   )}
                 </div>
               )}
@@ -89,14 +89,14 @@ export function DeleteUserDialog({
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={deleteUserMutation.isPending}
-              className="rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
+              className="rounded-lg border-border bg-card text-card-foreground font-semibold transition hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
             >
               Hủy
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleteUserMutation.isPending}
-              className="rounded-lg bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-300"
+              className="rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-2 focus:ring-destructive/30"
             >
               {deleteUserMutation.isPending ? (
                 <>

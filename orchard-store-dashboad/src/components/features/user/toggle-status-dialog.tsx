@@ -51,32 +51,28 @@ export function ToggleStatusDialog({
           <div className="flex items-center gap-2">
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                isLocking ? "bg-orange-100" : "bg-green-100"
+                isLocking ? "bg-warning/15 text-warning" : "bg-success/15 text-success"
               }`}
             >
-              {isLocking ? (
-                <Lock className="h-5 w-5 text-orange-600" />
-              ) : (
-                <Unlock className="h-5 w-5 text-green-600" />
-              )}
+              {isLocking ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
             </div>
-            <AlertDialogTitle className="text-xl font-semibold text-slate-900">
+            <AlertDialogTitle className="text-xl font-semibold text-card-foreground">
               {actionTextCapitalized} tài khoản
             </AlertDialogTitle>
           </div>
-          <AlertDialogDescription className="pt-4 text-slate-600">
+          <AlertDialogDescription className="pt-4 text-muted-foreground">
             Bạn có chắc chắn muốn {actionText} tài khoản{" "}
-            <span className="font-semibold text-slate-900">
+            <span className="font-semibold text-card-foreground">
               {user.fullName}
             </span>{" "}
             không?
             {isLocking && (
-              <span className="block mt-2 text-sm text-orange-600">
+              <span className="mt-2 block text-sm text-warning">
                 ⚠️ Tài khoản bị khóa sẽ không thể đăng nhập vào hệ thống.
               </span>
             )}
             {!isLocking && (
-              <span className="block mt-2 text-sm text-green-600">
+              <span className="mt-2 block text-sm text-success">
                 ✓ Tài khoản sẽ được kích hoạt lại và có thể đăng nhập.
               </span>
             )}
@@ -86,17 +82,17 @@ export function ToggleStatusDialog({
           <AlertDialogCancel
             onClick={onClose}
             disabled={toggleStatusMutation.isPending}
-            className="rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
+            className="rounded-lg border-border bg-card text-card-foreground font-semibold transition hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
           >
             Hủy
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={toggleStatusMutation.isPending}
-            className={`rounded-lg ${
+            className={`rounded-lg text-white ${
               isLocking
-                ? "bg-orange-600 hover:bg-orange-700 text-white focus:ring-2 focus:ring-orange-300"
-                : "bg-green-600 hover:bg-green-700 text-white focus:ring-2 focus:ring-green-300"
+                ? "bg-warning hover:bg-warning/90 focus:ring-2 focus:ring-warning/30"
+                : "bg-success hover:bg-success/90 focus:ring-2 focus:ring-success/30"
             }`}
           >
             {toggleStatusMutation.isPending ? (

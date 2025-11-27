@@ -464,7 +464,9 @@ CREATE TABLE warehouse_stock (
     reserved_quantity INTEGER DEFAULT 0,
     available_quantity INTEGER GENERATED ALWAYS AS (quantity - reserved_quantity) STORED,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(product_variant_id, warehouse_id)
+    UNIQUE(product_variant_id, warehouse_id),
+    CHECK (quantity >= 0),
+    CHECK (reserved_quantity <= quantity)
 );
 
 CREATE INDEX idx_warehouse_stock_variant ON warehouse_stock(product_variant_id);
@@ -545,6 +547,35 @@ CREATE INDEX idx_stock_alerts_type ON stock_alerts(alert_type);
 CREATE INDEX idx_stock_alerts_notified ON stock_alerts(notified) WHERE notified = false;
 
 ALTER TABLE stock_alerts ADD CONSTRAINT fk_stock_alerts_variant FOREIGN KEY (product_variant_id) REFERENCES product_variants(id);
+
+-- 6.6. Bảng shedlock (Cho Distributed Scheduler)
+CREATE TABLE IF NOT EXISTS shedlock (
+    name VARCHAR(64) NOT NULL PRIMARY KEY,
+    lock_until TIMESTAMP NOT NULL,
+    locked_at TIMESTAMP NOT NULL,
+    locked_by VARCHAR(255) NOT NULL
+);
+
+-- 6.7. Bảng stock_reservations
+CREATE TABLE stock_reservations (
+    id BIGSERIAL PRIMARY KEY,
+    product_variant_id BIGINT NOT NULL,
+    warehouse_id BIGINT NOT NULL,
+    reservation_type VARCHAR(20) NOT NULL CHECK (reservation_type IN ('CART', 'CHECKOUT', 'ORDER')),
+    reference_id BIGINT,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    expires_at TIMESTAMP NOT NULL,
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'EXPIRED', 'CONSUMED', 'RELEASED')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(product_variant_id, warehouse_id, reference_id, reservation_type),
+    FOREIGN KEY (product_variant_id) REFERENCES product_variants(id),
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)
+);
+
+CREATE INDEX idx_stock_reservations_variant ON stock_reservations(product_variant_id, warehouse_id);
+CREATE INDEX idx_stock_reservations_expires ON stock_reservations(expires_at) WHERE status = 'ACTIVE';
+CREATE INDEX idx_stock_reservations_reference ON stock_reservations(reference_id, reservation_type);
+CREATE INDEX idx_stock_reservations_status ON stock_reservations(status);
 
 -- ============================================================================
 -- PHẦN 7: PRICING & TAX
@@ -746,7 +777,7 @@ ALTER TABLE customer_vip_history ADD CONSTRAINT fk_vip_history_changed_by FOREIG
 -- PHẦN 9: ORDERS & SHOPPING
 -- ============================================================================
 
--- 9.1. Bảng orders (Enhanced với Rate Limiting)
+-- 9.1. Bảng orders (Enhanced với Rate Limiting & Tax Snapshot)
 CREATE TABLE orders (
     id BIGSERIAL PRIMARY KEY,
     order_number VARCHAR(50) UNIQUE NOT NULL,
@@ -792,6 +823,7 @@ CREATE TABLE orders (
     promotion_id BIGINT,
     counted_towards_lifetime_value BOOLEAN DEFAULT FALSE,
     counted_at TIMESTAMP,
+    tax_breakdown JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CHECK (verification_sent_count >= 0),
@@ -818,7 +850,7 @@ CREATE INDEX idx_orders_counted_ltv ON orders(counted_towards_lifetime_value) WH
 ALTER TABLE orders ADD CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES customers(id);
 ALTER TABLE orders ADD CONSTRAINT fk_orders_vip_tier FOREIGN KEY (customer_vip_tier_id) REFERENCES member_pricing_tiers(id);
 
--- 9.2. Bảng order_items
+-- 9.2. Bảng order_items (Enhanced với Tax Snapshot)
 CREATE TABLE order_items (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
@@ -833,17 +865,32 @@ CREATE TABLE order_items (
     subtotal DECIMAL(15,2) NOT NULL,
     gift_product_id BIGINT,
     gift_name VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    tax_rate DECIMAL(5,2),
+    tax_amount DECIMAL(15,2) DEFAULT 0,
+    tax_class_id BIGINT,
+    tax_class_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (tax_rate IS NULL OR (tax_rate >= 0 AND tax_rate <= 100)),
+    CHECK (tax_amount >= 0)
 );
 
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE INDEX idx_order_items_product ON order_items(product_id);
 CREATE INDEX idx_order_items_variant ON order_items(product_variant_id);
+CREATE INDEX idx_order_items_tax_rate ON order_items(tax_rate);
+CREATE INDEX idx_order_items_tax_class ON order_items(tax_class_id);
 
 ALTER TABLE order_items ADD CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
 ALTER TABLE order_items ADD CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id);
 ALTER TABLE order_items ADD CONSTRAINT fk_order_items_variant FOREIGN KEY (product_variant_id) REFERENCES product_variants(id);
 ALTER TABLE order_items ADD CONSTRAINT fk_order_items_gift FOREIGN KEY (gift_product_id) REFERENCES products(id);
+
+-- Comments for tax snapshot
+COMMENT ON COLUMN order_items.tax_rate IS 'Thuế suất tại thời điểm mua (Snapshot)';
+COMMENT ON COLUMN order_items.tax_amount IS 'Số tiền thuế tại thời điểm mua (Snapshot)';
+COMMENT ON COLUMN order_items.tax_class_id IS 'ID của tax class tại thời điểm mua (Snapshot)';
+COMMENT ON COLUMN order_items.tax_class_name IS 'Tên tax class tại thời điểm mua (Snapshot)';
+COMMENT ON COLUMN orders.tax_breakdown IS 'Cấu trúc thuế chi tiết (JSON) tại thời điểm mua';
 
 -- 9.3. Bảng carts
 CREATE TABLE carts (
@@ -924,6 +971,61 @@ CREATE INDEX idx_payments_method ON payments(payment_method);
 CREATE INDEX idx_payments_gateway_response ON payments USING GIN (gateway_response);
 
 ALTER TABLE payments ADD CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders(id);
+
+-- 9.6. Sequence cho Refund Number (QUAN TRỌNG: Phải tạo trước bảng refunds)
+-- Java code sẽ sử dụng sequence này để generate refund_number
+CREATE SEQUENCE refund_number_seq START 1;
+COMMENT ON SEQUENCE refund_number_seq IS 'Sequence để generate mã hoàn tiền (Java code sẽ dùng)';
+
+-- 9.7. Bảng refunds
+CREATE TABLE refunds (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    payment_id BIGINT,
+    refund_number VARCHAR(50) UNIQUE NOT NULL,
+    refund_type VARCHAR(20) NOT NULL CHECK (refund_type IN ('FULL', 'PARTIAL', 'ITEM')),
+    total_refund_amount DECIMAL(15,2) NOT NULL,
+    refund_reason VARCHAR(100),
+    refund_notes TEXT,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED')),
+    processed_by BIGINT,
+    processed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (payment_id) REFERENCES payments(id),
+    FOREIGN KEY (processed_by) REFERENCES users(id)
+);
+
+CREATE INDEX idx_refunds_order ON refunds(order_id);
+CREATE INDEX idx_refunds_refund_number ON refunds(refund_number);
+CREATE INDEX idx_refunds_status ON refunds(status);
+CREATE INDEX idx_refunds_payment ON refunds(payment_id);
+
+-- 9.8. Bảng refund_items
+CREATE TABLE refund_items (
+    id BIGSERIAL PRIMARY KEY,
+    refund_id BIGINT NOT NULL,
+    order_item_id BIGINT NOT NULL,
+    product_variant_id BIGINT NOT NULL,
+    quantity INTEGER NOT NULL,
+    refund_amount DECIMAL(15,2) NOT NULL,
+    restocked BOOLEAN DEFAULT FALSE,
+    restocked_at TIMESTAMP,
+    restocked_warehouse_id BIGINT,
+    reason VARCHAR(100),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (refund_id) REFERENCES refunds(id) ON DELETE CASCADE,
+    FOREIGN KEY (order_item_id) REFERENCES order_items(id),
+    FOREIGN KEY (product_variant_id) REFERENCES product_variants(id),
+    FOREIGN KEY (restocked_warehouse_id) REFERENCES warehouses(id),
+    CHECK (quantity > 0),
+    CHECK (refund_amount >= 0)
+);
+
+CREATE INDEX idx_refund_items_refund ON refund_items(refund_id);
+CREATE INDEX idx_refund_items_restocked ON refund_items(restocked) WHERE restocked = false;
 
 -- ============================================================================
 -- PHẦN 10: PRODUCT RELATIONSHIPS & BUNDLING
@@ -1106,6 +1208,20 @@ CREATE INDEX idx_review_helpful_user ON review_helpful(user_id);
 ALTER TABLE review_helpful ADD CONSTRAINT fk_review_helpful_review FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE;
 ALTER TABLE review_helpful ADD CONSTRAINT fk_review_helpful_user FOREIGN KEY (user_id) REFERENCES users(id);
 
+-- 11.4. Bảng product_stats (Cache số liệu thống kê)
+CREATE TABLE product_stats (
+    product_id BIGINT PRIMARY KEY,
+    average_rating DECIMAL(3,2) DEFAULT 0,
+    total_reviews INTEGER DEFAULT 0,
+    total_verified_reviews INTEGER DEFAULT 0,
+    total_sold INTEGER DEFAULT 0,
+    total_views INTEGER DEFAULT 0,
+    last_calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    CHECK (average_rating >= 0 AND average_rating <= 5),
+    CHECK (total_reviews >= 0 AND total_sold >= 0)
+);
+
 -- ============================================================================
 -- PHẦN 12: PROMOTIONS
 -- ============================================================================
@@ -1165,6 +1281,34 @@ ALTER TABLE promotion_usage ADD CONSTRAINT fk_promotion_usage_order FOREIGN KEY 
 
 -- Foreign key cho promotion_id trong orders
 ALTER TABLE orders ADD CONSTRAINT fk_orders_promotion FOREIGN KEY (promotion_id) REFERENCES promotions(id);
+
+-- 12.3. Bảng promotion_applicable_products (Many-to-Many thay thế JSONB)
+CREATE TABLE promotion_applicable_products (
+    id BIGSERIAL PRIMARY KEY,
+    promotion_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(promotion_id, product_id),
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_promo_app_prod_promo ON promotion_applicable_products(promotion_id);
+CREATE INDEX idx_promo_app_prod_prod ON promotion_applicable_products(product_id);
+
+-- 12.4. Bảng promotion_applicable_categories (Many-to-Many thay thế JSONB)
+CREATE TABLE promotion_applicable_categories (
+    id BIGSERIAL PRIMARY KEY,
+    promotion_id BIGINT NOT NULL,
+    category_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(promotion_id, category_id),
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_promo_app_cat_promo ON promotion_applicable_categories(promotion_id);
+CREATE INDEX idx_promo_app_cat_cat ON promotion_applicable_categories(category_id);
 
 -- ============================================================================
 -- PHẦN 13: ANALYTICS & SEO
@@ -1449,6 +1593,93 @@ CREATE TRIGGER trg_update_stock_status
     ON product_variants
     FOR EACH ROW
     EXECUTE FUNCTION update_stock_status();
+
+-- 15.7. Function: sync_reserved_quantity_to_warehouse_stock
+-- Trigger tự động sync reserved_quantity từ stock_reservations vào warehouse_stock
+CREATE OR REPLACE FUNCTION sync_reserved_quantity_to_warehouse_stock()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Trường hợp 1: Tạo mới Reservation
+    IF TG_OP = 'INSERT' AND NEW.status = 'ACTIVE' THEN
+        UPDATE warehouse_stock
+        SET reserved_quantity = COALESCE(reserved_quantity, 0) + NEW.quantity
+        WHERE product_variant_id = NEW.product_variant_id AND warehouse_id = NEW.warehouse_id;
+    
+    -- Trường hợp 2: Update trạng thái hoặc số lượng
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Reservation hết hạn hoặc được giải phóng -> Trừ reserved_quantity
+        IF OLD.status = 'ACTIVE' AND NEW.status IN ('EXPIRED', 'RELEASED', 'CONSUMED') THEN
+            UPDATE warehouse_stock
+            SET reserved_quantity = GREATEST(COALESCE(reserved_quantity, 0) - OLD.quantity, 0)
+            WHERE product_variant_id = OLD.product_variant_id AND warehouse_id = OLD.warehouse_id;
+        
+        -- Thay đổi số lượng reservation khi đang ACTIVE (hiếm gặp nhưng cần xử lý)
+        ELSIF OLD.status = 'ACTIVE' AND NEW.status = 'ACTIVE' AND OLD.quantity != NEW.quantity THEN
+            UPDATE warehouse_stock
+            SET reserved_quantity = GREATEST(COALESCE(reserved_quantity, 0) - OLD.quantity + NEW.quantity, 0)
+            WHERE product_variant_id = NEW.product_variant_id AND warehouse_id = NEW.warehouse_id;
+        END IF;
+    -- Trường hợp 3: Xóa Reservation (DELETE) -> Trừ reserved_quantity
+    ELSIF TG_OP = 'DELETE' AND OLD.status = 'ACTIVE' THEN
+        UPDATE warehouse_stock
+        SET reserved_quantity = GREATEST(COALESCE(reserved_quantity, 0) - OLD.quantity, 0)
+        WHERE product_variant_id = OLD.product_variant_id AND warehouse_id = OLD.warehouse_id;
+        RETURN OLD;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sync_reserved_quantity
+AFTER INSERT OR UPDATE OR DELETE ON stock_reservations
+FOR EACH ROW
+EXECUTE FUNCTION sync_reserved_quantity_to_warehouse_stock();
+
+-- 15.8. Function: update_product_stats_on_review
+-- Trigger tự động update product_stats khi có thay đổi reviews
+CREATE OR REPLACE FUNCTION update_product_stats_on_review()
+RETURNS TRIGGER AS $$
+DECLARE
+    affected_product_id BIGINT;
+BEGIN
+    -- Xác định product_id bị ảnh hưởng
+    IF TG_OP = 'DELETE' THEN
+        affected_product_id := OLD.product_id;
+    ELSE
+        affected_product_id := NEW.product_id;
+    END IF;
+
+    -- Update stats
+    INSERT INTO product_stats (product_id, average_rating, total_reviews, total_verified_reviews)
+    SELECT
+        affected_product_id,
+        COALESCE(AVG(rating)::DECIMAL(3,2), 0),
+        COUNT(*),
+        COUNT(*) FILTER (WHERE is_verified_purchase = true)
+    FROM reviews
+    WHERE product_id = affected_product_id AND status = 'APPROVED'
+    ON CONFLICT (product_id) DO UPDATE SET
+        average_rating = EXCLUDED.average_rating,
+        total_reviews = EXCLUDED.total_reviews,
+        total_verified_reviews = EXCLUDED.total_verified_reviews,
+        last_calculated_at = CURRENT_TIMESTAMP;
+
+    -- Xử lý trường hợp không còn review nào -> Reset về 0
+    IF NOT EXISTS (SELECT 1 FROM reviews WHERE product_id = affected_product_id AND status = 'APPROVED') THEN
+        UPDATE product_stats
+        SET average_rating = 0, total_reviews = 0, total_verified_reviews = 0
+        WHERE product_id = affected_product_id;
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_product_stats_review
+AFTER INSERT OR UPDATE OR DELETE ON reviews
+FOR EACH ROW
+EXECUTE FUNCTION update_product_stats_on_review();
 
 -- ============================================================================
 -- PHẦN 16: SEED DATA (Optional - có thể tách ra file riêng)

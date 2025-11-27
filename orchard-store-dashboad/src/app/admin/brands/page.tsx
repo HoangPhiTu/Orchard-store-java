@@ -90,14 +90,14 @@ export default function BrandManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-sm">
         {/* Header */}
         <div className="flex flex-col gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
+            <h1 className="text-2xl font-semibold text-card-foreground">
               Brand Management
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Manage all brands and product lines available in the store.
             </p>
           </div>
@@ -112,7 +112,7 @@ export default function BrandManagementPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-2">
+        <div className="rounded-2xl border border-border bg-muted/40 p-2">
           {error ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-sm text-red-600">

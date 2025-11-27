@@ -132,13 +132,9 @@ export function ChangeEmailDialog({
           disabled={initMutation.isPending || verifyMutation.isPending}
           required
         />
-        <p className="text-xs text-slate-500">{emailHelperMessage}</p>
+        <p className="text-xs text-muted-foreground">{emailHelperMessage}</p>
       </div>
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={disabledEmailSubmit}
-      >
+      <Button type="submit" className="w-full" disabled={disabledEmailSubmit}>
         {initMutation.isPending ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -170,7 +166,7 @@ export function ChangeEmailDialog({
           required
         />
         {sentEmail && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Mã đã gửi tới <span className="font-medium">{sentEmail}</span>. Vui
             lòng kiểm tra hộp thư đến hoặc thư rác.
           </p>
@@ -181,7 +177,7 @@ export function ChangeEmailDialog({
         <Button
           type="button"
           variant="outline"
-          className="w-full sm:w-auto border-slate-400 bg-white text-slate-900 font-semibold hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
+          className="w-full sm:w-auto border-border bg-card text-card-foreground font-semibold hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
           onClick={() => setStep("email")}
           disabled={verifyMutation.isPending}
         >
@@ -229,7 +225,7 @@ export function ChangeEmailDialog({
               : "Vui lòng nhập mã OTP vừa được gửi để xác nhận đổi email."}
           </DialogDescription>
           {userName && (
-            <p className="text-sm font-medium text-slate-900 pt-1">
+            <p className="text-sm font-medium text-card-foreground pt-1">
               Người dùng: {userName}
             </p>
           )}
@@ -242,7 +238,7 @@ export function ChangeEmailDialog({
         <DialogFooter>
           <Button
             variant="ghost"
-            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/40"
             onClick={handleClose}
             disabled={initMutation.isPending || verifyMutation.isPending}
           >

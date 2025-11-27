@@ -27,6 +27,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetBody,
+  SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -411,21 +412,21 @@ export function CategoryFormSheet({
       <SheetContent className="flex flex-col sm:max-w-[600px]">
         <div className="relative flex h-full flex-col">
           <form
-            className="flex h-full flex-col"
+            className="flex h-full flex-col overflow-y-auto"
             onSubmit={form.handleSubmit(handleSubmit)}
           >
             <SheetHeader>
-              <SheetTitle className="text-xl font-semibold text-slate-900">
+              <SheetTitle className="text-xl font-semibold text-foreground">
                 {isEditing ? "Chỉnh sửa danh mục" : "Thêm danh mục mới"}
               </SheetTitle>
-              <SheetDescription className="text-sm text-slate-500">
+              <SheetDescription className="text-sm text-muted-foreground">
                 {isEditing
                   ? "Cập nhật thông tin danh mục. Slug sẽ tự động tạo từ tên."
                   : "Thêm danh mục mới vào hệ thống. Slug sẽ tự động tạo từ tên nếu bạn không nhập."}
               </SheetDescription>
             </SheetHeader>
 
-            <SheetBody className="flex-1 overflow-y-auto pb-24">
+            <SheetBody className="flex-1">
               <div className="space-y-6 py-4">
                 {/* Image - Đặt lên đầu */}
                 <FormField
@@ -492,30 +493,30 @@ export function CategoryFormSheet({
                       onWheel={handleParentPopoverWheel}
                     >
                       <div className="flex flex-col">
-                        <div className="border-b border-slate-300 px-3 py-2 bg-white">
+                        <div className="border-b border-border/60 bg-card px-3 py-2">
                           <Input
                             placeholder="Tìm kiếm danh mục..."
                             value={parentSearch}
                             onChange={(e) => setParentSearch(e.target.value)}
-                            className="h-9 bg-transparent px-0 text-sm font-semibold text-slate-950 placeholder:text-slate-800 shadow-none outline-none ring-0 focus-visible:ring-0"
+                            className="h-9 bg-transparent px-0 text-sm font-semibold text-foreground placeholder:text-muted-foreground shadow-none outline-none ring-0 focus-visible:ring-0"
                           />
                         </div>
-                        <div className="max-h-72 overflow-y-auto bg-white">
-                          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                        <div className="max-h-72 overflow-y-auto bg-card">
+                          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Danh mục
                           </div>
                           <button
                             type="button"
                             onClick={() => handleParentSelect(null)}
-                            className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-900 hover:bg-indigo-50 hover:text-slate-950"
+                            className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-foreground hover:bg-accent hover:text-accent-foreground"
                           >
                             <span>Không có (Danh mục gốc)</span>
                             {watchedParentId == null && (
                               <Check className="ml-auto h-4 w-4 text-indigo-600" />
                             )}
                           </button>
-                          {filteredParentCategories.length === 0 && (
-                            <div className="px-3 py-4 text-center text-sm text-slate-700 font-semibold">
+                            {filteredParentCategories.length === 0 && (
+                            <div className="px-3 py-4 text-center text-sm font-semibold text-muted-foreground">
                               Không tìm thấy danh mục phù hợp.
                             </div>
                           )}
@@ -526,12 +527,12 @@ export function CategoryFormSheet({
                                 key={cat.id}
                                 type="button"
                                 onClick={() => handleParentSelect(cat.id)}
-                                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-900 hover:bg-indigo-50 hover:text-slate-950"
+                                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
                               >
-                                <span className="text-xs font-medium text-slate-600">
+                                <span className="text-xs font-medium text-muted-foreground">
                                   L{cat.level ?? 0}
                                 </span>
-                                <span className="truncate font-medium text-slate-900">
+                                <span className="truncate font-medium text-foreground">
                                   {cat.name}
                                 </span>
                                 {isSelected && (
@@ -599,7 +600,7 @@ export function CategoryFormSheet({
                   <textarea
                     placeholder="Mô tả về danh mục..."
                     rows={4}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm transition-all duration-200 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/50"
                     {...form.register("description")}
                   />
                 </FormField>
@@ -638,7 +639,7 @@ export function CategoryFormSheet({
                           );
                         }}
                       />
-                      <span className="text-sm text-slate-600">
+                      <span className="text-sm text-muted-foreground">
                         {watchedStatus === "ACTIVE" ? "Active" : "Inactive"}
                       </span>
                     </div>
@@ -647,16 +648,17 @@ export function CategoryFormSheet({
               </div>
             </SheetBody>
 
-            <div className="absolute bottom-0 left-0 right-0 z-50 flex items-center justify-end gap-3 border-t border-slate-100 bg-white p-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-                className="w-32 rounded-lg border-slate-300 bg-white text-slate-900 font-semibold shadow-sm hover:bg-slate-100 hover:text-slate-950"
-              >
-                Hủy
-              </Button>
+            <SheetFooter>
+              <div className="flex w-full items-center justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting}
+                  className="w-32 rounded-lg font-semibold shadow-sm"
+                >
+                  Hủy
+                </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting}
@@ -673,7 +675,8 @@ export function CategoryFormSheet({
                   "Tạo mới"
                 )}
               </Button>
-            </div>
+              </div>
+            </SheetFooter>
           </form>
         </div>
       </SheetContent>

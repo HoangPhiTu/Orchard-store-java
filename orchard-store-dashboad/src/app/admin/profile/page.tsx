@@ -226,10 +226,10 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex min-h-[400px] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-sm text-slate-500">Đang tải thông tin...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Đang tải thông tin...</p>
         </div>
       </div>
     );
@@ -240,7 +240,7 @@ export default function ProfilePage() {
       <div className="flex min-h-[400px] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-red-600">Lỗi</CardTitle>
+            <CardTitle className="text-destructive">Lỗi</CardTitle>
             <CardDescription>
               Không thể tải thông tin người dùng. Vui lòng thử lại sau.
             </CardDescription>
@@ -254,10 +254,10 @@ export default function ProfilePage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">
+        <h1 className="text-2xl font-semibold text-foreground">
           Thông tin cá nhân
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="mt-1 text-sm text-muted-foreground">
           Xem và quản lý thông tin tài khoản của bạn
         </p>
       </div>
@@ -293,7 +293,7 @@ export default function ProfilePage() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <CardTitle className="text-xl">
+              <CardTitle className="text-xl text-foreground">
                 {displayUser?.fullName || "User"}
               </CardTitle>
               <CardDescription className="mt-1">
@@ -307,12 +307,12 @@ export default function ProfilePage() {
 
           {/* User ID */}
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <User className="h-5 w-5 text-slate-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <User className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-700">ID</p>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <p className="text-sm font-medium text-foreground">ID</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 #{displayUser?.id || "N/A"}
               </p>
             </div>
@@ -320,12 +320,12 @@ export default function ProfilePage() {
 
           {/* Email */}
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <Mail className="h-5 w-5 text-slate-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <Mail className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-700">Email</p>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <p className="text-sm font-medium text-foreground">Email</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 {displayUser?.email || "N/A"}
               </p>
             </div>
@@ -333,14 +333,14 @@ export default function ProfilePage() {
 
           {/* Phone */}
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <Phone className="h-5 w-5 text-slate-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <Phone className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-foreground">
                 Số điện thoại
               </p>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 {displayUser?.phone || "Chưa cập nhật"}
               </p>
             </div>
@@ -348,11 +348,11 @@ export default function ProfilePage() {
 
           {/* Roles */}
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <Shield className="h-5 w-5 text-slate-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <Shield className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-700 mb-2">Vai trò</p>
+              <p className="mb-2 text-sm font-medium text-foreground">Vai trò</p>
               <div className="flex flex-wrap gap-1.5">
                 {displayUser?.roles && displayUser.roles.length > 0 ? (
                   displayUser.roles.map((role: string, index: number) => {
@@ -368,7 +368,7 @@ export default function ProfilePage() {
                     );
                   })
                 ) : (
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     Không có vai trò
                   </span>
                 )}
@@ -381,11 +381,11 @@ export default function ProfilePage() {
             <>
               <Separator />
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-                  <Shield className="h-5 w-5 text-slate-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <Shield className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-700 mb-2">
+                  <p className="mb-2 text-sm font-medium text-foreground">
                     Quyền hạn
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -455,7 +455,7 @@ export default function ProfilePage() {
                   size="md"
                 />
               </div>
-              <p className="text-xs text-slate-500 text-center">
+              <p className="text-center text-xs text-muted-foreground">
                 Nhấn vào avatar để chọn ảnh mới
               </p>
             </div>
@@ -463,7 +463,7 @@ export default function ProfilePage() {
             {/* Full Name */}
             <div className="space-y-2">
               <Label htmlFor="fullName">
-                Họ tên <span className="text-red-500">*</span>
+                Họ tên <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="fullName"
@@ -472,7 +472,7 @@ export default function ProfilePage() {
                 disabled={updateProfileMutation.isPending}
               />
               {editForm.formState.errors.fullName && (
-                <p className="text-sm text-red-500">
+                <p className="text-sm text-destructive">
                   {editForm.formState.errors.fullName.message}
                 </p>
               )}
@@ -488,7 +488,7 @@ export default function ProfilePage() {
                 disabled={updateProfileMutation.isPending}
               />
               {editForm.formState.errors.phone && (
-                <p className="text-sm text-red-500">
+                <p className="text-sm text-destructive">
                   {editForm.formState.errors.phone.message}
                 </p>
               )}
@@ -501,9 +501,9 @@ export default function ProfilePage() {
                 id="email"
                 value={displayUser?.email || ""}
                 disabled
-                className="bg-slate-50"
+                className="bg-muted/40 text-muted-foreground"
               />
-              <p className="text-xs text-slate-500">Email không thể thay đổi</p>
+              <p className="text-xs text-muted-foreground">Email không thể thay đổi</p>
             </div>
 
             <SheetFooter>

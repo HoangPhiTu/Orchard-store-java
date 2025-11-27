@@ -29,19 +29,19 @@ export function Sidebar({
       {/* Logo & Branding Header - h-16 to match Header */}
       <div
         className={cn(
-          "flex h-16 items-center justify-center border-b border-slate-200 transition-all duration-300",
+          "flex h-16 items-center justify-center border-b border-border transition-all duration-300",
           isSidebarCollapsed ? "px-0" : "gap-3 px-6"
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-white font-bold">
           O
         </div>
         {!isSidebarCollapsed && (
           <div className="flex flex-col">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-900">
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
               ORCHARD
             </p>
-            <p className="text-xs text-slate-500">Store Admin</p>
+            <p className="text-xs text-muted-foreground">Store Admin</p>
           </div>
         )}
       </div>
@@ -50,7 +50,7 @@ export function Sidebar({
       <nav
         className={cn(
           "flex-1 py-4 transition-all duration-300",
-          isSidebarCollapsed ? "px-2" : "px-0"
+          isSidebarCollapsed ? "px-3" : "px-0"
         )}
       >
         {mainNav.map((item) => {
@@ -65,16 +65,16 @@ export function Sidebar({
               }}
               className={cn(
                 "mx-4 my-1 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
-                isSidebarCollapsed && "justify-center",
+                isSidebarCollapsed && "justify-center mx-2 px-3",
                 isActive
-                  ? "bg-indigo-50 text-indigo-600 shadow-sm shadow-indigo-100"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                  ? "bg-primary/15 text-primary border-l-4 border-primary shadow-md shadow-primary/20 font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
               <Icon
                 className={cn(
-                  "h-5 w-5 shrink-0 min-w-[20px]",
-                  isActive ? "text-indigo-600" : "text-slate-500"
+                  "h-5 w-5 shrink-0 min-w-[20px] transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground"
                 )}
               />
               {!isSidebarCollapsed && <span>{item.label}</span>}
@@ -100,11 +100,11 @@ export function Sidebar({
     <>
       <aside
         className={cn(
-          "hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col lg:bg-white lg:text-slate-900",
-          "lg:border-r lg:border-slate-200 lg:border-dashed",
+          "hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col",
+          "bg-card text-foreground border-r border-border lg:border-dashed",
           "transition-all duration-300 ease-in-out",
           "relative",
-          isSidebarCollapsed ? "lg:w-[70px]" : "lg:w-64"
+          isSidebarCollapsed ? "lg:w-[84px]" : "lg:w-64"
         )}
       >
         <div className="flex h-full flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -117,9 +117,9 @@ export function Sidebar({
           onClick={toggleSidebar}
           className={cn(
             "absolute -right-3 top-1/2 z-50 flex h-7 w-7 -translate-y-1/2 items-center justify-center",
-            "rounded-full border border-slate-200 bg-white shadow-sm",
-            "text-slate-400 transition-all hover:bg-slate-50 hover:text-indigo-600",
-            "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            "rounded-full border border-border bg-card shadow-sm",
+            "text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
+            "focus:outline-none focus:ring-1 focus:ring-primary/30 focus:ring-offset-1"
           )}
           aria-label={
             isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"

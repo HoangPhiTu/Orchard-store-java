@@ -54,7 +54,7 @@ export function LoginHistoryTable({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-sm text-slate-500">
+        <div className="text-sm text-muted-foreground">
           Đang tải lịch sử đăng nhập...
         </div>
       </div>
@@ -64,13 +64,13 @@ export function LoginHistoryTable({
   if (history.length === 0) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-sm text-slate-500">Chưa có lịch sử đăng nhập</div>
+        <div className="text-sm text-muted-foreground">Chưa có lịch sử đăng nhập</div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
+    <div className="rounded-lg border border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
@@ -82,10 +82,10 @@ export function LoginHistoryTable({
         <TableBody>
           {history.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium text-slate-900">
+              <TableCell className="font-medium text-card-foreground">
                 {formatDateTime(item.loginTime)}
               </TableCell>
-              <TableCell className="text-sm text-slate-600">
+              <TableCell className="text-sm text-muted-foreground">
                 {item.ipAddress || "—"}
               </TableCell>
               <TableCell>

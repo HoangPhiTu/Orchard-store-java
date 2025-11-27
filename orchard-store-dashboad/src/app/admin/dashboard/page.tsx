@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, Col, Row, Tag, Table, Typography, Space } from "antd";
 import {
   Wallet,
@@ -22,6 +23,7 @@ import {
   Bar,
 } from "recharts";
 import type { ColumnsType } from "antd/es/table";
+import { useCssVariableValue } from "@/hooks/use-css-variable-value";
 
 const statCards = [
   {
@@ -95,14 +97,6 @@ interface RecentOrder {
   total: string;
 }
 
-const statusColorMap: Record<OrderStatus, string> = {
-  PENDING: "gold",
-  CONFIRMED: "blue",
-  SHIPPING: "purple",
-  COMPLETED: "green",
-  CANCELLED: "red",
-};
-
 const recentOrders: RecentOrder[] = [
   {
     key: "1",
@@ -141,81 +135,115 @@ const recentOrders: RecentOrder[] = [
   },
 ];
 
-const columns: ColumnsType<RecentOrder> = [
-  {
-    title: "Order ID",
-    dataIndex: "orderId",
-    key: "orderId",
-    render: (value: string) => (
-      <Typography.Text strong>{value}</Typography.Text>
-    ),
-  },
-  {
-    title: "Customer",
-    dataIndex: "customerName",
-    key: "customerName",
-  },
-  {
-    title: "Status",
-    dataIndex: "status",
-    key: "status",
-    render: (status: OrderStatus) => (
-      <Tag color={statusColorMap[status]}>{status}</Tag>
-    ),
-  },
-  {
-    title: "Total",
-    dataIndex: "total",
-    key: "total",
-  },
-];
-
 export default function DashboardOverviewPage() {
+  const primaryColor = useCssVariableValue("--primary", "#4f46e5");
+  const accentColor = useCssVariableValue("--accent", "#a78bfa");
+  const gridColor = useCssVariableValue("--border", "#eef0f4");
+  const cardColor = useCssVariableValue("--card", "#ffffff");
+  const warningColor = useCssVariableValue("--warning", "#f59e0b");
+  const successColor = useCssVariableValue("--success", "#22c55e");
+  const infoColor = useCssVariableValue("--info", "#0ea5e9");
+  const destructiveColor = useCssVariableValue("--destructive", "#ef4444");
+
+  const statusColorMap = useMemo<Record<OrderStatus, string>>(
+    () => ({
+      PENDING: warningColor,
+      CONFIRMED: infoColor,
+      SHIPPING: primaryColor,
+      COMPLETED: successColor,
+      CANCELLED: destructiveColor,
+    }),
+    [
+      destructiveColor,
+      infoColor,
+      primaryColor,
+      successColor,
+      warningColor,
+    ]
+  );
+
+  const columns: ColumnsType<RecentOrder> = useMemo(
+    () => [
+      {
+        title: "Order ID",
+        dataIndex: "orderId",
+        key: "orderId",
+        render: (value: string) => (
+          <Typography.Text strong>{value}</Typography.Text>
+        ),
+      },
+      {
+        title: "Customer",
+        dataIndex: "customerName",
+        key: "customerName",
+      },
+      {
+        title: "Status",
+        dataIndex: "status",
+        key: "status",
+        render: (status: OrderStatus) => (
+          <Tag color={statusColorMap[status]}>{status}</Tag>
+        ),
+      },
+      {
+        title: "Total",
+        dataIndex: "total",
+        key: "total",
+      },
+    ],
+    [statusColorMap]
+  );
+
   return (
     <div className="space-y-6">
       <Row gutter={[16, 16]}>
         {statCards.map((card) => {
           const Icon = card.icon;
+          const cardBorderClass = card.isAlert
+            ? "border-warning/50 bg-warning/10"
+            : "border-border";
+          const iconWrapperClass = card.isAlert
+            ? "bg-warning/20 text-warning"
+            : "bg-primary/10 text-primary";
+          const trendClass =
+            card.trend === "up"
+              ? "text-success"
+              : card.isAlert
+              ? "text-warning"
+              : "text-destructive";
+
           return (
             <Col xs={24} sm={12} md={12} lg={6} key={card.title}>
               <div
                 className={cn(
-                  "rounded-2xl border bg-white p-5 shadow-sm",
-                  card.isAlert
-                    ? "border-amber-200 bg-amber-50/30"
-                    : "border-slate-100"
+                  "rounded-2xl border bg-card p-5 shadow-sm transition-colors",
+                  cardBorderClass
                 )}
               >
                 <div className="flex items-center justify-between">
                   <div
                     className={cn(
                       "flex h-12 w-12 items-center justify-center rounded-xl",
-                      card.isAlert
-                        ? "bg-amber-100 text-amber-600"
-                        : "bg-indigo-50 text-indigo-600"
+                      iconWrapperClass
                     )}
                   >
                     <Icon size={24} />
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-slate-600">{card.title}</p>
-                    <p className="text-2xl font-semibold text-slate-900">
+                    <p className="text-sm text-muted-foreground">{card.title}</p>
+                    <p className="text-2xl font-semibold text-foreground">
                       {card.value}
                     </p>
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between text-sm">
-                  <span className="text-slate-500">{card.description}</span>
+                  <span className="text-muted-foreground">
+                    {card.description}
+                  </span>
                   <Space
                     size={4}
                     align="center"
-                    className={
-                      card.trend === "up"
-                        ? "text-indigo-600"
-                        : card.isAlert
-                        ? "text-amber-600"
-                        : "text-red-600"
-                    }
+                    className={cn("font-semibold", trendClass)}
                   >
                     {card.trend === "up" ? (
                       <ArrowUpRight size={16} />
@@ -243,16 +271,20 @@ export default function DashboardOverviewPage() {
             <div className="chart-wrapper">
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={revenueSeries}>
-                  <CartesianGrid vertical={false} stroke="#eef0f4" />
+                  <CartesianGrid vertical={false} stroke={gridColor} />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip />
                   <Line
                     type="monotone"
                     dataKey="value"
-                    stroke="#4f46e5"
+                    stroke={primaryColor}
                     strokeWidth={3}
-                    dot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+                    dot={{
+                      r: 4,
+                      strokeWidth: 2,
+                      stroke: cardColor,
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -274,7 +306,11 @@ export default function DashboardOverviewPage() {
                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip />
-                  <Bar dataKey="sales" radius={[12, 12, 0, 0]} fill="#a78bfa" />
+                  <Bar
+                    dataKey="sales"
+                    radius={[12, 12, 0, 0]}
+                    fill={accentColor}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>

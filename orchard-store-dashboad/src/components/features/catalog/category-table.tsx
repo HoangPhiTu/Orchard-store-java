@@ -76,7 +76,7 @@ export function CategoryTable({
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -92,7 +92,7 @@ export function CategoryTable({
             <TableRow>
               <TableCell
                 colSpan={6}
-                className="text-center py-8 text-slate-500"
+                className="py-8 text-center text-muted-foreground"
               >
                 Đang tải dữ liệu...
               </TableCell>
@@ -105,7 +105,7 @@ export function CategoryTable({
 
   if (sortedCategories.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -121,7 +121,7 @@ export function CategoryTable({
             <TableRow>
               <TableCell
                 colSpan={6}
-                className="text-center py-8 text-slate-500"
+                className="py-8 text-center text-muted-foreground"
               >
                 Không có danh mục nào
               </TableCell>
@@ -133,10 +133,10 @@ export function CategoryTable({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
+    <div className="rounded-lg border border-border bg-card">
       <Table>
         <TableHeader>
-          <TableRow className="bg-slate-50">
+          <TableRow className="bg-muted/40">
             <TableHead className="w-[300px]">Name</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Image</TableHead>
@@ -153,7 +153,7 @@ export function CategoryTable({
             const paddingLeft = level * 16;
 
             return (
-              <TableRow key={category.id} className="hover:bg-slate-50/50">
+              <TableRow key={category.id} className="hover:bg-muted/40">
                 {/* Name with indentation */}
                 <TableCell>
                   <div
@@ -161,9 +161,9 @@ export function CategoryTable({
                     style={{ paddingLeft: `${paddingLeft}px` }}
                   >
                     {isChild && (
-                      <CornerDownRight className="h-4 w-4 shrink-0 text-slate-400" />
+                      <CornerDownRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-foreground">
                       {category.name}
                     </span>
                   </div>
@@ -171,14 +171,14 @@ export function CategoryTable({
 
                 {/* Slug */}
                 <TableCell>
-                  <span className="font-mono text-sm text-slate-500">
+                  <span className="font-mono text-sm text-muted-foreground">
                     {category.slug || "—"}
                   </span>
                 </TableCell>
 
                 {/* Image */}
                 <TableCell>
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
                     {category.imageUrl && category.imageUrl.trim() !== "" ? (
                       <Image
                         src={category.imageUrl}
@@ -198,15 +198,15 @@ export function CategoryTable({
                           ) {
                             const placeholder = document.createElement("div");
                             placeholder.className =
-                              "image-placeholder flex h-full w-full items-center justify-center bg-slate-100";
+                              "image-placeholder flex h-full w-full items-center justify-center bg-muted";
                             placeholder.innerHTML = `<svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`;
                             parent.appendChild(placeholder);
                           }
                         }}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-slate-50">
-                        <ImageIcon className="h-5 w-5 text-slate-400" />
+                      <div className="flex h-full w-full items-center justify-center bg-muted">
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
                       </div>
                     )}
                   </div>
@@ -215,16 +215,13 @@ export function CategoryTable({
                 {/* Parent */}
                 <TableCell>
                   {category.parentName ? (
-                    <Badge
-                      variant="secondary"
-                      className="border-slate-200 bg-slate-50 text-slate-600"
-                    >
+                    <Badge variant="secondary" className="text-muted-foreground">
                       {category.parentName}
                     </Badge>
                   ) : (
                     <Badge
                       variant="secondary"
-                      className="border border-dashed border-slate-200 bg-transparent text-slate-400"
+                      className="border border-dashed border-border/60 bg-transparent text-muted-foreground"
                     >
                       Root
                     </Badge>
@@ -240,11 +237,11 @@ export function CategoryTable({
                 <TableCell className="text-right">
                   <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 p-0 text-slate-500 data-[state=open]:bg-slate-100"
-                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 text-muted-foreground data-[state=open]:bg-muted/40"
+                        >
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>

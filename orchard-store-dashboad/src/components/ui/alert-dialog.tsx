@@ -55,14 +55,13 @@ export function AlertDialogContent({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={() => context.onOpenChange(false)}
       />
       {/* Dialog Content */}
       <div
         className={cn(
-          "relative z-50 w-full max-w-lg rounded-lg bg-white shadow-2xl",
-          "border border-slate-200",
+          "relative z-50 w-full max-w-lg rounded-lg border border-border bg-card text-card-foreground shadow-2xl",
           className
         )}
         onClick={(e) => e.stopPropagation()}
@@ -86,7 +85,7 @@ export function AlertDialogHeader({
   return (
     <div
       className={cn(
-        "flex flex-col space-y-1.5 border-b border-slate-100 px-6 py-4",
+        "flex flex-col space-y-1.5 border-b border-border/60 px-6 py-4",
         className
       )}
     >
@@ -107,7 +106,7 @@ export function AlertDialogTitle({
   return (
     <h2
       className={cn(
-        "text-xl font-semibold text-slate-900 leading-none tracking-tight",
+        "text-xl font-semibold text-foreground leading-none tracking-tight",
         className
       )}
     >
@@ -126,7 +125,9 @@ export function AlertDialogDescription({
   className,
 }: AlertDialogDescriptionProps) {
   return (
-    <p className={cn("text-sm text-slate-500 mt-1", className)}>{children}</p>
+    <p className={cn("mt-1 text-sm text-muted-foreground", className)}>
+      {children}
+    </p>
   );
 }
 
@@ -142,7 +143,7 @@ export function AlertDialogFooter({
   return (
     <div
       className={cn(
-        "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 border-t border-slate-100 px-6 py-4 gap-3",
+        "flex flex-col-reverse gap-3 border-t border-border/60 px-6 py-4 sm:flex-row sm:justify-end sm:space-x-2",
         className
       )}
     >
@@ -185,7 +186,7 @@ export function AlertDialogCancel({
   return (
     <Button
       variant="outline"
-      className={cn("rounded-lg text-black font-semibold", className)}
+      className={cn("rounded-lg font-semibold", className)}
       onClick={() => context?.onOpenChange(false)}
       {...props}
     >

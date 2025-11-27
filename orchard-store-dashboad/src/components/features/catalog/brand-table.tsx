@@ -37,7 +37,7 @@ export function BrandTable({
 }: BrandTableProps) {
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -52,7 +52,7 @@ export function BrandTable({
             <TableRow>
               <TableCell
                 colSpan={5}
-                className="text-center py-8 text-slate-500"
+                className="py-8 text-center text-muted-foreground"
               >
                 Đang tải dữ liệu...
               </TableCell>
@@ -65,7 +65,7 @@ export function BrandTable({
 
   if (brands.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -80,7 +80,7 @@ export function BrandTable({
             <TableRow>
               <TableCell
                 colSpan={5}
-                className="text-center py-8 text-slate-500"
+                className="py-8 text-center text-muted-foreground"
               >
                 Không có thương hiệu nào
               </TableCell>
@@ -92,10 +92,10 @@ export function BrandTable({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
+    <div className="rounded-lg border border-border bg-card">
       <Table>
         <TableHeader>
-          <TableRow className="bg-slate-50">
+          <TableRow className="bg-muted/40">
             <TableHead className="w-[300px]">Brand Info</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Country</TableHead>
@@ -105,12 +105,12 @@ export function BrandTable({
         </TableHeader>
         <TableBody>
           {brands.map((brand) => (
-            <TableRow key={brand.id} className="hover:bg-slate-50/50">
+            <TableRow key={brand.id} className="hover:bg-muted/40">
               {/* Brand Info: Logo + Name */}
               <TableCell>
                 <div className="flex items-center gap-3">
                   {/* Logo */}
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
                     {brand.logoUrl && brand.logoUrl.trim() !== "" ? (
                       <Image
                         src={brand.logoUrl}
@@ -130,21 +130,21 @@ export function BrandTable({
                           ) {
                             const placeholder = document.createElement("div");
                             placeholder.className =
-                              "image-placeholder flex h-full w-full items-center justify-center bg-slate-100";
-                            placeholder.innerHTML = `<svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`;
+                              "image-placeholder flex h-full w-full items-center justify-center bg-muted";
+                            placeholder.innerHTML = `<svg class="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`;
                             parent.appendChild(placeholder);
                           }
                         }}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-slate-50">
-                        <ImageIcon className="h-5 w-5 text-slate-400" />
+                      <div className="flex h-full w-full items-center justify-center bg-muted">
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
                       </div>
                     )}
                   </div>
                   {/* Name */}
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-slate-900 truncate">
+                    <p className="truncate font-semibold text-foreground">
                       {brand.name}
                     </p>
                   </div>
@@ -153,14 +153,14 @@ export function BrandTable({
 
               {/* Slug */}
               <TableCell>
-                <span className="text-sm text-slate-500 font-mono">
+                <span className="text-sm font-mono text-muted-foreground">
                   {brand.slug}
                 </span>
               </TableCell>
 
               {/* Country */}
               <TableCell>
-                <span className="text-sm text-slate-700">
+                <span className="text-sm text-foreground">
                   {brand.country || "-"}
                 </span>
               </TableCell>
@@ -177,7 +177,7 @@ export function BrandTable({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 p-0 text-slate-500 data-[state=open]:bg-slate-100"
+                      className="h-8 w-8 p-0 text-muted-foreground data-[state=open]:bg-muted/40"
                     >
                       <span className="sr-only">Open menu</span>
                       <MoreHorizontal className="h-4 w-4" />

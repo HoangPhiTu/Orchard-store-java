@@ -173,7 +173,8 @@ export function ImageUpload({
     return null;
   })();
 
-  const sizeClass = variant === "rectangle" ? rectangleSizeClasses[size] : sizeClasses[size];
+  const sizeClass =
+    variant === "rectangle" ? rectangleSizeClasses[size] : sizeClasses[size];
   const hasImage = Boolean(effectivePreview);
 
   // Rectangle variant
@@ -184,7 +185,7 @@ export function ImageUpload({
           <div
             className={cn(
               sizeClass,
-              "relative cursor-pointer overflow-hidden rounded-lg border-2 border-slate-200 bg-white transition-all hover:border-indigo-500 hover:ring-2 hover:ring-indigo-500 hover:ring-offset-2",
+              "relative cursor-pointer overflow-hidden rounded-lg border-2 border-border bg-card transition-all hover:border-primary/50 hover:ring-1 hover:ring-primary/20 hover:ring-offset-1",
               disabled && "cursor-not-allowed opacity-50"
             )}
             onClick={handleClick}
@@ -202,8 +203,8 @@ export function ImageUpload({
                 }}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-slate-50">
-                <Upload className="h-8 w-8 text-slate-400" />
+              <div className="flex h-full w-full items-center justify-center bg-muted">
+                <Upload className="h-8 w-8 text-muted-foreground" />
               </div>
             )}
 
@@ -224,20 +225,10 @@ export function ImageUpload({
           </div>
         </div>
 
-        {/* Upload Button */}
-        {!hasImage && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleClick}
-            disabled={disabled}
-            className="w-full text-sm"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Chọn logo {folder && `(${folder})`}
-          </Button>
-        )}
+        {/* Helper text */}
+        <p className="text-xs text-center text-muted-foreground">
+          Nhấp vào ô để chọn hình ảnh
+        </p>
 
         {/* Hidden File Input */}
         <input
@@ -260,7 +251,7 @@ export function ImageUpload({
         <Avatar
           className={cn(
             sizeClass,
-            "cursor-pointer transition-all hover:ring-2 hover:ring-indigo-500 hover:ring-offset-2",
+            "cursor-pointer transition-all hover:ring-2 hover:ring-primary/30 hover:ring-offset-2",
             disabled && "cursor-not-allowed opacity-50"
           )}
           onClick={handleClick}
@@ -277,8 +268,8 @@ export function ImageUpload({
               }}
             />
           ) : (
-            <AvatarFallback className="bg-linear-to-br from-indigo-100 to-violet-100">
-              <User className="h-8 w-8 text-indigo-600" />
+            <AvatarFallback className="bg-linear-to-br from-primary/20 to-violet-500/20">
+              <User className="h-8 w-8 text-primary" />
             </AvatarFallback>
           )}
         </Avatar>
@@ -299,20 +290,10 @@ export function ImageUpload({
         )}
       </div>
 
-      {/* Upload Button (optional - có thể ẩn nếu chỉ click vào avatar) */}
-      {!hasImage && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleClick}
-          disabled={disabled}
-          className="text-sm"
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          Chọn ảnh
-        </Button>
-      )}
+      {/* Helper text */}
+      <p className="text-xs text-center text-muted-foreground">
+        Nhấp vào avatar để chọn hình ảnh
+      </p>
 
       {/* Hidden File Input */}
       <input

@@ -44,11 +44,11 @@ export function FormField({
           htmlFor={htmlFor}
           className={cn(
             "text-sm font-semibold transition-colors",
-            hasError ? "text-red-600" : "text-slate-900"
+            hasError ? "text-destructive" : "text-foreground"
           )}
         >
           {label}
-          {required && <span className="ml-1 text-red-500">*</span>}
+          {required && <span className="ml-1 text-destructive">*</span>}
         </Label>
         {labelExtra}
       </div>
@@ -60,7 +60,7 @@ export function FormField({
 
       {/* Error message với icon */}
       {error && (
-        <div className="flex items-start gap-1.5 text-xs text-red-600">
+        <div className="flex items-start gap-1.5 text-xs text-destructive">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{error.message}</span>
         </div>
@@ -68,7 +68,9 @@ export function FormField({
 
       {/* Description (không có lỗi) */}
       {!error && description && (
-        <p className="text-xs font-medium text-slate-700">{description}</p>
+        <p className="text-xs font-medium text-muted-foreground">
+          {description}
+        </p>
       )}
     </div>
   );

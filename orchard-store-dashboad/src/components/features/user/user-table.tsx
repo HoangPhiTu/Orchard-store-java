@@ -107,7 +107,7 @@ export function UserTable({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-slate-500">Loading users...</div>
+        <div className="text-sm text-muted-foreground">Loading users...</div>
       </div>
     );
   }
@@ -115,7 +115,7 @@ export function UserTable({
   if (users.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-slate-500">No users found</div>
+        <div className="text-sm text-muted-foreground">No users found</div>
       </div>
     );
   }
@@ -157,18 +157,22 @@ export function UserTable({
                   <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="font-semibold text-slate-900">
+                  <span className="font-semibold text-foreground">
                     {user.fullName}
                   </span>
-                  <span className="text-xs text-slate-500">{user.email}</span>
+                  <span className="text-xs font-medium text-muted-foreground !opacity-100">
+                    {user.email}
+                  </span>
                 </div>
               </div>
             </TableCell>
 
             {/* Phone Column */}
             <TableCell>
-              <span className="text-sm text-slate-700">
-                {user.phone || <span className="text-slate-400">—</span>}
+              <span className="text-sm font-medium text-foreground !opacity-100">
+                {user.phone || (
+                  <span className="text-muted-foreground !opacity-100">—</span>
+                )}
               </span>
             </TableCell>
 
@@ -182,7 +186,9 @@ export function UserTable({
                     </Badge>
                   ))
                 ) : (
-                  <span className="text-xs text-slate-400">No roles</span>
+                  <span className="text-xs font-medium text-muted-foreground !opacity-100">
+                    No roles
+                  </span>
                 )}
               </div>
             </TableCell>
@@ -198,13 +204,16 @@ export function UserTable({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 p-0 text-slate-500 data-[state=open]:bg-slate-100"
+                    className="h-8 w-8 p-0 text-muted-foreground data-[state=open]:bg-muted/40"
                   >
                     <span className="sr-only">Open menu</span>
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-[180px] bg-card text-card-foreground"
+                >
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   {onEdit && (
                     <DropdownMenuItem onClick={() => onEdit(user)}>
@@ -219,7 +228,9 @@ export function UserTable({
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
-                    onClick={() => navigator.clipboard.writeText(String(user.id))}
+                    onClick={() =>
+                      navigator.clipboard.writeText(String(user.id))
+                    }
                   >
                     <Copy className="mr-2 h-4 w-4" />
                     Copy ID
@@ -244,7 +255,7 @@ export function UserTable({
                   {onDelete && (
                     <DropdownMenuItem
                       onClick={() => onDelete(user)}
-                      className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete

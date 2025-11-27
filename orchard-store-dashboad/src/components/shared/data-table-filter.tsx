@@ -22,7 +22,7 @@ interface DataTableFilterProps {
   iconClassName?: string;
 }
 
-export function DataTableFilter({
+export default function DataTableFilter({
   title,
   options,
   paramName,
@@ -40,8 +40,8 @@ export function DataTableFilter({
   const hasValue = Boolean(activeOption);
 
   const buttonClasses = hasValue
-    ? "border border-slate-300 text-slate-900"
-    : "border border-dashed border-slate-200 text-slate-500";
+    ? "border border-border text-foreground"
+    : "border border-dashed border-border/60 text-muted-foreground";
 
   const handleSelect = (value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -62,7 +62,7 @@ export function DataTableFilter({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className={`h-10 min-w-[160px] items-center gap-2 rounded-lg bg-white px-3 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-300 ${buttonClasses} ${
+          className={`h-10 min-w-[160px] items-center gap-2 rounded-lg bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition hover:border-primary/50 ${buttonClasses} ${
             className ?? ""
           }`}
         >
@@ -70,16 +70,21 @@ export function DataTableFilter({
             {activeOption ? `${title} ${activeOption.label}` : `${title} All`}
           </span>
           <ChevronDown
-            className={`h-3.5 w-3.5 ${iconClassName ?? "text-slate-400"}`}
+            className={`h-3.5 w-3.5 ${
+              iconClassName ?? "text-muted-foreground"
+            }`}
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 p-1" align="start">
+      <DropdownMenuContent
+        className="w-56 bg-card p-1 text-card-foreground"
+        align="start"
+      >
         {activeValue && (
           <>
             <DropdownMenuItem
               onClick={() => handleSelect(null)}
-              className="px-3 py-2 text-sm text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600"
+              className="px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
             >
               Clear filters
             </DropdownMenuItem>
@@ -93,7 +98,7 @@ export function DataTableFilter({
               handleSelect(option.value === activeValue ? null : option.value)
             }
             data-active={option.value === activeValue}
-            className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-600 transition data-[active=true]:bg-indigo-50 data-[active=true]:text-indigo-600 hover:bg-indigo-50 hover:text-indigo-600"
+            className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition data-[active=true]:bg-primary/10 data-[active=true]:text-primary hover:bg-accent hover:text-accent-foreground"
           >
             {option.icon}
             <span className="flex-1">{option.label}</span>

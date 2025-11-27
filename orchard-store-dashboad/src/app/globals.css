@@ -1,51 +1,168 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  
-  /* Indigo Theme Colors */
-  --primary: #4f46e5; /* indigo-600 */
-  --primary-foreground: #ffffff;
-  --accent: #eef2ff; /* indigo-50 */
-  
-  /* ✅ MÀU XÁM ĐẬM CHO NÚT CANCEL/HỦY */
-  /* Tăng từ 35% lên 20% để chữ đậm hơn rõ ràng */
-  --muted-foreground: hsl(215 16% 20%); 
-  
-  /* ✅ THÊM MÀU CHO OUTLINE BUTTON */
-  --outline-text: #1e293b; /* slate-800 - rất đậm */
-  --outline-border: #94a3b8; /* slate-400 */
-  --outline-hover-bg: #f1f5f9; /* slate-100 */
-  --outline-hover-border: #64748b; /* slate-500 */
+@layer base {
+  :root {
+    /* Surface */
+    --background: #ffffff;
+    --card: #ffffff;
+    --popover: #ffffff;
+    --secondary: #f3f4f6;
+    --accent: #eef2ff;
+    --muted: #f6f7fb;
+    --neutral: #e2e8f0;
+
+    /* Typography */
+    --foreground: #0f172a;
+    --card-foreground: #111827;
+    --popover-foreground: #111827;
+    --secondary-foreground: #111827;
+    --accent-foreground: #312e81;
+    --muted-foreground: hsl(215.4 16.3% 35%);
+    --neutral-foreground: #0f172a;
+
+    /* Brand & state */
+    --primary: #6366f1;
+    --primary-foreground: #ffffff;
+    --success: #22c55e;
+    --success-foreground: #052e16;
+    --warning: #f59e0b;
+    --warning-foreground: #422006;
+    --info: #0ea5e9;
+    --info-foreground: #082f49;
+    --destructive: #ef4444;
+    --destructive-foreground: #450a0a;
+
+    /* Controls */
+    --border: #e5e7eb;
+    --input: #e5e7eb;
+    --ring: #c7d2fe;
+    --outline-text: #1e293b;
+    --outline-border: #94a3b8;
+    --outline-hover-bg: #f1f5f9;
+    --outline-hover-border: #64748b;
+
+    /* Elevation */
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
+    --shadow-md: 0 6px 16px rgba(15, 23, 42, 0.12);
+    --shadow-lg: 0 18px 48px rgba(15, 23, 42, 0.18);
+  }
+
+  .dark {
+    /* Surface - Sáng hơn để dễ nhìn, giảm mỏi mắt */
+    --background: #111827;
+    --card: #1f2937;
+    --popover: #1f2937;
+    --secondary: #374151;
+    --accent: #374151;
+    --muted: #374151;
+    --neutral: #4b5563;
+
+    /* Typography */
+    --foreground: #f4f4f5;
+    --card-foreground: #f7f7fb;
+    --popover-foreground: #f7f7fb;
+    --secondary-foreground: #f4f4f5;
+    --accent-foreground: #f4f4f5;
+    --muted-foreground: hsl(215 16% 70%);
+    --neutral-foreground: #e2e8f0;
+
+    /* Brand & state */
+    --primary: #6366f1;
+    --primary-foreground: #ffffff;
+    --success: #4ade80;
+    --success-foreground: #052e16;
+    --warning: #fbbf24;
+    --warning-foreground: #422006;
+    --info: #38bdf8;
+    --info-foreground: #082f49;
+    --destructive: #f87171;
+    --destructive-foreground: #450a0a;
+
+    /* Controls */
+    --border: #374151;
+    --input: #374151;
+    --ring: #6366f1;
+    --outline-text: #e2e8f0;
+    --outline-border: #6b7280;
+    --outline-hover-bg: #4b5563;
+    --outline-hover-border: #9ca3af;
+
+    /* Elevation */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  /* Smooth theme transition - chuyển đổi từ từ trong 0.5s */
+  html {
+    transition: background-color 500ms linear !important;
+  }
+
+  html,
+  html *,
+  html *::before,
+  html *::after {
+    transition-property: background-color, color, border-color, fill, stroke,
+      box-shadow, opacity !important;
+    transition-duration: 500ms !important;
+    transition-timing-function: linear !important;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  /* Exclude elements that should not transition */
+  html svg:not([class*="transition"]),
+  html img,
+  html video,
+  html canvas,
+  html iframe,
+  html [class*="animate-"]:not([class*="transition"]),
+  html [style*="animation"] {
+    transition: none !important;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-neutral: var(--neutral);
+  --color-neutral-foreground: var(--neutral-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-outline-text: var(--outline-text);
   --color-outline-border: var(--outline-border);
   --color-outline-hover-bg: var(--outline-hover-bg);
   --color-outline-hover-border: var(--outline-hover-border);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
 
 /* Custom Scrollbar Styles */
@@ -72,7 +189,7 @@ body {
   background-color: rgb(148 163 184); /* slate-400 */
 }
 
-/* Force dark text color for inputs when typing */
+/* Inputs inherit text color from current theme */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -80,51 +197,67 @@ input[type="tel"],
 input[type="number"],
 textarea,
 select {
-  color: rgb(17 24 39) !important; /* gray-900 */
-  font-weight: 500 !important; /* font-medium */
+  color: var(--foreground) !important;
+  background-color: var(--background);
+  font-weight: 500 !important;
+  caret-color: var(--primary);
 }
 
-/* Override browser autofill styles */
+/* Override browser autofill styles so they follow theme */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-text-fill-color: rgb(17 24 39) !important; /* gray-900 */
-  -webkit-box-shadow: 0 0 0px 1000px white inset !important;
-  box-shadow: 0 0 0px 1000px white inset !important;
+  -webkit-text-fill-color: var(--foreground) !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--background) inset !important;
+  box-shadow: 0 0 0px 1000px var(--background) inset !important;
   font-weight: 500 !important;
 }
 
-/* Ensure text color is dark when input has value */
+/* Ensure filled inputs stay readable in dark mode */
 input:not(:placeholder-shown),
 textarea:not(:placeholder-shown) {
-  color: rgb(17 24 39) !important; /* gray-900 */
+  color: var(--foreground) !important;
   font-weight: 500 !important;
 }
 
-/* ✅ FORCE OUTLINE BUTTON TEXT COLOR TO BE VERY DARK */
-/* ✅ FORCE OUTLINE BUTTON TEXT TO BE VERY DARK & BOLD */
+/* Outline buttons rely on semantic tokens instead of fixed hex */
 button[class*="outline"],
 button[data-variant="outline"] {
-  color: #1e293b !important; /* slate-800 - rất đậm */
-  font-weight: 700 !important; /* font-bold */
-  border-color: #94a3b8 !important; /* slate-400 */
+  color: var(--outline-text) !important;
+  font-weight: 600 !important;
+  border-color: var(--outline-border) !important;
+  background-color: transparent;
 }
 
 button[class*="outline"]:hover,
 button[data-variant="outline"]:hover {
-  color: #0f172a !important; /* slate-900 - cực đậm */
-  background-color: #f1f5f9 !important; /* slate-100 */
-  border-color: #64748b !important; /* slate-500 */
+  color: var(--foreground) !important;
+  background-color: var(--outline-hover-bg) !important;
+  border-color: var(--outline-hover-border) !important;
 }
 
 /* ===== FORM VALIDATION ANIMATIONS ===== */
 
 /* Shake animation for form errors */
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-  20%, 40%, 60%, 80% { transform: translateX(4px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
 }
 
 .animate-shake {
@@ -133,9 +266,23 @@ button[data-variant="outline"]:hover {
 
 /* Shake animation for submit button */
 @keyframes shake-button {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
-  20%, 40%, 60%, 80% { transform: translateX(3px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-3px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(3px);
+  }
 }
 
 .animate-shake-button {
@@ -144,8 +291,13 @@ button[data-variant="outline"]:hover {
 
 /* Pulse animation for error fields */
 @keyframes pulse-error {
-  0%, 100% { border-color: rgb(239 68 68); } /* red-500 */
-  50% { border-color: rgb(220 38 38); } /* red-600 */
+  0%,
+  100% {
+    border-color: rgb(239 68 68);
+  } /* red-500 */
+  50% {
+    border-color: rgb(220 38 38);
+  } /* red-600 */
 }
 
 .animate-pulse-error {

@@ -42,18 +42,18 @@ export function TableToolbar({
 }: TableToolbarProps) {
   const hasFilter = Boolean(filterValue);
   const filterButtonBorder = hasFilter
-    ? "border border-slate-300"
-    : "border border-dashed border-slate-200";
+    ? "border border-border"
+    : "border border-dashed border-border/60";
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white/80 p-4 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-card-foreground md:flex-row md:items-center md:justify-between">
       <div className="relative w-full md:max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="h-10 w-full rounded-lg border-slate-200 pl-9"
+          className="h-10 w-full rounded-lg border-border pl-9"
         />
       </div>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
@@ -61,7 +61,7 @@ export function TableToolbar({
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className={`h-10 min-w-[160px] items-center justify-between rounded-lg bg-white px-3 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-300 ${filterButtonBorder}`}
+              className={`h-10 min-w-[160px] items-center justify-between rounded-lg bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition hover:border-primary/60 ${filterButtonBorder}`}
             >
               <span className="truncate text-left">
                 {filterValue
@@ -71,13 +71,13 @@ export function TableToolbar({
                     }`
                   : `${filterTitle}: All`}
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-48 p-1" align="start">
             <DropdownMenuItem
               onClick={() => onFilterChange(null)}
-              className="cursor-pointer px-3 py-2 text-sm text-slate-600"
+              className="cursor-pointer px-3 py-2 text-sm text-muted-foreground"
             >
               {filterTitle} All
             </DropdownMenuItem>
@@ -86,7 +86,7 @@ export function TableToolbar({
                 key={option.value}
                 onClick={() => onFilterChange(option.value)}
                 data-active={option.value === filterValue}
-                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-600 data-[active=true]:bg-indigo-50 data-[active=true]:text-indigo-600"
+                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-muted-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
               >
                 {option.icon}
                 <span className="flex-1">{option.label}</span>
@@ -99,10 +99,10 @@ export function TableToolbar({
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className="h-10 min-w-[160px] items-center gap-2 rounded-lg bg-white px-3 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-300"
+              className="h-10 min-w-[160px] items-center gap-2 rounded-lg bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition hover:border-primary/60"
             >
               <span className="truncate text-left">Hiển thị: {pageSize}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-40 p-1" align="end">
@@ -110,7 +110,7 @@ export function TableToolbar({
               <DropdownMenuItem
                 key={size}
                 onClick={() => onPageSizeChange(size)}
-                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-600 transition hover:bg-indigo-50 hover:text-indigo-600"
+                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
               >
                 <span className="flex-1">{size} dòng / trang</span>
               </DropdownMenuItem>

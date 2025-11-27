@@ -41,11 +41,11 @@ export function NotificationList({ onClose }: NotificationListProps) {
   return (
     <div className="flex flex-col h-full max-h-[500px]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">Thông báo</h3>
+          <h3 className="text-sm font-semibold text-foreground">Thông báo</h3>
           {unreadCount > 0 && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-semibold text-white">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs font-semibold text-destructive-foreground">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -90,16 +90,16 @@ export function NotificationList({ onClose }: NotificationListProps) {
       <div className="flex-1 overflow-y-auto">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center">
-            <p className="text-sm text-slate-500">Không có thông báo</p>
+            <p className="text-sm text-muted-foreground">Không có thông báo</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-border">
             {notifications.map((notification) => (
               <div
                 key={notification.id}
                 className={cn(
-                  "relative p-4 cursor-pointer transition-colors hover:bg-slate-50",
-                  !notification.read && "bg-blue-50/50"
+                  "relative p-4 cursor-pointer transition-colors hover:bg-muted/40",
+                  !notification.read && "bg-primary/10"
                 )}
                 onClick={() => handleNotificationClick(notification)}
               >
@@ -107,19 +107,19 @@ export function NotificationList({ onClose }: NotificationListProps) {
                   <div
                     className={cn(
                       "mt-1 h-2 w-2 rounded-full",
-                      !notification.read ? "bg-blue-500" : "bg-transparent"
+                      !notification.read ? "bg-primary" : "bg-transparent"
                     )}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900">
+                        <p className="text-sm font-semibold text-foreground">
                           {notification.title}
                         </p>
-                        <p className="mt-1 text-xs text-slate-600 line-clamp-2">
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
                           {notification.message}
                         </p>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="mt-1 text-xs text-muted-foreground/70">
                           {formatDistanceToNow(
                             new Date(notification.timestamp),
                             {

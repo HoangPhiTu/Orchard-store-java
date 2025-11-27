@@ -358,10 +358,10 @@ export function UserFormSheet({
           <SheetHeader>
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <SheetTitle className="text-xl font-semibold text-slate-900">
+                <SheetTitle className="text-xl font-semibold text-card-foreground">
                   {isEditing ? "Edit User" : "Add New User"}
                 </SheetTitle>
-                <SheetDescription className="text-sm text-slate-500">
+                <SheetDescription className="text-sm text-muted-foreground">
                   {isEditing
                     ? "Update user information and roles."
                     : "Create a new user account with roles and permissions."}
@@ -478,7 +478,7 @@ export function UserFormSheet({
                               >
                             ).email &&
                               "border-red-500 focus:border-red-500 focus:ring-red-500",
-                            isEditing && "bg-slate-100 cursor-not-allowed"
+                            isEditing && "bg-muted/40 cursor-not-allowed"
                           )}
                         />
                         {canEditEmail && (
@@ -540,15 +540,15 @@ export function UserFormSheet({
 
                     {/* Roles - Selectable Cards */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-foreground">
                         Roles <span className="text-red-500">*</span>
                       </Label>
                       {rolesLoading ? (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-muted-foreground">
                           Loading roles...
                         </p>
                       ) : roles.length === 0 ? (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-muted-foreground">
                           No roles available
                         </p>
                       ) : (
@@ -564,7 +564,7 @@ export function UserFormSheet({
                                   "relative flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
                                   isSelected
                                     ? "border-indigo-600 bg-indigo-50/50"
-                                    : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
+                                    : "border-border bg-card hover:border-indigo-200 hover:bg-muted/40"
                                 )}
                               >
                                 <div
@@ -584,12 +584,12 @@ export function UserFormSheet({
                                 <div className="flex-1 min-w-0">
                                   <Label
                                     htmlFor={`role-${role.id}`}
-                                    className="cursor-pointer font-semibold text-slate-900"
+                                    className="cursor-pointer font-semibold text-card-foreground"
                                   >
                                     {role.roleName}
                                   </Label>
                                   {role.description && (
-                                    <p className="mt-1 text-xs text-slate-500">
+                                    <p className="mt-1 text-xs text-muted-foreground">
                                       {role.description}
                                     </p>
                                   )}
@@ -610,7 +610,7 @@ export function UserFormSheet({
                     <div className="space-y-2">
                       <Label
                         htmlFor="status"
-                        className="text-sm font-medium text-slate-700"
+                        className="text-sm font-medium text-foreground"
                       >
                         Status
                       </Label>
@@ -636,7 +636,7 @@ export function UserFormSheet({
                   {user ? (
                     <UserHistoryTable userId={user.id} />
                   ) : (
-                    <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                    <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
                       Không tìm thấy thông tin người dùng
                     </div>
                   )}
@@ -757,13 +757,17 @@ export function UserFormSheet({
 
                 {/* Roles - Selectable Cards */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-foreground">
                     Roles <span className="text-red-500">*</span>
                   </Label>
                   {rolesLoading ? (
-                    <p className="text-sm text-slate-500">Loading roles...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Loading roles...
+                    </p>
                   ) : roles.length === 0 ? (
-                    <p className="text-sm text-slate-500">No roles available</p>
+                    <p className="text-sm text-muted-foreground">
+                      No roles available
+                    </p>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
                       {roles.map((role) => {
@@ -777,7 +781,7 @@ export function UserFormSheet({
                               "relative flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
                               isSelected
                                 ? "border-indigo-600 bg-indigo-50/50"
-                                : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
+                                : "border-border bg-card hover:border-indigo-200 hover:bg-muted/40"
                             )}
                           >
                             <div
@@ -797,12 +801,12 @@ export function UserFormSheet({
                             <div className="flex-1 min-w-0">
                               <Label
                                 htmlFor={`role-${role.id}`}
-                                className="cursor-pointer font-semibold text-slate-900"
+                                className="cursor-pointer font-semibold text-card-foreground"
                               >
                                 {role.roleName}
                               </Label>
                               {role.description && (
-                                <p className="mt-1 text-xs text-slate-500">
+                                <p className="mt-1 text-xs text-muted-foreground">
                                   {role.description}
                                 </p>
                               )}
@@ -828,7 +832,7 @@ export function UserFormSheet({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1 rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-500"
+                className="flex-1 rounded-lg border-border bg-card text-card-foreground font-semibold transition hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
                 disabled={isPending}
               >
                 Cancel

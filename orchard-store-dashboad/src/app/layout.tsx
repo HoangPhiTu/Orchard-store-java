@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Providers from "@/components/providers/query-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import { env } from "@/config/env";
 import "./globals.css";
 import "antd/dist/reset.css";
@@ -87,14 +88,20 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <Providers>
-          <AuthProvider>
-            {children}
-            <ToastProvider />
-          </AuthProvider>
-        </Providers>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          disableTransitionOnChange={false}
+        >
+          <Providers>
+            <AuthProvider>
+              {children}
+              <ToastProvider />
+            </AuthProvider>
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );

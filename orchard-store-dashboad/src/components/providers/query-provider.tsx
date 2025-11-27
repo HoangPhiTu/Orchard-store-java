@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   QueryClient,
   QueryClientProvider,
@@ -10,6 +10,8 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { App as AntdApp, ConfigProvider, theme } from "antd";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCssVariableValue } from "@/hooks/use-css-variable-value";
+import { useTheme } from "next-themes";
 
 function AuthBootstrapper() {
   const initialize = useAuthStore((state) => state.initialize);
@@ -22,6 +24,12 @@ function AuthBootstrapper() {
 }
 
 export default function Providers({ children }: { children: ReactNode }) {
+  const { resolvedTheme } = useTheme();
+  const primaryColor = useCssVariableValue("--primary", "#4f46e5");
+  const backgroundColor = useCssVariableValue("--background", "#ffffff");
+  const foregroundColor = useCssVariableValue("--foreground", "#0f172a");
+  const borderColor = useCssVariableValue("--border", "#e5e7eb");
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -59,14 +67,31 @@ export default function Providers({ children }: { children: ReactNode }) {
       })
   );
 
+  const antdTheme = useMemo(
+    () => ({
+      algorithm:
+        resolvedTheme === "dark"
+          ? theme.darkAlgorithm
+          : theme.defaultAlgorithm,
+      token: {
+        colorPrimary: primaryColor,
+        colorBgBase: backgroundColor,
+        colorTextBase: foregroundColor,
+        colorBorder: borderColor,
+      },
+    }),
+    [
+      backgroundColor,
+      borderColor,
+      foregroundColor,
+      primaryColor,
+      resolvedTheme,
+    ]
+  );
+
   return (
     <ConfigProvider
-      theme={{
-        algorithm: theme.defaultAlgorithm,
-        token: {
-          colorPrimary: "#4f46e5", // indigo-600
-        },
-      }}
+      theme={antdTheme}
     >
       <QueryClientProvider client={queryClient}>
         <AntdApp>

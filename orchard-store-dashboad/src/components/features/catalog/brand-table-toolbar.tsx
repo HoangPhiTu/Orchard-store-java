@@ -5,7 +5,7 @@ import { Search, Plus, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FilterOption } from "@/config/options";
-import { DataTableFilter } from "@/components/shared/data-table-filter";
+import DataTableFilter from "@/components/shared/data-table-filter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,14 +33,14 @@ export function BrandTableToolbar({
   onPageSizeChange,
 }: BrandTableToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white/80 p-4 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/90 p-4 md:flex-row md:items-center md:justify-between">
       <div className="relative w-full md:max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search by name or slug..."
-          className="h-10 w-full rounded-lg border-slate-200 pl-9"
+          className="h-10 w-full rounded-lg border-border bg-background pl-9 text-foreground placeholder:text-muted-foreground"
         />
       </div>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
@@ -48,26 +48,26 @@ export function BrandTableToolbar({
           title="Status"
           options={statusOptions}
           paramName="status"
-          className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-          iconClassName="text-slate-400"
+          className="bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground"
+          iconClassName="text-muted-foreground"
         />
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className="h-10 min-w-[160px] justify-between rounded-lg border-slate-200 text-sm text-slate-600"
+              className="h-10 min-w-[160px] justify-between rounded-lg text-sm text-muted-foreground"
             >
               Hiển thị: {pageSize}
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent align="end" className="w-44 bg-card text-card-foreground">
             {PAGE_SIZE_OPTIONS.map((size) => (
               <DropdownMenuItem
                 key={size}
                 onClick={() => onPageSizeChange(size)}
                 data-active={size === pageSize}
-                className="cursor-pointer text-sm text-slate-600 data-[active=true]:font-semibold"
+                className="cursor-pointer text-sm text-muted-foreground data-[active=true]:font-semibold data-[active=true]:text-foreground"
               >
                 {size} dòng / trang
               </DropdownMenuItem>

@@ -225,21 +225,21 @@ export function BrandFormSheet({
           />
 
           <form
-            className="flex h-full flex-col pb-24"
+            className="flex h-full flex-col overflow-y-auto"
             onSubmit={form.handleSubmit(handleSubmit)}
           >
             <SheetHeader>
-              <SheetTitle className="text-xl font-semibold text-slate-900">
+              <SheetTitle className="text-xl font-semibold text-foreground">
                 {isEditing ? "Chỉnh sửa thương hiệu" : "Thêm thương hiệu mới"}
               </SheetTitle>
-              <SheetDescription className="text-sm text-slate-500">
+              <SheetDescription className="text-sm text-muted-foreground">
                 {isEditing
                   ? "Cập nhật thông tin thương hiệu. Slug sẽ tự động tạo từ tên nếu bạn thay đổi tên."
                   : "Thêm thương hiệu mới vào hệ thống. Slug sẽ tự động tạo từ tên nếu bạn không nhập."}
               </SheetDescription>
             </SheetHeader>
 
-            <SheetBody className="flex-1 overflow-y-auto">
+            <SheetBody className="flex-1">
               <div className="space-y-6 py-4">
                 {/* Logo - Đặt lên đầu */}
                 <FormField
@@ -351,7 +351,7 @@ export function BrandFormSheet({
                   <textarea
                     placeholder="Mô tả về thương hiệu..."
                     rows={4}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm transition-all duration-200 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/50"
                     {...form.register("description")}
                   />
                 </FormField>
@@ -385,7 +385,7 @@ export function BrandFormSheet({
                           form.setValue("status", checked ? "ACTIVE" : "INACTIVE");
                         }}
                       />
-                      <span className="text-sm text-slate-600">
+                      <span className="text-sm text-muted-foreground">
                         {form.watch("status") === "ACTIVE" ? "Active" : "Inactive"}
                       </span>
                     </div>
@@ -394,14 +394,14 @@ export function BrandFormSheet({
               </div>
             </SheetBody>
 
-            <SheetFooter className="pointer-events-none">
-              <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-50 flex items-center justify-end gap-3 border-t border-slate-100 bg-white p-6">
+            <SheetFooter>
+              <div className="flex w-full items-center justify-end gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
                   disabled={isSubmitting}
-                  className="h-10 rounded-lg border-slate-300 bg-white text-slate-900 font-semibold hover:bg-slate-100 hover:text-slate-950"
+                  className="h-10 rounded-lg font-semibold"
                 >
                   Hủy
                 </Button>

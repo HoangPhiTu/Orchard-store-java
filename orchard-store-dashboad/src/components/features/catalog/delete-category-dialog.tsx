@@ -51,26 +51,26 @@ export function DeleteCategoryDialog({
 
           <AlertDialogHeader>
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
-              <AlertDialogTitle className="text-xl font-semibold text-slate-900">
+              <AlertDialogTitle className="text-xl font-semibold text-foreground">
                 Xóa danh mục
               </AlertDialogTitle>
             </div>
-            <AlertDialogDescription className="pt-4 text-slate-600">
+            <AlertDialogDescription className="pt-4 text-muted-foreground">
               Bạn có chắc chắn muốn xóa danh mục này không? Hành động này không
               thể hoàn tác. Hình ảnh và tất cả thông tin liên quan sẽ bị xóa
               vĩnh viễn.
-              <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
-                <p className="text-sm font-medium text-amber-900">
+              <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                <p className="text-sm font-medium text-warning">
                   ⚠️ Lưu ý: Không thể xóa danh mục nếu đang có danh mục con hoặc
                   sản phẩm thuộc về nó.
                 </p>
               </div>
               {categoryName && (
-                <div className="mt-3 rounded-lg bg-slate-100 p-3">
-                  <p className="text-sm font-medium text-slate-900">
+                <div className="mt-3 rounded-lg bg-muted p-3">
+                  <p className="text-sm font-medium text-foreground">
                     {categoryName}
                   </p>
                 </div>
@@ -78,17 +78,17 @@ export function DeleteCategoryDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <AlertDialogFooter>
+            <AlertDialogFooter>
             <AlertDialogCancel
               disabled={deleteCategoryMutation.isPending}
-              className="rounded-lg border-slate-400 bg-white text-slate-900 font-semibold transition hover:bg-slate-100 hover:text-slate-950 focus:ring-2 focus:ring-slate-400"
+              className="rounded-lg font-semibold"
             >
               Hủy
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleteCategoryMutation.isPending}
-              className="rounded-lg bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-300"
+              className="rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-2 focus:ring-destructive/30"
             >
               {deleteCategoryMutation.isPending ? (
                 <>
