@@ -728,18 +728,41 @@ http://localhost:8080/api
 
 ## 🚀 Hướng Dẫn Setup
 
+> **📖 Xem hướng dẫn chi tiết:** [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+
 ### Yêu Cầu Hệ Thống
 
 - Java 21+
-- Maven 3.6+
+- Maven 3.6+ (hoặc dùng Maven Wrapper đã có sẵn)
+- Node.js 20+
 - PostgreSQL (hoặc Supabase account)
 - IDE (IntelliJ IDEA / Eclipse / VS Code)
+
+### Quick Start
+
+```bash
+# 1. Clone repository
+git clone https://github.com/HoangPhiTu/Orchard-store-java-private.git
+cd Orchard-store-java-private
+
+# 2. Setup Backend
+cd orchard-store-backend
+mvn clean install
+mvn spring-boot:run
+
+# 3. Setup Dashboard (terminal mới)
+cd orchard-store-dashboad
+npm install
+npm run dev
+```
+
+**Xem hướng dẫn đầy đủ và troubleshooting:** [SETUP_GUIDE.md](./SETUP_GUIDE.md)
 
 ### Bước 1: Clone Repository
 
 ```bash
-git clone <repository-url>
-cd JAVA-ORCHARD-STORE
+git clone https://github.com/HoangPhiTu/Orchard-store-java-private.git
+cd Orchard-store-java-private
 ```
 
 ### Bước 2: Cấu Hình Database
