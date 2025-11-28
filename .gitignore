@@ -21,13 +21,15 @@ Thumbs.db
 *~
 
 # Environment
-.env
-.env.local
-.env*.local
+# .env
+# .env.local
+# .env*.local
+# Đã comment để cho phép commit các file .env lên GitHub (theo yêu cầu)
 
 # Application Properties (chứa credentials)
-orchard-store-backend/src/main/resources/application.properties
-!orchard-store-backend/src/main/resources/application.properties.example
+# orchard-store-backend/src/main/resources/application.properties
+# !orchard-store-backend/src/main/resources/application.properties.example
+# Đã comment để cho phép commit application.properties lên GitHub (theo yêu cầu)
 
 # Dependencies
 node_modules/

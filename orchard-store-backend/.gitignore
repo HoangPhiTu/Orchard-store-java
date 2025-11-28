@@ -27,13 +27,15 @@ buildNumber.properties
 .settings/
 
 # Environment
-.env
-.env.local
-application-local.properties
+# .env
+# .env.local
+# application-local.properties
+# Đã comment để cho phép commit các file .env lên GitHub (theo yêu cầu)
 
 # Application Properties (chứa credentials - chỉ commit .example)
-src/main/resources/application.properties
-!src/main/resources/application.properties.example
+# src/main/resources/application.properties
+# !src/main/resources/application.properties.example
+# Đã comment để cho phép commit application.properties lên GitHub (theo yêu cầu)
 
 # Temporary
 *.tmp
