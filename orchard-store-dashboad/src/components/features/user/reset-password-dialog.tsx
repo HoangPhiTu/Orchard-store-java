@@ -24,6 +24,8 @@ import {
 } from "@/lib/schemas/admin-reset-password.schema";
 import { userService } from "@/services/user.service";
 import { cn } from "@/lib/utils";
+import { useRateLimit } from "@/lib/security/rate-limit-utils";
+import { toast } from "sonner";
 
 interface ResetPasswordDialogProps {
   userId: number;
@@ -40,6 +42,13 @@ export function ResetPasswordDialog({
   onClose,
   onSuccess,
 }: ResetPasswordDialogProps) {
+  // Rate limiting: Max 5 attempts per 15 minutes
+  const { checkRateLimit, getRemainingTime, resetRateLimit } = useRateLimit({
+    maxAttempts: 5,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    key: `reset_password_${userId}`,
+  });
+
   const form = useForm<AdminResetPasswordSchema>({
     resolver: zodResolver(adminResetPasswordSchema),
     defaultValues: {
@@ -68,13 +77,33 @@ export function ResetPasswordDialog({
     onClose();
   };
 
-  // ✅ Hàm submit cực kỳ ngắn gọn - không cần try-catch
+  // ✅ Hàm submit với rate limiting
   const onSubmit = async (data: AdminResetPasswordSchema) => {
-    // ✅ Dùng mutateAsync để có thể await
-    // ✅ Không cần try-catch: Hook tự động xử lý lỗi và gán vào form
-    // ✅ Nếu thành công: Hook tự động gọi onClose() trong onSuccess
-    // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, không gọi onClose()
-    await resetPasswordMutation.mutateAsync(data);
+    // Check rate limit before submitting
+    if (!checkRateLimit()) {
+      const remaining = getRemainingTime();
+      const remainingStr = remaining > 0 
+        ? `${Math.floor(remaining / 60000)} phút ${Math.floor((remaining % 60000) / 1000)} giây`
+        : "một chút";
+      toast.error(
+        `Quá nhiều lần thử. Vui lòng đợi ${remainingStr} trước khi thử lại.`
+      );
+      return;
+    }
+
+    try {
+      // ✅ Dùng mutateAsync để có thể await
+      // ✅ Không cần try-catch: Hook tự động xử lý lỗi và gán vào form
+      // ✅ Nếu thành công: Hook tự động gọi onClose() trong onSuccess
+      // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, không gọi onClose()
+      await resetPasswordMutation.mutateAsync(data);
+      
+      // Reset rate limit on success
+      resetRateLimit();
+    } catch (error) {
+      // Error is already handled by useAppMutation
+      // Rate limit is already incremented by checkRateLimit()
+    }
   };
 
   return (

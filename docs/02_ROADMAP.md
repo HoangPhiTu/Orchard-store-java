@@ -1,25 +1,26 @@
-# 🗺️ Roadmap - Orchard Store Admin Dashboard
+# 🗺️ Roadmap - Orchard Store E-Commerce Platform
 
-> **Mục tiêu:** Xây dựng hệ thống quản lý cửa hàng trái cây chuyên nghiệp với kiến trúc Monolith Modular (Backend) và Next.js App Router (Frontend).
+> **Mục tiêu:** Xây dựng nền tảng thương mại điện tử bán nước hoa và mỹ phẩm chính hãng với kiến trúc Monolith Modular (Backend) và Next.js App Router (Frontend).
 
 ---
 
 ## 📊 Tổng Quan Phases
 
-| Phase | Status | Progress | Timeline |
-|-------|--------|----------|----------|
-| Phase 1: Core Foundation | ✅ Completed | 100% | Week 1-2 |
-| Phase 2: User Management | ✅ Completed | 100% | Week 3-4 |
-| Phase 2.5: Error Handling System | ✅ Completed | 100% | Week 4 |
-| Phase 3: Catalog Management | ⏳ In Progress | 0% | Week 5-7 |
-| Phase 4: Sales & Operations | 📋 Planned | 0% | Week 8-10 |
-| Phase 5: Analytics & Reports | 📋 Planned | 0% | Week 11-12 |
+| Phase                            | Status         | Progress | Timeline   |
+| -------------------------------- | -------------- | -------- | ---------- |
+| Phase 1: Core Foundation         | ✅ Completed   | 100%     | Week 1-2   |
+| Phase 2: User Management         | ✅ Completed   | 100%     | Week 3-4   |
+| Phase 2.5: Error Handling System | ✅ Completed   | 100%     | Week 4     |
+| Phase 3: Catalog Management      | ⏳ In Progress | 0%       | Week 5-7   |
+| Phase 4: Sales & Operations      | 📋 Planned     | 0%       | Week 8-10  |
+| Phase 5: Analytics & Reports     | 📋 Planned     | 0%       | Week 11-12 |
 
 ---
 
 ## Phase 1: Core Foundation ✅ (100%)
 
 ### Backend Setup
+
 - [x] Spring Boot 3.4.1 + Java 21
 - [x] PostgreSQL 16 (Supabase Cloud)
 - [x] Database Migration (Flyway)
@@ -30,6 +31,7 @@
 - [x] Logging Configuration
 
 ### Frontend Setup
+
 - [x] Next.js 14 (App Router)
 - [x] TypeScript 5
 - [x] Tailwind CSS 4
@@ -40,6 +42,7 @@
 - [x] Axios HTTP Client
 
 ### Authentication System
+
 - [x] JWT Authentication (Access + Refresh Token)
 - [x] Login API
 - [x] Refresh Token Rotation
@@ -51,6 +54,7 @@
 - [x] Cookie-based Token Storage
 
 ### DevOps
+
 - [x] Docker Setup
 - [x] Environment Configuration
 - [x] CORS Configuration
@@ -61,6 +65,7 @@
 ## Phase 2: User Management ✅ (100%)
 
 ### Backend Features
+
 - [x] User CRUD APIs
   - [x] Create User (with Role Assignment)
   - [x] Update User (with Hierarchy Protection)
@@ -82,6 +87,7 @@
   - [x] View User Login History
 
 ### Frontend Features
+
 - [x] User List Page
   - [x] Data Table with Pagination
   - [x] Search (Email, Name, Phone)
@@ -103,6 +109,7 @@
   - [x] Validation
 
 ### UX Improvements
+
 - [x] Loading States
 - [x] Empty States
 - [x] Error States
@@ -115,7 +122,9 @@
 ## Phase 2.5: Error Handling System ✅ (100%) 🆕
 
 ### Core Infrastructure
+
 - [x] **handleApiError Utility** (`src/lib/handle-error.ts`)
+
   - [x] Automatic error message translation (EN → VI)
   - [x] 40+ validation message mappings
   - [x] Conflict field detection (email, phone, sku, slug...)
@@ -124,6 +133,7 @@
   - [x] Type-safe with TypeScript
 
 - [x] **useAppMutation Hook** (`src/hooks/use-app-mutation.ts`)
+
   - [x] Wrapper của useMutation (TanStack Query)
   - [x] Auto error handling (gán vào form fields)
   - [x] Auto success toast
@@ -138,6 +148,7 @@
   - [x] Position: top-right
 
 ### Refactored Components
+
 - [x] **user-form-sheet.tsx**
   - [x] Giảm 75% code (120 dòng → 30 dòng)
   - [x] Xóa manual validation
@@ -146,6 +157,7 @@
   - [x] Apply useAppMutation pattern
 
 ### Documentation
+
 - [x] `handle-error.ts` - Main utility với 40+ mappings
 - [x] `handle-error.example.ts` - 6 ví dụ sử dụng
 - [x] `HANDLE-ERROR-README.md` - Full documentation
@@ -156,6 +168,7 @@
 - [x] `QUICK-REFACTOR-GUIDE.md` - Hướng dẫn refactor 5 bước
 
 ### Impact
+
 - ✅ Giảm 75-90% code cho mỗi form
 - ✅ Tự động hóa 100% error handling
 - ✅ Nhất quán trong toàn bộ dự án
@@ -168,13 +181,16 @@
 ## Phase 3: Catalog Management ⏳ (0%)
 
 ### Backend APIs
+
 - [ ] **Brands Management**
+
   - [ ] CRUD Brands
   - [ ] List with Pagination/Search
   - [ ] Brand Logo Upload
   - [ ] Brand Status Toggle
 
 - [ ] **Categories Management**
+
   - [ ] CRUD Categories
   - [ ] Hierarchical Structure (Parent-Child)
   - [ ] List with Tree View
@@ -182,6 +198,7 @@
   - [ ] Reorder Categories
 
 - [ ] **Products Management**
+
   - [ ] Create Product (Basic Info)
   - [ ] Update Product
   - [ ] List Products (Pagination, Filter, Search)
@@ -190,6 +207,7 @@
   - [ ] Product Status Management
 
 - [ ] **Product Variants (EAV)**
+
   - [ ] Define Attributes (Color, Size, Weight...)
   - [ ] Generate Variants (Cartesian Product)
   - [ ] Variant Pricing
@@ -203,19 +221,23 @@
   - [ ] Image Optimization
 
 ### Frontend Features
+
 - [ ] **Brand Management Page**
+
   - [ ] Brand List Table
   - [ ] Create/Edit Brand Form
   - [ ] Brand Logo Upload
   - [ ] Filter & Search
 
 - [ ] **Category Management Page**
+
   - [ ] Category Tree View
   - [ ] Create/Edit Category Form
   - [ ] Drag-and-Drop Reorder
   - [ ] Parent Category Selection
 
 - [ ] **Product Management Page**
+
   - [ ] Product List Table
   - [ ] Advanced Filter (Category, Brand, Status, Price Range)
   - [ ] Product Search (Name, SKU)
@@ -231,6 +253,7 @@
   - [ ] Draft Save
 
 ### UX Features
+
 - [ ] Rich Text Editor (Description)
 - [ ] Image Cropper
 - [ ] Drag-and-Drop Image Upload
@@ -243,6 +266,7 @@
 ## Phase 4: Sales & Operations 📋 (0%)
 
 ### Order Management
+
 - [ ] Order List (All, Pending, Processing, Completed, Cancelled)
 - [ ] Order Detail View
 - [ ] Order Status Update (Workflow)
@@ -253,6 +277,7 @@
 - [ ] Shipping Status Tracking
 
 ### Customer Management
+
 - [ ] Customer List
 - [ ] Customer Detail (Orders, Points, Tier)
 - [ ] Customer CRUD
@@ -261,6 +286,7 @@
 - [ ] Customer Activity History
 
 ### Inventory Management
+
 - [ ] Stock In/Out Records
 - [ ] Inventory Adjustment
 - [ ] Stock Alert (Low Stock)
@@ -269,12 +295,14 @@
 - [ ] Stock Transfer
 
 ### Supplier Management
+
 - [ ] Supplier CRUD
 - [ ] Supplier Contact Info
 - [ ] Purchase Orders
 - [ ] Supplier Performance Tracking
 
 ### Pricing & Promotions
+
 - [ ] Member Pricing Tiers
 - [ ] Discount Rules
 - [ ] Coupon Management
@@ -286,6 +314,7 @@
 ## Phase 5: Analytics & Reports 📋 (0%)
 
 ### Dashboard
+
 - [ ] Revenue Overview (Today, Week, Month, Year)
 - [ ] Order Statistics (Count, Status Breakdown)
 - [ ] Top Selling Products
@@ -295,6 +324,7 @@
 - [ ] Revenue Chart (Line/Bar)
 
 ### Reports
+
 - [ ] Sales Report (Daily, Weekly, Monthly)
 - [ ] Product Performance Report
 - [ ] Customer Report
@@ -303,6 +333,7 @@
 - [ ] Export Reports (PDF, Excel)
 
 ### Real-time Features
+
 - [ ] WebSocket Integration
 - [ ] Real-time Order Notifications
 - [ ] Real-time Inventory Updates
@@ -313,6 +344,7 @@
 ## Phase 6: Advanced Features 📋 (Future)
 
 ### System Features
+
 - [ ] Email Templates
 - [ ] SMS Notifications
 - [ ] Backup & Restore
@@ -322,6 +354,7 @@
 - [ ] Caching Strategy (Redis)
 
 ### User Experience
+
 - [ ] Dark Mode
 - [ ] Multi-language Support (EN/VI)
 - [ ] Keyboard Shortcuts
@@ -330,6 +363,7 @@
 - [ ] PWA Support
 
 ### Developer Tools
+
 - [ ] API Playground
 - [ ] Webhook System
 - [ ] Developer Documentation
@@ -340,6 +374,7 @@
 ## 🎯 Current Focus (Week 4)
 
 **Hoàn tất Phase 2.5: Error Handling System** ✅
+
 - ✅ Build handleApiError utility
 - ✅ Build useAppMutation hook
 - ✅ Refactor user-form-sheet.tsx
@@ -347,6 +382,7 @@
 - ✅ Update self-edit exception logic
 
 **Next Up (Week 5): Phase 3 - Catalog Management**
+
 - [ ] Apply useAppMutation pattern to remaining forms
 - [ ] Brand Management APIs + UI
 - [ ] Category Management APIs + UI
@@ -357,6 +393,7 @@
 ## 📝 Notes
 
 ### Architecture Decisions
+
 - **Backend:** Monolith Modular (Spring Boot) cho rapid development, dễ maintain
 - **Frontend:** Next.js App Router với Server Components khi có thể
 - **Database:** PostgreSQL với Hybrid EAV cho Product Variants
@@ -365,6 +402,7 @@
 - **Styling:** Tailwind CSS + Shadcn UI components
 
 ### Technical Debt
+
 - [ ] Add comprehensive unit tests (Backend)
 - [ ] Add integration tests (Backend)
 - [ ] Add E2E tests (Frontend)
@@ -375,6 +413,7 @@
 - [ ] Performance optimization
 
 ### Future Considerations
+
 - [ ] Microservices migration (if needed)
 - [ ] Separate Admin & Customer apps
 - [ ] Mobile app (React Native)
@@ -392,4 +431,3 @@
 
 **Last Updated:** December 2024  
 **Version:** 0.2.0 (Error Handling System Complete)
-

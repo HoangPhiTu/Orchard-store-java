@@ -48,6 +48,7 @@ import { usePathname } from "next/navigation";
 import { ADMIN_MENU } from "@/config/menu";
 import { ModeToggle } from "@/components/shared/mode-toggle";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 interface HeaderProps {
   userName?: string | null;
@@ -91,7 +92,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
           alt={userName || "Avatar"}
           className="object-cover"
           onError={(e) => {
-            console.warn("⚠️ Header avatar failed to load:", userAvatar, e);
+            logger.warn("Header avatar failed to load:", userAvatar, e);
           }}
         />
       ) : null}

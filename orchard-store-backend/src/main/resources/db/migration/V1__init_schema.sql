@@ -72,7 +72,48 @@ ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) R
 ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE;
 ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id);
 
--- 1.4. Insert default roles
+-- 1.4. Bảng login_history
+CREATE TABLE login_history (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    device_type VARCHAR(50),
+    browser VARCHAR(100),
+    os VARCHAR(100),
+    location VARCHAR(255),
+    login_status VARCHAR(20) NOT NULL CHECK (login_status IN ('SUCCESS', 'FAILED', 'LOCKED')),
+    failure_reason VARCHAR(255),
+    login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_login_history_user ON login_history(user_id);
+CREATE INDEX idx_login_history_email ON login_history(email);
+CREATE INDEX idx_login_history_time ON login_history(login_at DESC);
+CREATE INDEX idx_login_history_status ON login_history(login_status);
+
+ALTER TABLE login_history ADD CONSTRAINT fk_login_history_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+
+-- 1.5. Bảng password_reset_tokens
+CREATE TABLE password_reset_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    used_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at) WHERE used = false;
+CREATE INDEX idx_password_reset_tokens_used ON password_reset_tokens(used) WHERE used = false;
+
+ALTER TABLE password_reset_tokens ADD CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+-- 1.6. Insert default roles
 INSERT INTO roles (role_code, role_name, description, hierarchy_level, permissions) VALUES
 ('SUPER_ADMIN', 'Super Administrator', 'Full system access with all permissions', 10,
  '{"*": ["*"]}'::jsonb),

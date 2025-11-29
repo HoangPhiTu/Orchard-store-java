@@ -1,6 +1,7 @@
 package com.orchard.orchard_store_backend.config;
 
 import com.orchard.orchard_store_backend.security.JwtAuthenticationFilter;
+import com.orchard.orchard_store_backend.config.properties.AppProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +34,9 @@ public class SecurityConfig {
     
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+    
+    @Autowired
+    private AppProperties appProperties;
     
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -115,9 +119,44 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"));
+        
+        // Get allowed origins from properties
+        String allowedOrigins = appProperties.getCorsAllowedOrigins();
+        if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
+            // Split by comma and trim each origin
+            List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+            if (!origins.isEmpty()) {
+                configuration.setAllowedOrigins(origins);
+            } else {
+                // Fallback to localhost for development
+                configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"));
+            }
+        } else {
+            // Fallback to localhost for development
+            configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"));
+        }
+        
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        
+        // Specify allowed headers instead of * for better security
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "X-CSRF-TOKEN",
+            "Accept",
+            "Origin"
+        ));
+        
+        // Expose headers that frontend might need
+        configuration.setExposedHeaders(Arrays.asList(
+            "Authorization",
+            "X-CSRF-TOKEN"
+        ));
+        
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
         

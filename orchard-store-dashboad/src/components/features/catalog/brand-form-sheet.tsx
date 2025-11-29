@@ -26,6 +26,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { brandService } from "@/services/brand.service";
 import type { Brand, BrandFormData } from "@/types/catalog.types";
 import { brandFormSchema } from "@/types/catalog.types";
+import { toast } from "sonner";
 
 interface BrandFormSheetProps {
   open: boolean;
@@ -119,7 +120,13 @@ export function BrandFormSheet({
   }, [brandData, isEditing, open, form]);
 
   // Create mutation
-  const createMutation = useAppMutation<Brand, Error, BrandFormData>({
+  const createMutation = useAppMutation<
+    Brand,
+    Error,
+    BrandFormData,
+    unknown,
+    BrandFormData
+  >({
     mutationFn: async (data) => {
       // Upload logo if there's a new File
       let logoUrl: string | undefined = undefined;
@@ -139,7 +146,8 @@ export function BrandFormSheet({
       return brandService.createBrand(payload);
     },
     queryKey: ["admin", "brands"],
-    form,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    form: form as any, // Type workaround: React Hook Form's UseFormReturn is not fully compatible with FieldValues generic
     onClose: () => {
       onOpenChange(false);
       form.reset(DEFAULT_VALUES);
@@ -153,7 +161,9 @@ export function BrandFormSheet({
   const updateMutation = useAppMutation<
     Brand,
     Error,
-    { id: number; data: Partial<BrandFormData> }
+    { id: number; data: Partial<BrandFormData> },
+    unknown,
+    BrandFormData
   >({
     mutationFn: async ({ id, data }) => {
       // Upload logo if there's a new File
@@ -175,7 +185,8 @@ export function BrandFormSheet({
       return brandService.updateBrand(id, payload);
     },
     queryKey: ["admin", "brands"],
-    form,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    form: form as any, // Type workaround: React Hook Form's UseFormReturn is not fully compatible with FieldValues generic
     onClose: () => {
       onOpenChange(false);
       form.reset(DEFAULT_VALUES);
@@ -195,7 +206,21 @@ export function BrandFormSheet({
     }
   };
 
-  const handleLogoChange = (file: File | null) => {
+  const handleLogoChange = async (file: File | null) => {
+    if (file) {
+      // Use centralized file validation with magic bytes check
+      const { validateFile } = await import("@/lib/validation/file-validation");
+
+      const result = await validateFile(file, {
+        validateContent: true, // Include magic bytes validation for security
+      });
+
+      if (!result.valid) {
+        toast.error(result.error || "File không hợp lệ");
+        return;
+      }
+    }
+
     setLogoFile(file);
     // Không set File vào logoUrl - chỉ lưu vào state riêng
     // logoUrl sẽ được set sau khi upload File thành công
@@ -205,6 +230,13 @@ export function BrandFormSheet({
     }
     // Nếu có file mới, giữ nguyên logoUrl cũ (hoặc undefined) cho đến khi upload xong
   };
+
+  // Cleanup: Clear logo file when form is closed or component unmounts
+  useEffect(() => {
+    if (!open) {
+      setLogoFile(null);
+    }
+  }, [open]);
 
   const handleSlugEditToggle = () => {
     if (!isSuperAdmin) {
@@ -244,6 +276,7 @@ export function BrandFormSheet({
                 {/* Logo - Đặt lên đầu */}
                 <FormField
                   label="Logo thương hiệu"
+                  htmlFor="logoUrl"
                   error={form.formState.errors.logoUrl}
                   description="Upload logo thương hiệu (hình vuông hoặc chữ nhật, khuyến nghị 200x200px hoặc 300x150px)"
                 >
@@ -252,9 +285,15 @@ export function BrandFormSheet({
                     folder="brands"
                     size="lg"
                     value={
-                      logoFile || 
-                      (brandData?.logoUrl && typeof brandData.logoUrl === "string" ? brandData.logoUrl : null) ||
-                      (form.watch("logoUrl") && typeof form.watch("logoUrl") === "string" ? form.watch("logoUrl") : null) ||
+                      logoFile ||
+                      (brandData?.logoUrl &&
+                      typeof brandData.logoUrl === "string"
+                        ? brandData.logoUrl
+                        : null) ||
+                      (form.watch("logoUrl") &&
+                      typeof form.watch("logoUrl") === "string"
+                        ? form.watch("logoUrl")
+                        : null) ||
                       null
                     }
                     onChange={handleLogoChange}
@@ -265,6 +304,7 @@ export function BrandFormSheet({
                 {/* Name */}
                 <FormField
                   label="Tên thương hiệu"
+                  htmlFor="name"
                   required
                   error={form.formState.errors.name}
                 >
@@ -277,6 +317,7 @@ export function BrandFormSheet({
                 {/* Slug - Có thể edit */}
                 <FormField
                   label="Slug"
+                  htmlFor="slug"
                   error={form.formState.errors.slug}
                   description={
                     isSlugEditable
@@ -323,6 +364,7 @@ export function BrandFormSheet({
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     label="Quốc gia"
+                    htmlFor="country"
                     error={form.formState.errors.country}
                   >
                     <Input
@@ -333,6 +375,7 @@ export function BrandFormSheet({
 
                   <FormField
                     label="Website"
+                    htmlFor="website"
                     error={form.formState.errors.website}
                   >
                     <Input
@@ -346,6 +389,7 @@ export function BrandFormSheet({
                 {/* Description */}
                 <FormField
                   label="Mô tả"
+                  htmlFor="description"
                   error={form.formState.errors.description}
                 >
                   <textarea
@@ -360,6 +404,7 @@ export function BrandFormSheet({
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     label="Thứ tự hiển thị"
+                    htmlFor="displayOrder"
                     error={form.formState.errors.displayOrder}
                     description="Số càng nhỏ, hiển thị càng trước"
                   >
@@ -375,6 +420,7 @@ export function BrandFormSheet({
 
                   <FormField
                     label="Trạng thái"
+                    htmlFor="status"
                     error={form.formState.errors.status}
                     description="Bật/tắt để hiển thị thương hiệu"
                   >
@@ -382,11 +428,16 @@ export function BrandFormSheet({
                       <Switch
                         checked={form.watch("status") === "ACTIVE"}
                         onCheckedChange={(checked) => {
-                          form.setValue("status", checked ? "ACTIVE" : "INACTIVE");
+                          form.setValue(
+                            "status",
+                            checked ? "ACTIVE" : "INACTIVE"
+                          );
                         }}
                       />
                       <span className="text-sm text-muted-foreground">
-                        {form.watch("status") === "ACTIVE" ? "Active" : "Inactive"}
+                        {form.watch("status") === "ACTIVE"
+                          ? "Active"
+                          : "Inactive"}
                       </span>
                     </div>
                   </FormField>

@@ -7,7 +7,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -34,7 +33,11 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { uploadService } from "@/services/upload.service";
-import { useCategory, useCategories } from "@/hooks/use-categories";
+import {
+  useCategory,
+  useCategories,
+  useCategoriesTree,
+} from "@/hooks/use-categories";
 import { categoryService } from "@/services/category.service";
 import type { Category, CategoryFormData } from "@/types/catalog.types";
 import type { Page } from "@/types/user.types";
@@ -109,23 +112,21 @@ export function CategoryFormSheet({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isParentSelectOpen, setIsParentSelectOpen] = useState(false);
   const [parentSearch, setParentSearch] = useState("");
-  const slugManuallyEditedRef = useRef(false);
+  // Use state instead of ref for better React integration and to avoid race conditions
+  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
 
   // Fetch category details if editing
   const { data: categoryData, isLoading: isLoadingCategory } = useCategory(
     category?.id ?? null
   );
 
-  // Fetch all categories for parent selection (without pagination)
-  const allCategoriesQuery = useCategories({
-    size: 1000, // Large size to get all categories
-  });
-  const allCategoriesData = allCategoriesQuery.data as
-    | Page<Category>
-    | undefined;
+  // Sử dụng categories tree thay vì fetch all với size 1000
+  // Tree API nhanh hơn vì đã có cache ở backend và trả về flat list
+  // Prefetch từ page sẽ giúp form mở nhanh hơn
+  const categoriesTreeQuery = useCategoriesTree();
   const allCategories = useMemo<Category[]>(
-    () => allCategoriesData?.content ?? [],
-    [allCategoriesData]
+    () => categoriesTreeQuery.data ?? [],
+    [categoriesTreeQuery.data]
   );
 
   // Filter categories: Remove current category and all its descendants
@@ -190,8 +191,19 @@ export function CategoryFormSheet({
     resetParentSearch();
   }, [open, resetParentSearch]);
 
+  // Reset slug edit flag when form opens/closes
+  // Use startTransition to avoid cascading renders
   useEffect(() => {
-    slugManuallyEditedRef.current = open ? isEditing : false;
+    if (!open) {
+      startTransition(() => {
+        setIsSlugManuallyEdited(false);
+      });
+    } else if (isEditing) {
+      // When editing, assume slug was manually set initially
+      startTransition(() => {
+        setIsSlugManuallyEdited(true);
+      });
+    }
   }, [open, isEditing]);
 
   const watchedName = useWatch({
@@ -199,21 +211,28 @@ export function CategoryFormSheet({
     name: "name",
   });
 
+  // Auto-generate slug from name when name changes
+  // Only if slug hasn't been manually edited or when creating new category
   useEffect(() => {
     if (!watchedName) {
-      if (!isEditing || !slugManuallyEditedRef.current) {
+      // Clear slug if name is empty (unless editing and slug was manually edited)
+      if (!isEditing || !isSlugManuallyEdited) {
         form.setValue("slug", "", { shouldValidate: true, shouldDirty: true });
       }
       return;
     }
-    if (!slugManuallyEditedRef.current || !isEditing) {
+
+    // Only auto-generate if:
+    // 1. Creating new category (not editing), OR
+    // 2. Editing but slug hasn't been manually edited
+    if (!isSlugManuallyEdited || !isEditing) {
       const generated = slugify(watchedName);
       form.setValue("slug", generated, {
         shouldValidate: true,
         shouldDirty: !isEditing,
       });
     }
-  }, [watchedName, isEditing, form]);
+  }, [watchedName, isEditing, isSlugManuallyEdited, form]);
 
   const watchedParentId = useWatch({
     control: form.control,
@@ -276,6 +295,7 @@ export function CategoryFormSheet({
       if (!nextOpen) {
         resetParentSearch();
       }
+      // Categories are already fetched when form opens, no need to trigger here
     },
     [resetParentSearch]
   );
@@ -393,7 +413,7 @@ export function CategoryFormSheet({
   };
 
   const handleSlugInputChange = (value: string) => {
-    slugManuallyEditedRef.current = true;
+    setIsSlugManuallyEdited(true);
     form.setValue("slug", value, { shouldValidate: true, shouldDirty: true });
   };
 
@@ -404,7 +424,7 @@ export function CategoryFormSheet({
       shouldValidate: true,
       shouldDirty: true,
     });
-    slugManuallyEditedRef.current = false;
+    setIsSlugManuallyEdited(false);
   };
 
   return (
@@ -515,7 +535,7 @@ export function CategoryFormSheet({
                               <Check className="ml-auto h-4 w-4 text-indigo-600" />
                             )}
                           </button>
-                            {filteredParentCategories.length === 0 && (
+                          {filteredParentCategories.length === 0 && (
                             <div className="px-3 py-4 text-center text-sm font-semibold text-muted-foreground">
                               Không tìm thấy danh mục phù hợp.
                             </div>
@@ -659,22 +679,22 @@ export function CategoryFormSheet({
                 >
                   Hủy
                 </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-32 rounded-lg"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang xử lý...
-                  </>
-                ) : isEditing ? (
-                  "Cập nhật"
-                ) : (
-                  "Tạo mới"
-                )}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-32 rounded-lg"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : isEditing ? (
+                    "Cập nhật"
+                  ) : (
+                    "Tạo mới"
+                  )}
+                </Button>
               </div>
             </SheetFooter>
           </form>

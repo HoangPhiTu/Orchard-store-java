@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useBrands } from "@/hooks/use-brands";
+import { usePrefetchNextPage } from "@/hooks/use-realtime-updates";
+import { brandService } from "@/services/brand.service";
 import type { Brand, CatalogStatus } from "@/types/catalog.types";
 import { STATUS_OPTIONS } from "@/config/options";
 import { BrandTable } from "@/components/features/catalog/brand-table";
@@ -66,6 +68,15 @@ export default function BrandManagementPage() {
   const brands = brandPage?.content ?? [];
   const totalElements = brandPage?.totalElements ?? 0;
   const totalPages = brandPage?.totalPages ?? 0;
+
+  // Prefetch next page để tải nhanh hơn
+  usePrefetchNextPage(
+    ["admin", "brands", "list"],
+    (filters) => brandService.getBrands(filters as typeof filters),
+    filters,
+    zeroBasedPage + 1,
+    totalPages
+  );
 
   // Reset to first page when search or filter changes
   const handleSearchChange = (value: string) => {

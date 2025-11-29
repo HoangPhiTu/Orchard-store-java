@@ -1,4 +1,5 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { categoryService } from "@/services/category.service";
 import { useAppMutation } from "@/hooks/use-app-mutation";
 import type {
@@ -73,14 +74,25 @@ export const useCategories = (filters?: CategoryFilter) => {
     isAllCategoriesRequest(filters) ||
     isAllCategoriesRequest(normalizedFilters);
 
+  // Normalize query key để đảm bảo cache consistency
+  const queryKey = useMemo(() => {
+    if (shouldUseAllKey) {
+      // For "all" requests, use size as part of key for consistency
+      const size = normalizedFilters?.size ?? null;
+      return [...CATEGORIES_QUERY_KEY, "all", size] as const;
+    }
+    return [...CATEGORIES_QUERY_KEY, "list", normalizedFilters] as const;
+  }, [shouldUseAllKey, normalizedFilters]);
+
   return useQuery<Page<Category>, Error>({
-    queryKey: [
-      ...CATEGORIES_QUERY_KEY,
-      shouldUseAllKey ? "all" : "list",
-      shouldUseAllKey ? normalizedFilters?.size ?? null : normalizedFilters,
-    ] as const,
+    queryKey,
     queryFn: () => categoryService.getCategories(normalizedFilters),
     placeholderData: keepPreviousData,
+    // Tối ưu: Categories ít thay đổi, cache lâu hơn
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 };
 
@@ -91,6 +103,11 @@ export const useCategoriesTree = () => {
   return useQuery<Category[], Error>({
     queryKey: [...CATEGORIES_QUERY_KEY, "tree"] as const,
     queryFn: () => categoryService.getCategoriesTree(),
+    // Categories tree ít thay đổi, cache rất lâu
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 };
 

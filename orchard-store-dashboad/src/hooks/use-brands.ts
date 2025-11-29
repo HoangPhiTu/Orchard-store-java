@@ -13,8 +13,17 @@ const BRANDS_QUERY_KEY = ["admin", "brands"] as const;
 export const useBrands = (filters?: BrandFilter) => {
   return useQuery<Page<Brand>, Error>({
     queryKey: [...BRANDS_QUERY_KEY, "list", filters] as const,
-    queryFn: () => brandService.getBrands(filters),
+    queryFn: async () => {
+      const result = await brandService.getBrands(filters);
+      return result as Page<Brand>;
+    },
     placeholderData: keepPreviousData,
+    // Tối ưu: Brands ít thay đổi, cache lâu hơn
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    // Prefetch next page khi gần cuối trang
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 };
 

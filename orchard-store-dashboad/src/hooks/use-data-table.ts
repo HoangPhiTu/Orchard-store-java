@@ -14,11 +14,17 @@ const normalizePage = (value: number | null) => {
   return value;
 };
 
-const normalizePageSize = (value: number | null) => {
-  if (!value || Number.isNaN(value) || !PAGE_SIZE_OPTIONS.includes(value as any)) {
+const normalizePageSize = (
+  value: number | null
+): (typeof PAGE_SIZE_OPTIONS)[number] => {
+  if (!value || Number.isNaN(value)) {
     return DEFAULT_PAGE_SIZE;
   }
-  return value as (typeof PAGE_SIZE_OPTIONS)[number];
+  // Type-safe check if value is in PAGE_SIZE_OPTIONS
+  if (PAGE_SIZE_OPTIONS.includes(value as (typeof PAGE_SIZE_OPTIONS)[number])) {
+    return value as (typeof PAGE_SIZE_OPTIONS)[number];
+  }
+  return DEFAULT_PAGE_SIZE;
 };
 
 export const useDataTable = () => {

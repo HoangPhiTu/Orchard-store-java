@@ -8,6 +8,8 @@ import com.orchard.orchard_store_backend.modules.auth.entity.PasswordResetToken;
 import com.orchard.orchard_store_backend.modules.auth.entity.User;
 import com.orchard.orchard_store_backend.modules.auth.repository.PasswordResetTokenRepository;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
+import com.orchard.orchard_store_backend.modules.auth.validation.PasswordValidator;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,8 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Optional;
 
 @Service
+@Slf4j
 public class PasswordResetServiceImpl implements PasswordResetService {
 
     @Autowired
@@ -38,35 +42,52 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     @Autowired
     private AppProperties appProperties;
 
+    @Autowired
+    private PasswordValidator passwordValidator;
+
     private static final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     @Transactional
     public void requestPasswordReset(ForgotPasswordDTO request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("If the email exists, a password reset link will be sent."));
-
+        // Security: Không leak thông tin về email tồn tại hay không
+        // Luôn trả về success nhưng chỉ gửi email nếu user tồn tại
+        Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
+        
+        if (userOpt.isEmpty()) {
+            // Log internally nhưng không throw exception để không leak thông tin
+            log.debug("Password reset requested for non-existent email: {}", request.getEmail());
+            return; // Silent fail - không leak thông tin
+        }
+        
+        User user = userOpt.get();
+        
+        // Check rate limit
         LocalDateTime since = LocalDateTime.now().minusHours(24);
         long requestCount = tokenRepository.countUnusedTokensByUserSince(user, since);
-
+        
         if (requestCount >= passwordResetProperties.getMaxRequestsPerDay()) {
-            throw new RuntimeException("Too many password reset requests. Please try again later.");
+            log.warn("Rate limit exceeded for password reset: {}", request.getEmail());
+            return; // Silent fail
         }
-
+        
+        // Generate and send token
         String token = generateSecureToken();
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(passwordResetProperties.getTokenExpirationHours());
-
+        
         PasswordResetToken resetToken = PasswordResetToken.builder()
                 .token(token)
                 .user(user)
                 .expiresAt(expiresAt)
                 .used(false)
                 .build();
-
+        
         tokenRepository.save(resetToken);
-
+        
         String resetUrl = appProperties.getFrontendUrl() + "/reset-password?token=" + token;
         emailService.sendPasswordResetEmail(user.getEmail(), token, resetUrl);
+        
+        log.info("Password reset token sent to: {}", request.getEmail());
     }
 
     @Override
@@ -88,6 +109,9 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         if (resetToken.getUsed()) {
             throw new RuntimeException("Reset token has already been used. Please request a new one.");
         }
+
+        // Validate password strength
+        passwordValidator.validatePassword(request.getNewPassword());
 
         User user = resetToken.getUser();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

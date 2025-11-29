@@ -7,6 +7,8 @@
  * - Khóa submit sau 5 lần sai trong 5 phút
  */
 
+import { logger } from "@/lib/logger";
+
 const RATE_LIMIT_KEY = "orchard_login_attempts";
 const RATE_LIMIT_LOCK_KEY = "orchard_login_locked_until";
 
@@ -80,7 +82,7 @@ export function incrementFailedAttempts(email?: string): LoginAttempt {
       localStorage.setItem(RATE_LIMIT_LOCK_KEY, lockedUntil.toString());
     }
   } catch (error) {
-    console.warn("Failed to save rate limit", error);
+    logger.warn("Failed to save rate limit", error);
   }
 
   return newAttempts;
@@ -96,7 +98,7 @@ export function resetFailedAttempts(): void {
     localStorage.removeItem(RATE_LIMIT_KEY);
     localStorage.removeItem(RATE_LIMIT_LOCK_KEY);
   } catch (error) {
-    console.warn("Failed to reset rate limit", error);
+    logger.warn("Failed to reset rate limit", error);
   }
 }
 

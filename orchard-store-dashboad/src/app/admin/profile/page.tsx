@@ -174,7 +174,7 @@ export default function ProfilePage() {
           try {
             await uploadService.deleteImage(previousAvatarUrl);
           } catch (deleteError) {
-            console.warn("⚠️ Không thể xóa ảnh cũ:", deleteError);
+            logger.warn("Không thể xóa ảnh cũ:", deleteError);
           }
         }
 
@@ -182,11 +182,11 @@ export default function ProfilePage() {
       } catch (error) {
         // Nếu update thất bại, xóa ảnh mới đã upload để tránh rác
         if (uploadedAvatarUrl) {
-          try {
-            await uploadService.deleteImage(uploadedAvatarUrl);
-          } catch (cleanupError) {
-            console.warn("⚠️ Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
-          }
+        try {
+          await uploadService.deleteImage(uploadedAvatarUrl);
+        } catch (cleanupError) {
+          logger.warn("Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
+        }
         }
         throw error;
       }
@@ -215,13 +215,12 @@ export default function ProfilePage() {
     return fullName.substring(0, 2).toUpperCase();
   };
 
-  // Debug: Log avatarUrl
-  console.log("👤 Profile Page - displayUser:", {
+  // Debug: Log avatarUrl (only in development)
+  logger.debug("Profile Page - displayUser:", {
     id: displayUser?.id,
     email: displayUser?.email,
     avatarUrl: displayUser?.avatarUrl,
     hasAvatarUrl: Boolean(displayUser?.avatarUrl),
-    fullUser: displayUser, // Log toàn bộ user object để debug
   });
 
   if (isLoading) {

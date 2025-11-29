@@ -11,6 +11,9 @@ import com.orchard.orchard_store_backend.modules.catalog.category.entity.Categor
 import com.orchard.orchard_store_backend.modules.catalog.category.mapper.CategoryAdminMapper;
 import com.orchard.orchard_store_backend.modules.catalog.category.repository.CategoryRepository;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
+import com.orchard.orchard_store_backend.modules.customer.service.RedisService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,6 +35,11 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
     private final CategoryRepository categoryRepository;
     private final CategoryAdminMapper categoryAdminMapper;
     private final ImageUploadService imageUploadService;
+    private final RedisService redisService;
+    private final ObjectMapper objectMapper;
+    
+    private static final String CATEGORY_TREE_CACHE_KEY = "category:tree";
+    private static final long CACHE_TTL_SECONDS = 1800; // 30 minutes
 
     /**
      * Slugify instance để tạo slug từ tên
@@ -44,6 +52,29 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
     @Override
     @Transactional(readOnly = true)
     public Page<CategoryDTO> getCategories(String keyword, String status, Pageable pageable) {
+        // Build cache key from filters
+        String cacheKey = "category:list:" + 
+            (keyword != null ? keyword : "") + ":" + 
+            (status != null ? status : "ALL") + ":" +
+            pageable.getPageNumber() + ":" + pageable.getPageSize();
+        
+        // Try to get from cache (only for first page without filters for simplicity)
+        if ((keyword == null || keyword.trim().isEmpty()) && 
+            (status == null || status.equalsIgnoreCase("ALL")) && 
+            pageable.getPageNumber() == 0) {
+            try {
+                String cached = redisService.getValue(cacheKey);
+                if (cached != null) {
+                    log.debug("Category list cache hit for key: {}", cacheKey);
+                    // Note: Full caching would require JSON deserialization of Page<CategoryDTO>
+                    // For now, we'll just use cache as a marker and still query DB
+                    // TODO: Implement full Page<CategoryDTO> serialization if needed
+                }
+            } catch (Exception e) {
+                log.warn("Failed to check category list cache: {}", e.getMessage());
+            }
+        }
+        
         // Normalize keyword: null or empty string
         String normalizedKeyword = (keyword != null && !keyword.trim().isEmpty()) 
                 ? keyword.trim() 
@@ -71,12 +102,48 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
                 sortedPageable
         );
         
-        return categories.map(categoryAdminMapper::toDTO);
+        Page<CategoryDTO> result = categories.map(categoryAdminMapper::toDTO);
+        
+        // Cache first page without filters
+        if ((keyword == null || keyword.trim().isEmpty()) && 
+            (status == null || status.equalsIgnoreCase("ALL")) && 
+            pageable.getPageNumber() == 0) {
+            try {
+                redisService.setValue(cacheKey, "1", CACHE_TTL_SECONDS);
+                log.debug("Category list cached for key: {}", cacheKey);
+            } catch (Exception e) {
+                log.warn("Failed to cache category list: {}", e.getMessage());
+            }
+        }
+        
+        return result;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CategoryDTO> getCategoriesTree() {
+        // Try to get from cache first
+        try {
+            String cachedJson = redisService.getValue(CATEGORY_TREE_CACHE_KEY);
+            if (cachedJson != null && !cachedJson.isEmpty()) {
+                try {
+                    // Deserialize cached tree data
+                    List<CategoryDTO> cachedTree = objectMapper.readValue(
+                        cachedJson,
+                        new TypeReference<List<CategoryDTO>>() {}
+                    );
+                    log.debug("Category tree loaded from cache");
+                    return cachedTree;
+                } catch (Exception e) {
+                    log.warn("Failed to deserialize category tree from cache: {}", e.getMessage());
+                    // Continue to build from database if deserialization fails
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get category tree from cache: {}", e.getMessage());
+        }
+        
+        // Cache miss - build tree from database
         List<Category> allCategories = categoryRepository.findAllWithParent();
         
         // Build tree structure
@@ -98,13 +165,38 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
             addChildren(root, allCategories);
         }
 
+        // Cache the result as JSON
+        try {
+            String json = objectMapper.writeValueAsString(rootCategories);
+            redisService.setValue(CATEGORY_TREE_CACHE_KEY, json, CACHE_TTL_SECONDS);
+            log.debug("Category tree cached successfully");
+        } catch (Exception e) {
+            log.warn("Failed to cache category tree: {}", e.getMessage());
+        }
+
         return rootCategories;
     }
 
     private void addChildren(CategoryDTO parent, List<Category> allCategories) {
-        // Note: CategoryDTO doesn't have children field, so we return flat list
-        // If you want tree structure, you need to add children field to CategoryDTO
-        // For now, this method is a placeholder for future tree structure implementation
+        List<CategoryDTO> children = allCategories.stream()
+                .filter(cat -> parent.getId().equals(cat.getParentId()))
+                .sorted((a, b) -> {
+                    int orderCompare = Integer.compare(
+                            a.getDisplayOrder() != null ? a.getDisplayOrder() : 0,
+                            b.getDisplayOrder() != null ? b.getDisplayOrder() : 0
+                    );
+                    if (orderCompare != 0) return orderCompare;
+                    return a.getName().compareToIgnoreCase(b.getName());
+                })
+                .map(categoryAdminMapper::toDTO)
+                .collect(Collectors.toList());
+
+        parent.setChildren(children);
+
+        // Recursively add children's children
+        for (CategoryDTO child : children) {
+            addChildren(child, allCategories);
+        }
     }
 
     @Override
@@ -113,6 +205,33 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         Category category = categoryRepository.findByIdWithParent(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));
         return categoryAdminMapper.toDTO(category);
+    }
+
+    /**
+     * Evict category tree cache
+     */
+    private void evictCategoryTreeCache() {
+        try {
+            redisService.deleteKey(CATEGORY_TREE_CACHE_KEY);
+            log.debug("Category tree cache evicted");
+        } catch (Exception e) {
+            log.warn("Failed to evict category tree cache: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Evict category list cache
+     */
+    private void evictCategoryListCache() {
+        try {
+            // Delete common category list cache keys
+            redisService.deleteKey("category:list::0:10");
+            redisService.deleteKey("category:list::0:15");
+            redisService.deleteKey("category:list::0:20");
+            log.debug("Category list cache evicted");
+        } catch (Exception e) {
+            log.warn("Failed to evict category list cache: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -168,6 +287,11 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
 
         log.info("Created category: {} with slug: {}, level: {}, path: {}", 
                 saved.getName(), saved.getSlug(), saved.getLevel(), saved.getPath());
+        
+        // Evict caches
+        evictCategoryTreeCache();
+        evictCategoryListCache();
+        
         return categoryAdminMapper.toDTO(saved);
     }
 
@@ -293,6 +417,11 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         }
 
         log.info("Updated category: {}", id);
+        
+        // Evict caches
+        evictCategoryTreeCache();
+        evictCategoryListCache();
+        
         return categoryAdminMapper.toDTO(updated);
     }
 
@@ -328,7 +457,11 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
                 log.warn("Không thể xóa image của category {} sau khi xóa: {}", id, e.getMessage());
             }
         }
-
+        
+        // Evict caches
+        evictCategoryTreeCache();
+        evictCategoryListCache();
+        
         log.info("Deleted category: {}", id);
     }
 

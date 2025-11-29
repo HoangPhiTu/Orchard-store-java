@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AxiosError } from "axios";
+import { logger } from "@/lib/logger";
 
 /**
  * Error Fallback Component
@@ -103,10 +104,10 @@ export function ErrorFallback({
     errorMessage ||
     "Xin lỗi, đã xảy ra lỗi không mong muốn. Vui lòng thử lại hoặc quay về trang chủ.";
 
-  // Log error to console (for debugging)
+  // Log error (for debugging)
   useEffect(() => {
     if (error) {
-      console.error("Error caught by boundary:", error);
+      logger.error("Error caught by boundary:", error);
     }
   }, [error]);
 
@@ -125,7 +126,7 @@ export function ErrorFallback({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">

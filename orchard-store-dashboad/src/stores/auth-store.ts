@@ -6,6 +6,12 @@ import Cookies from "js-cookie";
 import { authService } from "@/services/auth.service";
 import { LoginRequest, LoginResponse, User } from "@/types/auth.types";
 import { env, REFRESH_TOKEN_STORAGE_KEY } from "@/config/env";
+import {
+  setEncryptedToken,
+  getEncryptedToken,
+  removeEncryptedToken,
+} from "@/lib/security/token-encryption";
+import { logger } from "@/lib/logger";
 
 const TOKEN_KEY = env.accessTokenKey;
 const STORAGE_KEY = "orchard-auth-storage";
@@ -23,9 +29,17 @@ interface AuthState {
   initialize: () => Promise<void>;
 }
 
-const readToken = () => {
+const readToken = async (): Promise<string | null> => {
   if (typeof window === "undefined") return null;
-  return Cookies.get(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
+
+  // Prefer cookie (set by backend with HttpOnly flag)
+  const cookieToken = Cookies.get(TOKEN_KEY);
+  if (cookieToken) {
+    return cookieToken;
+  }
+
+  // Fallback to encrypted localStorage
+  return await getEncryptedToken(TOKEN_KEY);
 };
 
 const clearPersistedAuth = () => {
@@ -33,26 +47,27 @@ const clearPersistedAuth = () => {
   localStorage.removeItem(STORAGE_KEY);
 };
 
-const persistToken = (token: string | null, remember = false) => {
+const persistToken = async (token: string | null, remember = false) => {
   if (typeof window === "undefined") return;
 
   if (token) {
     const cookieOptions: Cookies.CookieAttributes = {
       path: "/",
       sameSite: "Lax",
-      secure: false,
+      secure: process.env.NODE_ENV === "production", // Secure in production
     };
 
-    if (remember) {
-      cookieOptions.expires = 7;
-      localStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
-
+    // Always set cookie (backend should set HttpOnly flag)
     Cookies.set(TOKEN_KEY, token, cookieOptions);
+
+    // Store encrypted in localStorage only if "remember me" is checked
+    if (remember) {
+      await setEncryptedToken(TOKEN_KEY, token);
+    } else {
+      removeEncryptedToken(TOKEN_KEY);
+    }
   } else {
-    localStorage.removeItem(TOKEN_KEY);
+    removeEncryptedToken(TOKEN_KEY);
     Cookies.remove(TOKEN_KEY, { path: "/" });
   }
 };
@@ -75,10 +90,14 @@ export const useAuthStore = create(
           const data = await authService.login(payload);
 
           if (data.refreshToken && typeof window !== "undefined") {
-            localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
+            // Encrypt refresh token as well
+            await setEncryptedToken(
+              REFRESH_TOKEN_STORAGE_KEY,
+              data.refreshToken
+            );
           }
 
-          persistToken(data.accessToken, payload.remember);
+          await persistToken(data.accessToken, payload.remember);
 
           set({
             user: data.user,
@@ -89,7 +108,7 @@ export const useAuthStore = create(
 
           return data;
         } catch (error) {
-          persistToken(null);
+          await persistToken(null);
           set({ ...initialState, isInitialized: true });
           throw error;
         }
@@ -99,12 +118,12 @@ export const useAuthStore = create(
         try {
           await authService.logout();
         } catch (error) {
-          console.error("Logout failed on server", error);
+          logger.error("Logout failed on server", error);
         } finally {
-          persistToken(null);
+          await persistToken(null);
           clearPersistedAuth();
           if (typeof window !== "undefined") {
-            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+            removeEncryptedToken(REFRESH_TOKEN_STORAGE_KEY);
           }
           set({ ...initialState, isInitialized: true });
           window.location.href = "/login";
@@ -112,7 +131,7 @@ export const useAuthStore = create(
       },
 
       checkAuth: async () => {
-        const token = readToken();
+        const token = await readToken();
         const storedUser = get().user;
 
         if (storedUser && token) {
@@ -129,10 +148,10 @@ export const useAuthStore = create(
           const user = await authService.getCurrentUser();
           set({ user, isAuthenticated: true, isInitialized: true });
         } catch (error) {
-          console.warn("Token validation failed", error);
-          persistToken(null);
+          logger.warn("Token validation failed", error);
+          await persistToken(null);
           if (typeof window !== "undefined") {
-            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+            removeEncryptedToken(REFRESH_TOKEN_STORAGE_KEY);
           }
           set({ ...initialState, isInitialized: true });
         }

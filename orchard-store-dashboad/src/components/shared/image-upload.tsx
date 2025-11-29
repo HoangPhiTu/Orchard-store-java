@@ -121,20 +121,36 @@ export function ImageUpload({
    * Xử lý khi chọn file
    * KHÔNG upload ngay, chỉ trả về File object
    */
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      toast.error("File phải là ảnh (image/*)");
+    // Quick synchronous validation first
+    const { validateFileSync, validateFile } = await import(
+      "@/lib/validation/file-validation"
+    );
+
+    const syncResult = validateFileSync(file);
+    if (!syncResult.valid) {
+      toast.error(syncResult.error || "File không hợp lệ");
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       return;
     }
 
-    // Validate file size (tối đa 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      toast.error("Kích thước file không được vượt quá 5MB");
+    // Full validation with magic bytes (async)
+    const fullResult = await validateFile(file, {
+      validateContent: true,
+    });
+
+    if (!fullResult.valid) {
+      toast.error(fullResult.error || "File không hợp lệ");
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       return;
     }
 

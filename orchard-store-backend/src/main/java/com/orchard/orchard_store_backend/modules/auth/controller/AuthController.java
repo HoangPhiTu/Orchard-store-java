@@ -14,8 +14,11 @@ import com.orchard.orchard_store_backend.modules.auth.exception.InvalidOtpExcept
 import com.orchard.orchard_store_backend.modules.auth.exception.RateLimitExceededException;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
 import com.orchard.orchard_store_backend.modules.auth.service.AdminOtpService;
+import com.orchard.orchard_store_backend.modules.auth.service.AuthService;
 import com.orchard.orchard_store_backend.modules.auth.service.LoginHistoryService;
 import com.orchard.orchard_store_backend.modules.auth.service.PasswordResetService;
+import com.orchard.orchard_store_backend.modules.auth.service.TokenBlacklistService;
+import com.orchard.orchard_store_backend.exception.InvalidCredentialsException;
 import com.orchard.orchard_store_backend.security.CustomUserDetailsService;
 import com.orchard.orchard_store_backend.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,13 +32,13 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -63,7 +66,10 @@ public class AuthController {
     private PasswordResetService passwordResetService;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private AuthService authService;
+
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
     @Autowired
     private LoginHistoryService loginHistoryService;
@@ -105,30 +111,10 @@ public class AuthController {
         try {
             log.info("Login attempt for email: {}", loginRequest.getEmail());
             
-            // Check user exists and get password hash for debugging
             // Clear entity manager cache to ensure fresh data
             entityManager.clear();
             
-            User userBeforeAuth = userRepository.findByEmail(loginRequest.getEmail()).orElse(null);
-            if (userBeforeAuth != null) {
-                log.info("User found before authentication. User ID: {}", userBeforeAuth.getId());
-                log.info("Password hash from database: {}", userBeforeAuth.getPassword());
-                log.info("Password from request: {}", loginRequest.getPassword());
-                
-                // Verify password manually for debugging
-                boolean manualCheck = passwordEncoder.matches(loginRequest.getPassword(), userBeforeAuth.getPassword());
-                log.info("Manual password check before authentication: {}", manualCheck ? "MATCH" : "NO MATCH");
-                
-                if (!manualCheck) {
-                    log.error("Password does not match! This is why authentication will fail.");
-                    log.error("Trying to match password: '{}' against hash: '{}'", 
-                        loginRequest.getPassword(), userBeforeAuth.getPassword());
-                }
-            } else {
-                log.warn("User not found for email: {}", loginRequest.getEmail());
-            }
-            
-            // Authenticate user
+            // Authenticate user (Spring Security will handle password verification and user loading)
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginRequest.getEmail(),
@@ -138,16 +124,18 @@ public class AuthController {
             
             log.info("Authentication successful for email: {}", loginRequest.getEmail());
 
-            // Get user from database
-            User user = userRepository.findByEmail(loginRequest.getEmail())
-                    .orElseThrow(() -> new BadCredentialsException("User not found"));
+            // Get user from database with roles for authorities
+            // Note: User was already loaded by Spring Security during authentication,
+            // but we need to fetch again with roles for token generation
+            User user = userRepository.findByEmailWithRolesAndPermissions(loginRequest.getEmail())
+                    .orElseThrow(() -> new BadCredentialsException("User not found after authentication"));
 
-            // Check if account is locked
+            // Check if account is locked (double-check after authentication)
             if (user.isAccountLocked()) {
                 throw new BadCredentialsException("Account is locked. Please try again later.");
             }
 
-            // Check if account is active
+            // Check if account is active (double-check after authentication)
             if (user.getStatus() != User.Status.ACTIVE) {
                 throw new BadCredentialsException("Account is not active");
             }
@@ -227,6 +215,7 @@ public class AuthController {
 
         } catch (LockedException e) {
             log.error("Account locked for email: {}", loginRequest.getEmail());
+            // Use basic findByEmail (no need for roles when logging locked status)
             User lockedUser = userRepository.findByEmail(loginRequest.getEmail()).orElse(null);
             loginHistoryService.logLogin(
                     lockedUser,
@@ -239,7 +228,7 @@ public class AuthController {
             log.error("Authentication failed for email: {}", loginRequest.getEmail());
             log.error("BadCredentialsException message: {}", e.getMessage());
             
-            // Handle failed login attempts
+            // Handle failed login attempts - use basic findByEmail (no need for roles)
             User user = userRepository.findByEmail(loginRequest.getEmail()).orElse(null);
             if (user != null) {
                 log.info("User found. Failed attempts: {}, Locked: {}", 
@@ -302,53 +291,60 @@ public class AuthController {
 
             String email = authentication.getName();
             
-            // Clear entity manager cache before change password
-            entityManager.clear();
-            
-            // Use service method to change password
-            // Note: AuthService.changePassword is in AuthServiceImpl, but we can use it directly
-            // For now, we'll implement it here to ensure proper transaction handling
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
-            // Verify current password
-            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            // Use service method to change password (removes duplicate logic)
+            try {
+                authService.changePassword(email, request.getCurrentPassword(), request.getNewPassword());
+                log.info("Password changed successfully for user: {}", email);
+                return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
+            } catch (InvalidCredentialsException e) {
+                log.warn("Password change failed: invalid current password for user: {}", email);
                 return ResponseEntity.status(400)
-                        .body(ApiResponse.error(400, "Current password is incorrect"));
-            }
-
-            // Encode new password
-            String encodedPassword = passwordEncoder.encode(request.getNewPassword());
-            
-            // Update password
-            user.setPassword(encodedPassword);
-            user.setPasswordChangedAt(LocalDateTime.now());
-            
-            // Save user
-            userRepository.save(user);
-            
-            // Flush to ensure changes are persisted immediately
-            entityManager.flush();
-            entityManager.clear();
-            
-            // Verify password was saved correctly by querying fresh from database
-            User verifyUser = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found after save"));
-            
-            boolean passwordMatches = passwordEncoder.matches(request.getNewPassword(), verifyUser.getPassword());
-            if (!passwordMatches) {
-                log.error("CRITICAL: Password was not saved correctly for user: {}", email);
+                        .body(ApiResponse.error(400, e.getMessage()));
+            } catch (Exception e) {
+                log.error("Error changing password for user: {}", email, e);
                 return ResponseEntity.status(500)
-                        .body(ApiResponse.error(500, "Password was not saved correctly. Please try again."));
+                        .body(ApiResponse.error(500, "Failed to change password. Please try again."));
             }
-
-            log.info("Password changed successfully for user: {}", email);
-            return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
             
         } catch (Exception e) {
-            log.error("Error changing password", e);
+            log.error("Error in change password endpoint", e);
             return ResponseEntity.status(400)
                     .body(ApiResponse.error(400, e.getMessage() != null ? e.getMessage() : "Failed to change password. Please try again."));
+        }
+    }
+
+    /**
+     * Logout endpoint
+     * POST /api/auth/logout
+     * Blacklists the current JWT token
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
+        try {
+            // Get token from request
+            String bearerToken = request.getHeader("Authorization");
+            if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+                String token = bearerToken.substring(7);
+                
+                // Get token expiration
+                try {
+                    Date expiration = tokenProvider.getExpirationDateFromToken(token);
+                    long expirationTime = expiration.getTime();
+                    
+                    // Blacklist token until expiration
+                    tokenBlacklistService.blacklistToken(token, expirationTime);
+                    log.info("Token blacklisted successfully");
+                } catch (Exception e) {
+                    log.warn("Failed to blacklist token: {}", e.getMessage());
+                    // Continue anyway - token might be invalid or expired
+                }
+            }
+            
+            return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
+        } catch (Exception e) {
+            log.error("Error during logout", e);
+            return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
+            // Always return success to prevent information leakage
         }
     }
 

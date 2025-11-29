@@ -1,6 +1,6 @@
 # 🚀 Getting Started - Orchard Store
 
-> **Complete setup guide to run the project locally**
+> **Quick setup guide - For detailed instructions, see [SETUP.md](../SETUP.md)**
 
 ---
 
@@ -21,13 +21,13 @@
 
 ### Required Software
 
-| Software | Version | Download |
-|----------|---------|----------|
-| **Java** | 21 LTS | [Oracle JDK](https://www.oracle.com/java/technologies/downloads/) |
-| **Maven** | 3.9+ | [Maven](https://maven.apache.org/download.cgi) |
-| **Node.js** | 20+ | [Node.js](https://nodejs.org/) |
-| **PostgreSQL** | 16 | [PostgreSQL](https://www.postgresql.org/download/) or Supabase |
-| **Git** | Latest | [Git](https://git-scm.com/) |
+| Software       | Version | Download                                                          |
+| -------------- | ------- | ----------------------------------------------------------------- |
+| **Java**       | 21 LTS  | [Oracle JDK](https://www.oracle.com/java/technologies/downloads/) |
+| **Maven**      | 3.9+    | [Maven](https://maven.apache.org/download.cgi)                    |
+| **Node.js**    | 20+     | [Node.js](https://nodejs.org/)                                    |
+| **PostgreSQL** | 16      | [PostgreSQL](https://www.postgresql.org/download/) or Supabase    |
+| **Git**        | Latest  | [Git](https://git-scm.com/)                                       |
 
 ### Optional (Recommended)
 
@@ -77,15 +77,15 @@ spring:
     url: jdbc:postgresql://your-supabase-host:5432/postgres
     username: postgres
     password: your-password
-  
+
   mail:
     username: your-email@gmail.com
     password: your-app-password
 
 jwt:
   secret: your-secret-key-min-256-bits
-  access-token-expiry: 900000      # 15 minutes
-  refresh-token-expiry: 604800000  # 7 days
+  access-token-expiry: 900000 # 15 minutes
+  refresh-token-expiry: 604800000 # 7 days
 ```
 
 ### 4. Build & Run
@@ -152,6 +152,7 @@ NODE_ENV=development
 ```
 
 **Create from example:**
+
 ```bash
 cp env.local.example .env.local
 # Then edit .env.local with your values
@@ -192,6 +193,7 @@ Should redirect to `/login`
 4. Creates schema + default data
 
 **Default data created:**
+
 - 5 Roles (SUPER_ADMIN, ADMIN, MANAGER, STAFF, VIEWER)
 - 1 Admin user:
   - Email: `admin@orchard.com`
@@ -219,6 +221,7 @@ mvn flyway:clean
 ### Backend
 
 **Required:**
+
 ```yaml
 DATABASE_URL=jdbc:postgresql://host:5432/db
 DATABASE_USERNAME=postgres
@@ -229,6 +232,7 @@ MAIL_PASSWORD=your-app-password
 ```
 
 **Optional:**
+
 ```yaml
 SERVER_PORT=8080  # Default: 8080
 CORS_ALLOWED_ORIGINS=http://localhost:3000
@@ -237,12 +241,14 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000
 ### Frontend
 
 **Required:**
+
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 **Optional:**
+
 ```bash
 NEXT_PUBLIC_ENABLE_DEVTOOLS=true
 ```
@@ -254,12 +260,14 @@ NEXT_PUBLIC_ENABLE_DEVTOOLS=true
 ### Development Mode
 
 **Terminal 1 - Backend:**
+
 ```bash
 cd orchard-store-backend
 mvn spring-boot:run
 ```
 
 **Terminal 2 - Frontend:**
+
 ```bash
 cd orchard-store-dashboad
 npm run dev
@@ -267,12 +275,12 @@ npm run dev
 
 ### Access Points
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **Frontend** | http://localhost:3000 | admin@orchard.com / admin123 |
-| **Backend API** | http://localhost:8080/api | Bearer token required |
-| **Actuator** | http://localhost:8080/actuator/health | Public |
-| **Database** | via pgAdmin/DBeaver | Your DB credentials |
+| Service         | URL                                   | Credentials                  |
+| --------------- | ------------------------------------- | ---------------------------- |
+| **Frontend**    | http://localhost:3000                 | admin@orchard.com / admin123 |
+| **Backend API** | http://localhost:8080/api             | Bearer token required        |
+| **Actuator**    | http://localhost:8080/actuator/health | Public                       |
+| **Database**    | via pgAdmin/DBeaver                   | Your DB credentials          |
 
 ---
 
@@ -312,6 +320,7 @@ npm run dev
 ### Backend Issues
 
 **Problem: Database connection failed**
+
 ```
 Solution:
 1. Check DATABASE_URL in application-dev.yml
@@ -321,6 +330,7 @@ Solution:
 ```
 
 **Problem: Flyway migration failed**
+
 ```
 Solution:
 1. Check migration files syntax
@@ -330,6 +340,7 @@ Solution:
 ```
 
 **Problem: Port 8080 already in use**
+
 ```
 Solution:
 1. Change port in application-dev.yml: server.port=8081
@@ -339,6 +350,7 @@ Solution:
 ### Frontend Issues
 
 **Problem: Can't connect to backend**
+
 ```
 Solution:
 1. Check NEXT_PUBLIC_API_URL in .env.local
@@ -348,6 +360,7 @@ Solution:
 ```
 
 **Problem: Login not working**
+
 ```
 Solution:
 1. Check backend logs
@@ -357,6 +370,7 @@ Solution:
 ```
 
 **Problem: npm install fails**
+
 ```
 Solution:
 1. Delete node_modules and package-lock.json
@@ -382,13 +396,13 @@ Password: admin123
 
 ### Default Roles
 
-| Role | Level | Access |
-|------|-------|--------|
-| SUPER_ADMIN | 10 | Full system access |
-| ADMIN | 9 | Manage all modules |
-| MANAGER | 7 | Manage products & orders |
-| STAFF | 5 | Basic operations |
-| VIEWER | 3 | Read-only |
+| Role        | Level | Access                   |
+| ----------- | ----- | ------------------------ |
+| SUPER_ADMIN | 10    | Full system access       |
+| ADMIN       | 9     | Manage all modules       |
+| MANAGER     | 7     | Manage products & orders |
+| STAFF       | 5     | Basic operations         |
+| VIEWER      | 3     | Read-only                |
 
 ---
 
@@ -397,12 +411,14 @@ Password: admin123
 After successful setup:
 
 1. **Explore the app:**
+
    - Login with admin credentials
    - Navigate to Users page
    - Try creating a user
    - View login history
 
 2. **Read documentation:**
+
    - [Project Roadmap](./02_ROADMAP.md)
    - [Backend Architecture](./backend/ARCHITECTURE.md)
    - [Frontend Structure](./frontend/STRUCTURE.md)
@@ -427,4 +443,3 @@ After successful setup:
 **Maintainer:** Development Team
 
 **Welcome to Orchard Store! 🎉**
-

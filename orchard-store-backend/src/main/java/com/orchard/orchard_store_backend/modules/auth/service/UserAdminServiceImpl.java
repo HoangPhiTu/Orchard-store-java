@@ -12,9 +12,10 @@ import com.orchard.orchard_store_backend.exception.ResourceNotFoundException;
 import com.orchard.orchard_store_backend.exception.OperationNotPermittedException;
 import com.orchard.orchard_store_backend.modules.auth.mapper.UserAdminMapper;
 import com.orchard.orchard_store_backend.modules.auth.repository.LoginHistoryRepository;
-import com.orchard.orchard_store_backend.modules.auth.repository.RoleRepository;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
+import com.orchard.orchard_store_backend.modules.auth.validation.PasswordValidator;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
+import com.orchard.orchard_store_backend.modules.customer.service.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,45 +39,85 @@ import java.util.stream.Collectors;
 public class UserAdminServiceImpl implements UserAdminService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserAdminMapper userAdminMapper;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordValidator passwordValidator;
+    private final RoleCacheService roleCacheService;
     private final ImageUploadService imageUploadService;
+    private final RedisService redisService;
+    
+    private static final String USER_LIST_CACHE_KEY_PREFIX = "user:list:";
+    private static final long USER_LIST_CACHE_TTL_SECONDS = 120; // 2 minutes (short TTL for user list)
 
     @Override
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> getUsers(String keyword, String status, Pageable pageable) {
-        Specification<User> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-
-            if (keyword != null && !keyword.trim().isEmpty()) {
-                String searchPattern = "%" + keyword.toLowerCase() + "%";
-                Predicate emailPredicate = cb.like(cb.lower(root.get("email")), searchPattern);
-                Predicate fullNamePredicate = cb.like(cb.lower(root.get("fullName")), searchPattern);
-                Predicate phonePredicate = cb.like(cb.lower(root.get("phone")), searchPattern);
-                predicates.add(cb.or(emailPredicate, fullNamePredicate, phonePredicate));
-            }
-
-            if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status)) {
-                try {
-                    User.Status userStatus = User.Status.valueOf(status.toUpperCase());
-                    predicates.add(cb.equal(root.get("status"), userStatus));
-                } catch (IllegalArgumentException ex) {
-                    log.warn("Invalid status filter: {}", status);
+        // Build cache key from filters
+        String cacheKey = USER_LIST_CACHE_KEY_PREFIX + 
+            (keyword != null ? keyword : "") + ":" + 
+            (status != null ? status : "ALL") + ":" +
+            pageable.getPageNumber() + ":" + pageable.getPageSize();
+        
+        // Try to get from cache (only for first page without filters for simplicity)
+        if ((keyword == null || keyword.trim().isEmpty()) && 
+            (status == null || status.equalsIgnoreCase("ALL")) && 
+            pageable.getPageNumber() == 0) {
+            try {
+                String cached = redisService.getValue(cacheKey);
+                if (cached != null) {
+                    log.debug("User list cache hit for key: {}", cacheKey);
+                    // Note: Full caching would require JSON deserialization of Page<UserResponseDTO>
+                    // For now, we'll just use cache as a marker and still query DB
+                    // TODO: Implement full Page<UserResponseDTO> serialization if needed
                 }
+            } catch (Exception e) {
+                log.warn("Failed to check user list cache: {}", e.getMessage());
             }
-
-            // Eagerly fetch userRoles and roles to avoid LazyInitializationException
-            root.fetch("userRoles", jakarta.persistence.criteria.JoinType.LEFT)
-                .fetch("role", jakarta.persistence.criteria.JoinType.LEFT);
-            query.distinct(true); // Avoid duplicate results from joins
-
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        return userRepository.findAll(spec, pageable)
-                .map(userAdminMapper::toResponseDTO);
+        }
+        
+        // Use native full-text search query if keyword is provided, otherwise use Specification
+        Page<UserResponseDTO> result;
+        
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            // Use PostgreSQL full-text search for better performance
+            // This leverages the GIN indexes created in migration V9
+            String normalizedKeyword = keyword.trim();
+            String normalizedStatus = (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status)) 
+                ? status.toUpperCase() 
+                : null;
+            
+            try {
+                // Use native query with full-text search
+                Page<User> usersPage = userRepository.searchUsersFullText(normalizedKeyword, normalizedStatus, pageable);
+                result = usersPage.map(userAdminMapper::toResponseDTO);
+            } catch (Exception e) {
+                // Fallback to Specification with LIKE if full-text search fails
+                log.warn("Full-text search failed, falling back to LIKE search: {}", e.getMessage());
+                Specification<User> spec = buildUserSpecification(keyword, status);
+                result = userRepository.findAll(spec, pageable)
+                        .map(userAdminMapper::toResponseDTO);
+            }
+        } else {
+            // No keyword - use Specification for status filtering only
+            Specification<User> spec = buildUserSpecification(keyword, status);
+            result = userRepository.findAll(spec, pageable)
+                    .map(userAdminMapper::toResponseDTO);
+        }
+        
+        // Cache first page without filters
+        if ((keyword == null || keyword.trim().isEmpty()) && 
+            (status == null || status.equalsIgnoreCase("ALL")) && 
+            pageable.getPageNumber() == 0) {
+            try {
+                redisService.setValue(cacheKey, "1", USER_LIST_CACHE_TTL_SECONDS);
+                log.debug("User list cached for key: {}", cacheKey);
+            } catch (Exception e) {
+                log.warn("Failed to cache user list: {}", e.getMessage());
+            }
+        }
+        
+        return result;
     }
 
     @Override
@@ -100,8 +141,8 @@ public class UserAdminServiceImpl implements UserAdminService {
             }
         }
 
-        // Find roles
-        List<Role> roles = roleRepository.findByIdIn(roleIds);
+        // Find roles (with caching via RoleCacheService)
+        List<Role> roles = roleCacheService.getRolesByIds(roleIds);
         if (roles.size() != roleIds.size()) {
             throw new ResourceNotFoundException("Một hoặc nhiều quyền không tồn tại");
         }
@@ -109,16 +150,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         // Kiểm tra: Không cho phép gán role có level >= level của currentUser
         User currentUser = getCurrentUser();
         if (currentUser != null) {
-            // Eager fetch userRoles và role để có hierarchy level
-            if (currentUser.getUserRoles() != null) {
-                currentUser.getUserRoles().size(); // Trigger lazy loading
-                currentUser.getUserRoles().forEach(userRole -> {
-                    if (userRole.getRole() != null) {
-                        userRole.getRole().getHierarchyLevel(); // Trigger lazy loading
-                    }
-                });
-            }
-            
+            // User đã được fetch với EntityGraph, không cần trigger lazy loading
             Integer currentUserMaxLevel = getHighestHierarchyLevel(currentUser);
             
             // SUPER_ADMIN (level 10) có thể gán bất kỳ role nào
@@ -160,6 +192,9 @@ public class UserAdminServiceImpl implements UserAdminService {
         // Save user
         User savedUser = userRepository.save(user);
         log.info("Created user: {} with email: {}", savedUser.getId(), savedUser.getEmail());
+        
+        // Evict user list cache
+        evictUserListCache();
 
         return userAdminMapper.toResponseDTO(savedUser);
     }
@@ -183,6 +218,7 @@ public class UserAdminServiceImpl implements UserAdminService {
 
     /**
      * Lấy current user từ SecurityContext với eager fetch userRoles
+     * Sử dụng EntityGraph để tránh N+1 query problem
      */
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -190,8 +226,8 @@ public class UserAdminServiceImpl implements UserAdminService {
             return null;
         }
         String email = authentication.getName();
-        // Sử dụng findByEmail với EntityGraph để fetch userRoles và role
-        return userRepository.findByEmail(email).orElse(null);
+        // Sử dụng findByEmailWithRoles với EntityGraph để fetch userRoles và role
+        return userRepository.findByEmailWithRoles(email).orElse(null);
     }
 
     /**
@@ -218,15 +254,9 @@ public class UserAdminServiceImpl implements UserAdminService {
             return;
         }
         
-        // Eager fetch userRoles và role để có hierarchy level
-        if (currentUser.getUserRoles() != null) {
-            currentUser.getUserRoles().size(); // Trigger lazy loading
-            currentUser.getUserRoles().forEach(userRole -> {
-                if (userRole.getRole() != null) {
-                    userRole.getRole().getHierarchyLevel(); // Trigger lazy loading
-                }
-            });
-        }
+        // Note: currentUser và targetUser đã được fetch với EntityGraph
+        // (findByEmailWithRoles hoặc findByIdWithRoles)
+        // Không cần trigger lazy loading nữa
         
         // Tính maxRoleLevel của currentUser (level cao nhất)
         Integer currentUserMaxLevel = getHighestHierarchyLevel(currentUser);
@@ -255,18 +285,9 @@ public class UserAdminServiceImpl implements UserAdminService {
     @Transactional
     public UserResponseDTO updateUser(Long id, UserUpdateRequestDTO request) {
         // Fetch target user với userRoles để có hierarchy level
-        User targetUser = userRepository.findById(id)
+        // Sử dụng findByIdWithRoles với EntityGraph để tránh N+1 query
+        User targetUser = userRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với ID: " + id));
-        
-        // Eager fetch userRoles và role để tránh LazyInitializationException
-        if (targetUser.getUserRoles() != null) {
-            targetUser.getUserRoles().size(); // Trigger lazy loading
-            targetUser.getUserRoles().forEach(userRole -> {
-                if (userRole.getRole() != null) {
-                    userRole.getRole().getHierarchyLevel(); // Trigger lazy loading
-                }
-            });
-        }
 
         User currentUser = getCurrentUser();
         
@@ -348,7 +369,8 @@ public class UserAdminServiceImpl implements UserAdminService {
 
         // Update roles if provided
         if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
-            List<Role> newRoles = roleRepository.findByIdIn(request.getRoleIds());
+            // Use cached roles lookup
+            List<Role> newRoles = roleCacheService.getRolesByIds(request.getRoleIds());
             if (newRoles.size() != request.getRoleIds().size()) {
                 throw new ResourceNotFoundException("Một hoặc nhiều quyền không tồn tại");
             }
@@ -420,6 +442,9 @@ public class UserAdminServiceImpl implements UserAdminService {
         log.info("Updated user: {} with email: {} by user: {}", 
                 updatedUser.getId(), updatedUser.getEmail(), 
                 currentUser != null ? currentUser.getEmail() : "SYSTEM");
+        
+        // Evict user list cache
+        evictUserListCache();
 
         return userAdminMapper.toResponseDTO(updatedUser);
     }
@@ -427,18 +452,9 @@ public class UserAdminServiceImpl implements UserAdminService {
     @Override
     @Transactional
     public UserResponseDTO toggleUserStatus(Long id) {
-        User user = userRepository.findById(id)
+        // Sử dụng findByIdWithRoles với EntityGraph để tránh N+1 query
+        User user = userRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với ID: " + id));
-
-        // Eager fetch userRoles và role để có hierarchy level
-        if (user.getUserRoles() != null) {
-            user.getUserRoles().size(); // Trigger lazy loading
-            user.getUserRoles().forEach(userRole -> {
-                if (userRole.getRole() != null) {
-                    userRole.getRole().getHierarchyLevel(); // Trigger lazy loading
-                }
-            });
-        }
 
         // Validate Self-Protection: Không cho phép tự khóa/xóa chính mình
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -464,25 +480,21 @@ public class UserAdminServiceImpl implements UserAdminService {
         }
 
         User updatedUser = userRepository.save(user);
+        
+        // Evict user list cache
+        evictUserListCache();
+        
         return userAdminMapper.toResponseDTO(updatedUser);
     }
 
     @Override
     @Transactional
     public void resetPassword(Long userId, String newPassword) {
-        // Tìm user theo ID
-        User user = userRepository.findById(userId)
+        // Validate password strength
+        passwordValidator.validatePassword(newPassword);
+        // Tìm user theo ID với EntityGraph để tránh N+1 query
+        User user = userRepository.findByIdWithRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với ID: " + userId));
-
-        // Eager fetch userRoles và role để có hierarchy level
-        if (user.getUserRoles() != null) {
-            user.getUserRoles().size(); // Trigger lazy loading
-            user.getUserRoles().forEach(userRole -> {
-                if (userRole.getRole() != null) {
-                    userRole.getRole().getHierarchyLevel(); // Trigger lazy loading
-                }
-            });
-        }
 
         User currentUser = getCurrentUser();
         
@@ -517,19 +529,9 @@ public class UserAdminServiceImpl implements UserAdminService {
     @Override
     @Transactional
     public void deleteUser(Long userId) {
-        // Tìm user theo ID
-        User user = userRepository.findById(userId)
+        // Tìm user theo ID với EntityGraph để tránh N+1 query
+        User user = userRepository.findByIdWithRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với ID: " + userId));
-
-        // Eager fetch userRoles và role để có hierarchy level
-        if (user.getUserRoles() != null) {
-            user.getUserRoles().size(); // Trigger lazy loading
-            user.getUserRoles().forEach(userRole -> {
-                if (userRole.getRole() != null) {
-                    userRole.getRole().getHierarchyLevel(); // Trigger lazy loading
-                }
-            });
-        }
 
         // Validate Self-Protection: Không cho phép tự xóa chính mình
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -552,6 +554,9 @@ public class UserAdminServiceImpl implements UserAdminService {
         log.info("Deleted user: {} with email: {} by user: {}", 
                 user.getId(), user.getEmail(), 
                 currentUser != null ? currentUser.getEmail() : "SYSTEM");
+        
+        // Evict user list cache
+        evictUserListCache();
 
         if (avatarUrl != null && !avatarUrl.trim().isEmpty()) {
             try {
@@ -573,6 +578,56 @@ public class UserAdminServiceImpl implements UserAdminService {
         // Lấy lịch sử đăng nhập theo userId, sắp xếp giảm dần theo loginAt
         return loginHistoryRepository.findByUserIdOrderByLoginAtDesc(userId, pageable)
                 .map(userAdminMapper::toLoginHistoryResponseDTO);
+    }
+    
+    /**
+     * Build Specification for user search (fallback to LIKE when full-text search is not available)
+     */
+    private Specification<User> buildUserSpecification(String keyword, String status) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                String searchPattern = "%" + keyword.toLowerCase() + "%";
+                Predicate emailPredicate = cb.like(cb.lower(root.get("email")), searchPattern);
+                Predicate fullNamePredicate = cb.like(cb.lower(root.get("fullName")), searchPattern);
+                Predicate phonePredicate = cb.like(cb.lower(root.get("phone")), searchPattern);
+                predicates.add(cb.or(emailPredicate, fullNamePredicate, phonePredicate));
+            }
+
+            if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+                try {
+                    User.Status userStatus = User.Status.valueOf(status.toUpperCase());
+                    predicates.add(cb.equal(root.get("status"), userStatus));
+                } catch (IllegalArgumentException ex) {
+                    log.warn("Invalid status filter: {}", status);
+                }
+            }
+
+            // Eagerly fetch userRoles and roles to avoid LazyInitializationException
+            if (query != null) {
+                root.fetch("userRoles", jakarta.persistence.criteria.JoinType.LEFT)
+                    .fetch("role", jakarta.persistence.criteria.JoinType.LEFT);
+                query.distinct(true); // Avoid duplicate results from joins
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+    
+    /**
+     * Evict user list cache
+     */
+    private void evictUserListCache() {
+        try {
+            // Delete common user list cache keys
+            redisService.deleteKey(USER_LIST_CACHE_KEY_PREFIX + "::0:10");
+            redisService.deleteKey(USER_LIST_CACHE_KEY_PREFIX + "::0:15");
+            redisService.deleteKey(USER_LIST_CACHE_KEY_PREFIX + "::0:20");
+            log.debug("User list cache evicted");
+        } catch (Exception e) {
+            log.warn("Failed to evict user list cache: {}", e.getMessage());
+        }
     }
 }
 

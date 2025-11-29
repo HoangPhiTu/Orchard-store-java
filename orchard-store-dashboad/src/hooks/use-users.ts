@@ -14,6 +14,7 @@ import type {
   UserUpdateRequestDTO,
   Page,
 } from "@/types/user.types";
+import { toast } from "sonner";
 
 const USERS_QUERY_KEY = ["admin", "users"] as const;
 
@@ -36,6 +37,11 @@ export const useUsers = (filters?: UserFilters) => {
     queryKey: [...USERS_QUERY_KEY, requestFilters] as const,
     queryFn: () => userService.getUsers(requestFilters),
     placeholderData: keepPreviousData,
+    // Users có thể thay đổi thường xuyên hơn, nhưng vẫn cache để tối ưu
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 };
 
@@ -104,19 +110,57 @@ export const useUpdateUser = (
 /**
  * Hook để khóa/mở khóa user (toggle status)
  */
-export const useToggleUserStatus = (
-  options?: UseMutationOptions<User, Error, number, unknown>
-) => {
+export const useToggleUserStatus = () => {
   const queryClient = useQueryClient();
-  return useMutation<User, Error, number>({
+  return useMutation<
+    User,
+    Error,
+    number,
+    { previousUsers?: Page<User> | undefined }
+  >({
     mutationFn: (id) => userService.toggleUserStatus(id),
-    ...options,
-    onSuccess: (data, variables, context, mutation) => {
-      // Invalidate users list và detail queries
+    onMutate: async (userId) => {
+      await queryClient.cancelQueries({ queryKey: USERS_QUERY_KEY });
+      const previousUsers = queryClient.getQueryData<Page<User>>([
+        ...USERS_QUERY_KEY,
+      ]);
+
+      queryClient.setQueryData<Page<User> | undefined>(
+        [...USERS_QUERY_KEY],
+        (old) => {
+          if (!old || !Array.isArray(old.content)) {
+            return old;
+          }
+
+          return {
+            ...old,
+            content: old.content.map((user) =>
+              user.id === userId
+                ? {
+                    ...user,
+                    status: user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                  }
+                : user
+            ),
+          };
+        }
+      );
+
+      return { previousUsers };
+    },
+    onError: (error, _userId, context) => {
+      if (context?.previousUsers) {
+        queryClient.setQueryData([...USERS_QUERY_KEY], context.previousUsers);
+      }
+      toast.error(`Failed to update user status: ${error.message}`);
+    },
+    onSettled: (_data, _error, userId) => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-      // Cập nhật cache cho user detail nếu đang được query
-      queryClient.setQueryData([...USERS_QUERY_KEY, "detail", variables], data);
-      options?.onSuccess?.(data, variables, context, mutation);
+      if (userId !== undefined) {
+        queryClient.invalidateQueries({
+          queryKey: [...USERS_QUERY_KEY, "detail", userId],
+        });
+      }
     },
   });
 };

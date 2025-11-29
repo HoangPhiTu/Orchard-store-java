@@ -7,8 +7,12 @@ import com.orchard.orchard_store_backend.modules.auth.entity.LoginHistory;
 import com.orchard.orchard_store_backend.modules.auth.entity.User;
 import com.orchard.orchard_store_backend.modules.auth.mapper.UserMapper;
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
+import com.orchard.orchard_store_backend.modules.auth.validation.PasswordValidator;
 import com.orchard.orchard_store_backend.security.CustomUserDetailsService;
 import com.orchard.orchard_store_backend.security.JwtTokenProvider;
+import com.orchard.orchard_store_backend.exception.AccountLockedException;
+import com.orchard.orchard_store_backend.exception.InvalidCredentialsException;
+import com.orchard.orchard_store_backend.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -47,19 +51,24 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private PasswordValidator passwordValidator;
+
     @PersistenceContext
     private EntityManager entityManager;
 
     @Override
     public AuthResponseDTO login(AuthRequestDTO request, HttpServletRequest httpRequest) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // Note: This method may not be used if AuthController handles login directly
+        // But if used, fetch with roles for authorities
+        User user = userRepository.findByEmailWithRolesAndPermissions(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (user.isAccountLocked()) {
             if (httpRequest != null) {
                 loginHistoryService.saveLoginHistory(user, httpRequest, LoginHistory.LoginStatus.LOCKED, "Account is currently locked");
             }
-            throw new RuntimeException("Account is locked. Please try again later or contact administrator.");
+            throw new AccountLockedException("Account is locked. Please try again later or contact administrator.");
         }
 
         try {
@@ -108,11 +117,14 @@ public class AuthServiceImpl implements AuthService {
                 if (httpRequest != null) {
                     loginHistoryService.saveLoginHistory(user, httpRequest, LoginHistory.LoginStatus.LOCKED, "Account locked due to too many failed attempts");
                 }
-                throw new RuntimeException("Account has been locked due to too many failed login attempts. Please try again in 30 minutes.");
+                throw new AccountLockedException("Account has been locked due to too many failed login attempts. Please try again in 30 minutes.");
             }
 
             int remainingAttempts = 5 - user.getFailedLoginAttempts();
-            throw new RuntimeException("Invalid email or password. " + remainingAttempts + " attempt(s) remaining.");
+            throw new InvalidCredentialsException(
+                "Invalid email or password. " + remainingAttempts + " attempt(s) remaining.",
+                remainingAttempts
+            );
         }
     }
 
@@ -121,8 +133,9 @@ public class AuthServiceImpl implements AuthService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
 
+        // Use basic findByEmail for simple user info retrieval
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return userMapper.toDTO(user);
     }
@@ -130,15 +143,18 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void changePassword(String email, String currentPassword, String newPassword) {
+        // Validate password strength
+        passwordValidator.validatePassword(newPassword);
+        
         // Clear entity manager cache to ensure fresh data
         entityManager.clear();
         
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Verify current password
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            throw new RuntimeException("Current password is incorrect");
+            throw new InvalidCredentialsException("Current password is incorrect");
         }
 
         // Encode new password

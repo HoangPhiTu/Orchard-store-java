@@ -35,6 +35,7 @@ import {
   // formatLockTime,
 } from "@/lib/security/rate-limit";
 import { hashPassword } from "@/lib/security/password-hash";
+import { logger } from "@/lib/logger";
 
 type LoginApiError = {
   message?: string;
@@ -55,8 +56,8 @@ const Turnstile = dynamic(
   {
     ssr: false, // Turnstile only works on client-side
     loading: () => (
-      <div className="h-[65px] w-[300px] flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50">
-        <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+      <div className="h-[65px] w-[300px] flex items-center justify-center border border-border rounded-lg bg-muted">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     ),
   }
@@ -68,7 +69,7 @@ const getStoredAccounts = (): StoredAccount[] => {
     const stored = localStorage.getItem(RECENT_ACCOUNTS_KEY);
     return stored ? (JSON.parse(stored) as StoredAccount[]) : [];
   } catch (error) {
-    console.warn("Failed to parse saved accounts", error);
+    logger.warn("Failed to parse saved accounts", error);
     return [];
   }
 };
@@ -211,7 +212,7 @@ export default function LoginPage() {
       setRecentAccounts(nextList);
       localStorage.setItem(RECENT_ACCOUNTS_KEY, JSON.stringify(nextList));
     } catch (error) {
-      console.warn("Failed to store login snapshot", error);
+      logger.warn("Failed to store login snapshot", error);
     }
   };
 
@@ -225,7 +226,7 @@ export default function LoginPage() {
         duration: 2000,
       });
     } catch (error) {
-      console.warn("Failed to decode account", error);
+      logger.warn("Failed to decode account", error);
       toast.error("Failed to load saved credentials");
     }
   };
@@ -288,7 +289,7 @@ export default function LoginPage() {
           return; // Block login in production
         }
       } catch (error) {
-        console.error("Turnstile verification error:", error);
+        logger.error("Turnstile verification error:", error);
         toast.error("Không thể xác minh bảo mật. Vui lòng thử lại.");
         setTurnstileToken(null);
         turnstileKeyRef.current += 1;
@@ -300,11 +301,11 @@ export default function LoginPage() {
       process.env.NODE_ENV === "development"
     ) {
       // In development, skip Turnstile verification completely
-      console.log("Development mode: Skipping Turnstile verification");
+      logger.debug("Development mode: Skipping Turnstile verification");
     }
 
     setIsSubmittingDebounced(true);
-    console.log("After Turnstile check, proceeding to login...");
+    logger.debug("After Turnstile check, proceeding to login...");
 
     try {
       // Security: Hash password if enabled (optional)
@@ -313,13 +314,13 @@ export default function LoginPage() {
         passwordToSend = await hashPassword(values.password);
       }
 
-      console.log("Calling login API...");
+      logger.debug("Calling login API...");
       // Login với password đã hash (nếu bật)
       await login({
         ...values,
         password: passwordToSend,
       });
-      console.log("Login API success!");
+      logger.debug("Login API success!");
 
       // Security: Reset failed attempts on success
       resetFailedAttempts();
@@ -398,7 +399,7 @@ export default function LoginPage() {
     if (recentAccounts.length === 0) {
       return (
         <div className="px-4 py-8 text-center">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             No saved accounts yet. Your recent logins will appear here.
           </p>
         </div>
@@ -408,7 +409,7 @@ export default function LoginPage() {
     return recentAccounts.map((account) => (
       <div
         key={account.email}
-        className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-blue-50/50 transition-colors"
+        className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-accent/50 transition-colors"
       >
         <button
           type="button"
@@ -416,14 +417,14 @@ export default function LoginPage() {
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleSelectAccount(account)}
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-sm font-semibold text-blue-700">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
             {account.email.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-900 truncate">
+            <p className="text-sm font-semibold text-card-foreground truncate">
               {account.email}
             </p>
-            <p className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+            <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
               <Clock size={12} />
               Last login:{" "}
               {new Date(account.lastUsed).toLocaleString("en-US", {
@@ -437,7 +438,7 @@ export default function LoginPage() {
         </button>
         <button
           type="button"
-          className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleRemoveAccount(account.email)}
         >
@@ -448,27 +449,27 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       {/* Left Panel - Branding & Stats (Hidden on mobile, shown on desktop) */}
-      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:bg-linear-to-br from-slate-50 to-slate-100 lg:p-12 xl:p-16 border-r border-slate-200">
+      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:bg-gradient-to-br from-accent/50 to-muted/50 lg:p-12 xl:p-16 border-r border-border">
         <div className="flex flex-col h-full justify-between">
           {/* Logo and Heading */}
           <div className="space-y-8">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200">
-                <Mountain className="h-6 w-6 text-slate-700" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                <Mountain className="h-6 w-6" />
               </div>
-              <span className="text-xl font-bold text-slate-900">
+              <span className="text-xl font-bold text-foreground">
                 Orchard Admin
               </span>
             </div>
 
             <div className="space-y-4">
-              <h1 className="text-4xl xl:text-5xl font-bold text-slate-900 leading-tight">
+              <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight">
                 Manage your store with
-                <span className="block text-slate-600">precision</span>
+                <span className="block text-muted-foreground">precision</span>
               </h1>
-              <p className="text-lg text-slate-600 max-w-md">
+              <p className="text-lg text-muted-foreground max-w-md">
                 Real-time analytics, inventory management, and customer insights
                 all in one place.
               </p>
@@ -478,30 +479,30 @@ export default function LoginPage() {
           {/* Stats Cards */}
           <div className="grid grid-cols-2 gap-4 mt-8">
             {/* Total Sales Card */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+            <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-3">
-                <div className="rounded-lg bg-slate-100 p-2">
-                  <DollarSign className="h-5 w-5 text-slate-700" />
+                <div className="rounded-lg bg-muted p-2">
+                  <DollarSign className="h-5 w-5 text-foreground" />
                 </div>
               </div>
-              <p className="text-sm text-slate-600 mb-1">Total Sales</p>
-              <p className="text-2xl font-bold text-slate-900 mb-1">$128,420</p>
-              <div className="flex items-center gap-1 text-sm text-indigo-600">
+              <p className="text-sm text-muted-foreground mb-1">Total Sales</p>
+              <p className="text-2xl font-bold text-card-foreground mb-1">$128,420</p>
+              <div className="flex items-center gap-1 text-sm text-primary">
                 <TrendingUp className="h-4 w-4" />
                 <span>+12.5% this month</span>
               </div>
             </div>
 
             {/* Active Users Card */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+            <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-3">
-                <div className="rounded-lg bg-slate-100 p-2">
-                  <Users className="h-5 w-5 text-slate-700" />
+                <div className="rounded-lg bg-muted p-2">
+                  <Users className="h-5 w-5 text-foreground" />
                 </div>
               </div>
-              <p className="text-sm text-slate-600 mb-1">Active Users</p>
-              <p className="text-2xl font-bold text-slate-900 mb-1">24.5k</p>
-              <div className="flex items-center gap-1 text-sm text-indigo-600">
+              <p className="text-sm text-muted-foreground mb-1">Active Users</p>
+              <p className="text-2xl font-bold text-card-foreground mb-1">24.5k</p>
+              <div className="flex items-center gap-1 text-sm text-primary">
                 <TrendingUp className="h-4 w-4" />
                 <span>+5.2% this week</span>
               </div>
@@ -511,24 +512,24 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center bg-white p-4 sm:p-6 lg:p-12">
+      <div className="flex-1 flex items-center justify-center bg-background p-4 sm:p-6 lg:p-12">
         <div className="w-full max-w-md space-y-8">
           {/* Mobile Logo (shown only on mobile) */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200">
-              <Mountain className="h-6 w-6 text-slate-700" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+              <Mountain className="h-6 w-6" />
             </div>
-            <span className="text-xl font-bold text-slate-900">
+            <span className="text-xl font-bold text-foreground">
               Orchard Admin
             </span>
           </div>
 
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold text-slate-900">
+              <h2 className="text-3xl font-bold text-foreground">
                 Welcome back
               </h2>
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-muted-foreground">
                 Please enter your details to sign in.
               </p>
             </div>
@@ -539,7 +540,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="email"
-                    className="text-sm font-medium text-slate-700"
+                    className="text-sm font-medium text-foreground"
                   >
                     Email
                   </Label>
@@ -548,7 +549,7 @@ export default function LoginPage() {
                     type="email"
                     placeholder="admin@orchard.com"
                     autoComplete="email"
-                    className="h-11 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+                    className="h-11 border-border focus:border-primary focus:ring-primary"
                     {...register("email")}
                     onFocus={() => {
                       if (recentAccounts.length > 0) {
@@ -568,13 +569,13 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="password"
-                      className="text-sm font-medium text-slate-700"
+                      className="text-sm font-medium text-foreground"
                     >
                       Password
                     </Label>
                     <Link
                       href="/forgot-password"
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+                      className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       Forgot password?
                     </Link>
@@ -585,7 +586,7 @@ export default function LoginPage() {
                       type="password"
                       placeholder="Enter your password"
                       autoComplete="current-password"
-                      className="h-11 border-slate-300 pr-20 focus:border-indigo-500 focus:ring-indigo-500"
+                      className="h-11 border-border pr-20 focus:border-primary focus:ring-primary"
                       {...register("password")}
                       onFocus={() => {
                         if (recentAccounts.length > 0) {
@@ -594,7 +595,7 @@ export default function LoginPage() {
                       }}
                     />
                     {hasSavedAccount && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 border border-indigo-200">
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary border border-primary/20">
                         Saved
                       </span>
                     )}
@@ -608,21 +609,21 @@ export default function LoginPage() {
 
                 {/* Saved Logins Popover */}
                 {showSuggestions && recentAccounts.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-xl border border-slate-200 bg-white shadow-2xl">
-                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-xl border border-border bg-card shadow-lg">
+                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         <LogIn size={14} />
                         Quick login
                       </div>
                       <button
                         type="button"
-                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                        className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         onClick={() => setShowSuggestions(false)}
                       >
                         <X size={14} />
                       </button>
                     </div>
-                    <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                    <div className="divide-y divide-border max-h-64 overflow-y-auto">
                       {renderSavedAccounts()}
                     </div>
                   </div>
@@ -639,9 +640,9 @@ export default function LoginPage() {
                       <Checkbox
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        className="border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                        className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       />
-                      <span className="text-sm text-slate-700">
+                      <span className="text-sm text-foreground">
                         Remember me for 7 days
                       </span>
                     </label>
@@ -651,8 +652,8 @@ export default function LoginPage() {
 
               {/* Error Message */}
               {errors.root?.message && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-                  <p className="text-sm font-medium text-red-800">
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+                  <p className="text-sm font-medium text-destructive">
                     {errors.root.message}
                   </p>
                 </div>
@@ -679,10 +680,10 @@ export default function LoginPage() {
               {/* Security: Turnstile Widget - Show if configured */}
               {showTurnstile && isTurnstileConfigured && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-indigo-700">
+                  <Label className="text-sm font-medium text-foreground">
                     Xác minh bảo mật
                     {process.env.NODE_ENV === "development" && (
-                      <span className="ml-2 text-xs font-normal text-slate-400">
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
                         (Development Mode)
                       </span>
                     )}
@@ -694,7 +695,7 @@ export default function LoginPage() {
                       theme="light"
                       onSuccess={(token: string) => {
                         setTurnstileToken(token);
-                        console.log("Turnstile verified successfully");
+                        logger.debug("Turnstile verified successfully");
                       }}
                       onError={(error: unknown) => {
                         setTurnstileToken(null);
@@ -709,7 +710,7 @@ export default function LoginPage() {
                           (errorMessage.includes("SSL") ||
                             errorMessage.includes("ERR_SSL_PROTOCOL_ERROR"))
                         ) {
-                          console.warn(
+                          logger.warn(
                             "Turnstile SSL error in development (ignored). This is normal when using HTTP localhost."
                           );
                           return;
@@ -723,7 +724,7 @@ export default function LoginPage() {
                       }}
                       onExpire={() => {
                         setTurnstileToken(null);
-                        console.log("Turnstile token expired");
+                        logger.debug("Turnstile token expired");
                         if (process.env.NODE_ENV === "production") {
                           toast.warning(
                             "Phiên xác minh đã hết hạn. Vui lòng xác minh lại."
@@ -732,7 +733,7 @@ export default function LoginPage() {
                       }}
                     />
                   </div>
-                  <p className="text-xs text-slate-500 text-center">
+                  <p className="text-xs text-muted-foreground text-center">
                     {process.env.NODE_ENV === "development"
                       ? "Xác minh bảo mật (không bắt buộc trong development)"
                       : "Vui lòng hoàn thành xác minh bảo mật để đăng nhập"}
@@ -744,7 +745,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 variant="default"
-                className="h-11 w-full rounded-lg shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 w-full rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={
                   isSubmitting ||
                   isSubmittingDebounced ||
@@ -778,11 +779,11 @@ export default function LoginPage() {
             </form>
 
             {/* Footer Link */}
-            <p className="text-center text-sm text-slate-600">
+            <p className="text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link
                 href="#"
-                className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                className="font-semibold text-primary hover:text-primary/80 transition-colors"
               >
                 Contact Admin
               </Link>

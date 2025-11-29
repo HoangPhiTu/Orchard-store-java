@@ -88,7 +88,7 @@ JAVA-ORCHARD-STORE/
 │   ├── BACKEND.md                    # Tài liệu Backend (Database Schema, Entities, APIs, Security)
 │   ├── FRONTEND.md                   # Tài liệu Frontend (Error Handling, Components, WebSocket)
 │   ├── PROJECT.md                    # Planning & Roadmap (Lộ trình phát triển)
-│   └── CODING_STANDARDS.md            # Coding standards và naming conventions
+│   ├── CODING_STANDARDS_COMPLETE.md    # Complete coding standards guide
 ├── logs/                             # Nhật ký chạy ứng dụng (backend/admin)
 ├── orchard-store-backend/            # Monolithic Spring Boot backend
 ├── orchard-store-admin/              # Next.js 14 Admin Panel
@@ -728,7 +728,7 @@ http://localhost:8080/api
 
 ## 🚀 Hướng Dẫn Setup
 
-> **📖 Xem hướng dẫn chi tiết:** [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+> **📖 Xem hướng dẫn chi tiết:** [SETUP.md](./SETUP.md)
 
 ### Yêu Cầu Hệ Thống
 
@@ -756,7 +756,7 @@ npm install
 npm run dev
 ```
 
-**Xem hướng dẫn đầy đủ và troubleshooting:** [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+**Xem hướng dẫn đầy đủ và troubleshooting:** [SETUP.md](./SETUP.md)
 
 ### Bước 1: Clone Repository
 
@@ -1224,23 +1224,13 @@ git push origin main
 
 ### Documentation Files
 
-- **[docs/BACKEND.md](./docs/BACKEND.md)** - Tài liệu Backend đầy đủ:
-  - Database Schema (41 tables, ERD)
-  - Modules & Entities (54 entities)
-  - API Documentation
-  - Security & Authentication (Spring Security 6, JWT, RBAC)
-  - Technical Deep Dive (Bean Validation, MapStruct, Repository Layer)
-- **[docs/FRONTEND.md](./docs/FRONTEND.md)** - Tài liệu Frontend:
-  - Error Handling (Centralized Axios Interceptor)
-  - Authentication & State Management
-  - UI Components & Features
-  - WebSocket Notifications
-- **[docs/PROJECT.md](./docs/PROJECT.md)** - Planning & Roadmap:
-  - Technology Stack
-  - Kiến Trúc Hệ Thống
-  - Lộ Trình Phát Triển
-  - Delivery Plan
-- **[docs/CODING_STANDARDS.md](./docs/CODING_STANDARDS.md)** - Coding standards và naming conventions
+- **[SETUP.md](./SETUP.md)** - Complete setup guide with troubleshooting
+- **[docs/ADMIN_DASHBOARD_COMPLETE.md](./docs/ADMIN_DASHBOARD_COMPLETE.md)** - Admin dashboard analysis & fix roadmap
+- **[docs/PRODUCTS_MANAGEMENT_COMPLETE.md](./docs/PRODUCTS_MANAGEMENT_COMPLETE.md)** - Complete products management development plan
+- **[docs/CODING_STANDARDS_COMPLETE.md](./docs/CODING_STANDARDS_COMPLETE.md)** - Complete coding standards guide
+- **[docs/BACKEND.md](./docs/BACKEND.md)** - Database schema & backend documentation
+- **[docs/FRONTEND.md](./docs/FRONTEND.md)** - Frontend documentation
+- **[docs/PROJECT.md](./docs/PROJECT.md)** - Planning & roadmap
 
 ### External Resources
 

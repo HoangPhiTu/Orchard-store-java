@@ -2,9 +2,13 @@
 
 import { useMemo, useState } from "react";
 
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useCategories } from "@/hooks/use-categories";
+import { usePrefetchNextPage } from "@/hooks/use-realtime-updates";
+import { categoryService } from "@/services/category.service";
 import type { Category, CatalogStatus, Page } from "@/types/catalog.types";
 import { STATUS_OPTIONS } from "@/config/options";
 import { CategoryTable } from "@/components/features/catalog/category-table";
@@ -57,6 +61,27 @@ export default function CategoryManagementPage() {
   const categories = categoryPage?.content ?? [];
   const totalElements = categoryPage?.totalElements ?? 0;
   const totalPages = categoryPage?.totalPages ?? 0;
+
+  const queryClient = useQueryClient();
+
+  // Prefetch next page để tải nhanh hơn khi user navigate
+  usePrefetchNextPage(
+    ["admin", "categories", "list"],
+    (filters) => categoryService.getCategories(filters as CategoryFilter),
+    filters,
+    zeroBasedPage + 1,
+    totalPages
+  );
+
+  // Prefetch categories tree cho form sheet (khi page load)
+  // Sử dụng tree thay vì fetch all vì đã có cache ở backend và nhanh hơn
+  useEffect(() => {
+    queryClient.prefetchQuery({
+      queryKey: ["admin", "categories", "tree"],
+      queryFn: () => categoryService.getCategoriesTree(),
+      staleTime: 10 * 60 * 1000, // 10 minutes
+    });
+  }, [queryClient]);
 
   // Reset to first page when search or filter changes
   const handleSearchChange = (value: string) => {

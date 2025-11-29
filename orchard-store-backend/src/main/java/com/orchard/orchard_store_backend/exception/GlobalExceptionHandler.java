@@ -104,6 +104,41 @@ public class GlobalExceptionHandler {
     }
     
     /**
+     * Xử lý AccountLockedException (423 Locked)
+     * Khi tài khoản bị khóa do quá nhiều lần đăng nhập sai
+     */
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccountLockedException(AccountLockedException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.LOCKED.value()); // 423
+        errorResponse.put("error", "Account Locked");
+        errorResponse.put("message", ex.getMessage());
+        errorResponse.put("path", "/api");
+        
+        return ResponseEntity.status(HttpStatus.LOCKED).body(errorResponse);
+    }
+    
+    /**
+     * Xử lý InvalidCredentialsException (401 Unauthorized)
+     * Khi email hoặc password không đúng
+     */
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCredentialsException(InvalidCredentialsException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.UNAUTHORIZED.value());
+        errorResponse.put("error", "Invalid Credentials");
+        errorResponse.put("message", ex.getMessage());
+        if (ex.hasRemainingAttempts()) {
+            errorResponse.put("remainingAttempts", ex.getRemainingAttempts());
+        }
+        errorResponse.put("path", "/api");
+        
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+    
+    /**
      * Xử lý Authentication Errors (Bad Credentials, etc.)
      */
     @ExceptionHandler(BadCredentialsException.class)

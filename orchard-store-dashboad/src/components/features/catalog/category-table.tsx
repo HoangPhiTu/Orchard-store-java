@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import {
   Pencil,
   Trash2,
@@ -28,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 interface CategoryTableProps {
   categories: Category[];
@@ -71,15 +73,85 @@ export function CategoryTable({
   onDelete,
   isLoading,
 }: CategoryTableProps) {
-  // Sort categories so children appear right after their parent
-  const sortedCategories = sortCategoriesByHierarchy(categories);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const sortedCategories = useMemo(
+    () => sortCategoriesByHierarchy(categories ?? []),
+    [categories]
+  );
 
-  if (isLoading) {
+  const buildKey = (category: Category, index: number) =>
+    String(
+      category.id ??
+        category.slug ??
+        category.name ??
+        category.path ??
+        `category-${index}`
+    );
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[300px]">Name</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Image</TableHead>
+                <TableHead>Parent</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-muted-foreground"
+                >
+                  Đang tải dữ liệu...
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+
+    if (sortedCategories.length === 0) {
+      return (
+        <div className="rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[300px]">Name</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Image</TableHead>
+                <TableHead>Parent</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-muted-foreground"
+                >
+                  Không có danh mục nào
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/40">
               <TableHead className="w-[300px]">Name</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Image</TableHead>
@@ -89,189 +161,143 @@ export function CategoryTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="py-8 text-center text-muted-foreground"
-              >
-                Đang tải dữ liệu...
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </div>
-    );
-  }
+            {sortedCategories.map((category, index) => {
+              const rowKey = buildKey(category, index);
+              const level = category.level ?? 0;
+              const isChild = level > 0;
+              const paddingLeft = level * 16;
+              const displayName =
+                category.name?.trim() || category.slug || "Unknown Category";
+              const slug = category.slug || "no-slug";
+              const parentName = category.parentName || "Root";
+              const imageUrl = category.imageUrl?.trim();
+              const shouldShowImage = Boolean(imageUrl) && !imageErrors[rowKey];
 
-  if (sortedCategories.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[300px]">Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Image</TableHead>
-              <TableHead>Parent</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="py-8 text-center text-muted-foreground"
-              >
-                Không có danh mục nào
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </div>
-    );
-  }
+              const handleImageError = () => {
+                setImageErrors((prev) => ({ ...prev, [rowKey]: true }));
+              };
 
-  return (
-    <div className="rounded-lg border border-border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/40">
-            <TableHead className="w-[300px]">Name</TableHead>
-            <TableHead>Slug</TableHead>
-            <TableHead>Image</TableHead>
-            <TableHead>Parent</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedCategories.map((category) => {
-            const level = category.level ?? 0;
-            const isChild = level > 0;
-            // Calculate padding: 16px per level (pl-4 = 16px)
-            const paddingLeft = level * 16;
+              const handleImageLoad = () => {
+                if (imageErrors[rowKey]) {
+                  setImageErrors((prev) => {
+                    const next = { ...prev };
+                    delete next[rowKey];
+                    return next;
+                  });
+                }
+              };
 
-            return (
-              <TableRow key={category.id} className="hover:bg-muted/40">
-                {/* Name with indentation */}
-                <TableCell>
-                  <div
-                    className="flex items-center gap-2"
-                    style={{ paddingLeft: `${paddingLeft}px` }}
-                  >
-                    {isChild && (
-                      <CornerDownRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="font-semibold text-foreground">
-                      {category.name}
-                    </span>
-                  </div>
-                </TableCell>
-
-                {/* Slug */}
-                <TableCell>
-                  <span className="font-mono text-sm text-muted-foreground">
-                    {category.slug || "—"}
-                  </span>
-                </TableCell>
-
-                {/* Image */}
-                <TableCell>
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
-                    {category.imageUrl && category.imageUrl.trim() !== "" ? (
-                      <Image
-                        src={category.imageUrl}
-                        alt={category.name}
-                        fill
-                        className="object-contain p-1"
-                        sizes="40px"
-                        unoptimized
-                        onError={(e) => {
-                          // Fallback to placeholder if image fails to load
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = "none";
-                          const parent = target.parentElement;
-                          if (
-                            parent &&
-                            !parent.querySelector(".image-placeholder")
-                          ) {
-                            const placeholder = document.createElement("div");
-                            placeholder.className =
-                              "image-placeholder flex h-full w-full items-center justify-center bg-muted";
-                            placeholder.innerHTML = `<svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`;
-                            parent.appendChild(placeholder);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-muted">
-                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-
-                {/* Parent */}
-                <TableCell>
-                  {category.parentName ? (
-                    <Badge variant="secondary" className="text-muted-foreground">
-                      {category.parentName}
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="border border-dashed border-border/60 bg-transparent text-muted-foreground"
+              return (
+                <TableRow key={rowKey} className="hover:bg-muted/40">
+                  <TableCell>
+                    <div
+                      className="flex items-center gap-2"
+                      style={{ paddingLeft: `${paddingLeft}px` }}
                     >
-                      Root
-                    </Badge>
-                  )}
-                </TableCell>
-
-                {/* Status */}
-                <TableCell>
-                  <StatusBadge status={category.status} />
-                </TableCell>
-
-                {/* Actions */}
-                <TableCell className="text-right">
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
+                      {isChild && (
+                        <CornerDownRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="font-semibold text-foreground">
+                        {displayName}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-sm text-muted-foreground">
+                      {slug}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
+                      {shouldShowImage ? (
+                        <Image
+                          src={imageUrl!}
+                          alt={displayName}
+                          fill
+                          className="object-cover"
+                          sizes="40px"
+                          unoptimized
+                          onError={handleImageError}
+                          onLoad={handleImageLoad}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-muted">
+                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {category.parentName ? (
+                      <Badge
+                        variant="secondary"
+                        className="text-muted-foreground"
+                      >
+                        {parentName}
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="secondary"
+                        className="border border-dashed border-border/60 bg-transparent text-muted-foreground"
+                      >
+                        Root
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={category.status || "INACTIVE"} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 p-0 text-muted-foreground data-[state=open]:bg-muted/40"
                         >
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px]">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      {onEdit && (
-                        <DropdownMenuItem onClick={() => onEdit(category)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      {onDelete && (
-                        <DropdownMenuItem
-                          onClick={() => onDelete(category)}
-                          className="text-red-600 focus:bg-red-50 focus:text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[160px]">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        {onEdit && (
+                          <DropdownMenuItem onClick={() => onEdit(category)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        {onDelete && (
+                          <DropdownMenuItem
+                            onClick={() => onDelete(category)}
+                            className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
+  return (
+    <ErrorBoundary
+      fallback={
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-center text-sm text-destructive">
+          Không thể tải danh sách danh mục. Vui lòng thử lại.
+        </div>
+      }
+    >
+      {renderContent()}
+    </ErrorBoundary>
   );
 }

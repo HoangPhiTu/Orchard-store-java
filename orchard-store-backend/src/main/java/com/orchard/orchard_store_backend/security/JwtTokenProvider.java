@@ -26,7 +26,12 @@ public class JwtTokenProvider {
     private JwtProperties jwtProperties;
     
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes());
+        try {
+            // Use UTF-8 encoding explicitly to avoid encoding issues
+            return Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create signing key", e);
+        }
     }
     
     /**

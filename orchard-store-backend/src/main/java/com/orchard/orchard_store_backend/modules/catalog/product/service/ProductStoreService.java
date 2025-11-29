@@ -185,16 +185,14 @@ public class ProductStoreService {
     private Specification<Product> buildSpecification(ProductFilterDTO filter) {
         ProductSpecification.Builder builder = ProductSpecification.builder();
 
-        // Filter by Brand IDs
+        // Filter by Brand IDs - supports multiple brands with OR condition
         if (filter.getBrandIds() != null && !filter.getBrandIds().isEmpty()) {
-            // If multiple brand IDs, use OR condition
             if (filter.getBrandIds().size() == 1) {
+                // Single brand: use brandId for backward compatibility
                 builder.brandId(filter.getBrandIds().get(0));
             } else {
-                // For multiple brands, we need to use OR in Specification
-                // This is a simplified version - in production, might need custom Specification
-                builder.brandId(filter.getBrandIds().get(0)); // Use first brand for now
-                // TODO: Implement OR condition for multiple brands
+                // Multiple brands: use brandIds for OR condition
+                builder.brandIds(filter.getBrandIds());
             }
         }
 

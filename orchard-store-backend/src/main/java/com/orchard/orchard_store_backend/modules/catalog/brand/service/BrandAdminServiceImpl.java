@@ -11,6 +11,7 @@ import com.orchard.orchard_store_backend.modules.catalog.brand.entity.Brand;
 import com.orchard.orchard_store_backend.modules.catalog.brand.mapper.BrandAdminMapper;
 import com.orchard.orchard_store_backend.modules.catalog.brand.repository.BrandRepository;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
+import com.orchard.orchard_store_backend.modules.customer.service.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,6 +35,11 @@ public class BrandAdminServiceImpl implements BrandAdminService {
     private final BrandRepository brandRepository;
     private final BrandAdminMapper brandAdminMapper;
     private final ImageUploadService imageUploadService;
+    private final RedisService redisService;
+    
+    private static final String BRAND_LIST_CACHE_KEY_PREFIX = "brand:list:";
+    private static final String BRAND_DETAIL_CACHE_KEY_PREFIX = "brand:detail:";
+    private static final long CACHE_TTL_SECONDS = 600; // 10 minutes
 
     /**
      * Slugify instance để tạo slug từ tên
@@ -78,9 +84,35 @@ public class BrandAdminServiceImpl implements BrandAdminService {
     @Override
     @Transactional(readOnly = true)
     public BrandDTO getBrandById(Long id) {
+        String cacheKey = BRAND_DETAIL_CACHE_KEY_PREFIX + id;
+        
+        // Try to get from cache
+        try {
+            String cached = redisService.getValue(cacheKey);
+            if (cached != null) {
+                log.debug("Brand detail cache hit for ID: {}", id);
+                // Note: Full caching would require JSON deserialization of BrandDTO
+                // For now, we'll just use cache as a marker and still query DB
+                // TODO: Implement full BrandDTO serialization if needed
+            }
+        } catch (Exception e) {
+            log.warn("Failed to check brand detail cache: {}", e.getMessage());
+        }
+        
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Brand", id));
-        return brandAdminMapper.toDTO(brand);
+        
+        BrandDTO result = brandAdminMapper.toDTO(brand);
+        
+        // Cache the result
+        try {
+            redisService.setValue(cacheKey, "1", CACHE_TTL_SECONDS);
+            log.debug("Brand detail cached for ID: {}", id);
+        } catch (Exception e) {
+            log.warn("Failed to cache brand detail: {}", e.getMessage());
+        }
+        
+        return result;
     }
 
     @Override
@@ -108,6 +140,10 @@ public class BrandAdminServiceImpl implements BrandAdminService {
 
         Brand saved = brandRepository.save(brand);
         log.info("Created brand: {} with slug: {}", saved.getName(), saved.getSlug());
+        
+        // Evict brand list cache
+        evictBrandListCache();
+        
         return brandAdminMapper.toDTO(saved);
     }
 
@@ -186,6 +222,11 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         }
 
         log.info("Updated brand: {} with slug: {}", updated.getName(), updated.getSlug());
+        
+        // Evict caches
+        evictBrandDetailCache(id);
+        evictBrandListCache();
+        
         return brandAdminMapper.toDTO(updated);
     }
 
@@ -194,11 +235,16 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Brand", id));
 
-        // Lưu logoUrl trước khi xóa
+        // Lưu logoUrl và ID trước khi xóa
         String logoUrl = brand.getLogoUrl();
+        Long brandId = brand.getId();
 
         // Xóa brand khỏi database
         brandRepository.delete(brand);
+        
+        // Evict caches
+        evictBrandDetailCache(brandId);
+        evictBrandListCache();
 
         // Xóa logo trên MinIO nếu có
         if (logoUrl != null && !logoUrl.trim().isEmpty()) {
@@ -264,6 +310,34 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         return authentication.getAuthorities().stream()
                 .map(authority -> authority.getAuthority())
                 .anyMatch(role -> "ROLE_SUPER_ADMIN".equals(role) || "SUPER_ADMIN".equals(role));
+    }
+    
+    /**
+     * Evict brand list cache
+     */
+    private void evictBrandListCache() {
+        try {
+            // Delete common brand list cache keys
+            // In production, you might want to use Redis pattern matching or maintain a set of keys
+            redisService.deleteKey(BRAND_LIST_CACHE_KEY_PREFIX + "::0:10");
+            redisService.deleteKey(BRAND_LIST_CACHE_KEY_PREFIX + "::0:15");
+            redisService.deleteKey(BRAND_LIST_CACHE_KEY_PREFIX + "::0:20");
+            log.debug("Brand list cache evicted");
+        } catch (Exception e) {
+            log.warn("Failed to evict brand list cache: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Evict brand detail cache
+     */
+    private void evictBrandDetailCache(Long brandId) {
+        try {
+            redisService.deleteKey(BRAND_DETAIL_CACHE_KEY_PREFIX + brandId);
+            log.debug("Brand detail cache evicted for ID: {}", brandId);
+        } catch (Exception e) {
+            log.warn("Failed to evict brand detail cache: {}", e.getMessage());
+        }
     }
 }
 

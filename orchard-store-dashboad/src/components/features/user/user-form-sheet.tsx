@@ -40,6 +40,7 @@ import {
   type UpdateUserSchema,
 } from "@/lib/schemas/user.schema";
 import { useAuthStore } from "@/stores/auth-store";
+import { logger } from "@/lib/logger";
 
 // Union type cho form data (có thể là create hoặc update)
 // avatarUrl có thể là File (ảnh mới) hoặc string (URL ảnh cũ)
@@ -157,8 +158,10 @@ export function UserFormSheet({
   }, [authUser]);
   const canEditEmail = Boolean(user) && isEditing && isSuperAdmin;
 
+  // Memoize userRoleIds string to prevent infinite loop
+  const userRoleIdsString = useMemo(() => userRoleIds.join(","), [userRoleIds]);
+
   // Reset form when user changes
-  // Use user?.id as dependency to avoid infinite loop
   useEffect(() => {
     if (user) {
       form.reset({
@@ -173,8 +176,7 @@ export function UserFormSheet({
     } else {
       form.reset(DEFAULT_VALUES);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, userRoleIds.join(",")]); // Use user.id and stringified roleIds to prevent infinite loop
+  }, [user?.id, userRoleIdsString, form, user, userRoleIds]);
 
   const watchedRoleIds = form.watch("roleIds");
   const watchedStatus = form.watch("status");
@@ -211,7 +213,7 @@ export function UserFormSheet({
   // ✅ Nếu có File mới -> Upload trước, lấy URL, rồi mới submit
   // ✅ Nếu không có File -> Submit trực tiếp với URL cũ (hoặc null)
   const onSubmit = async (data: UserFormData) => {
-    console.log("🚀 onSubmit called with data:", {
+    logger.debug("onSubmit called with data:", {
       ...data,
       avatarUrl:
         data.avatarUrl instanceof File
@@ -229,7 +231,7 @@ export function UserFormSheet({
 
       if (data.avatarUrl instanceof File) {
         // Có ảnh mới được chọn -> Upload trước
-        console.log("📤 Uploading image:", data.avatarUrl.name);
+        logger.debug("Uploading image:", data.avatarUrl.name);
         try {
           finalAvatarUrl = await uploadService.uploadImage(
             data.avatarUrl,
@@ -244,10 +246,10 @@ export function UserFormSheet({
           ) {
             shouldDeleteOldAvatar = true;
           }
-          console.log("✅ Image uploaded successfully:", finalAvatarUrl);
+          logger.debug("Image uploaded successfully:", finalAvatarUrl);
         } catch (error) {
           // Nếu upload thất bại, set error vào form
-          console.error("❌ Image upload failed:", error);
+          logger.error("Image upload failed:", error);
           const errorMessage =
             error instanceof Error ? error.message : "Không thể upload ảnh";
           form.setError("avatarUrl", {
@@ -259,11 +261,11 @@ export function UserFormSheet({
         }
       } else if (typeof data.avatarUrl === "string") {
         // URL ảnh cũ (không thay đổi)
-        console.log("📷 Using existing avatar URL:", data.avatarUrl);
+        logger.debug("Using existing avatar URL:", data.avatarUrl);
         finalAvatarUrl = data.avatarUrl;
       } else {
         // null hoặc undefined
-        console.log("📷 No avatar URL");
+        logger.debug("No avatar URL");
         finalAvatarUrl = null;
         if (isEditing && previousAvatarUrl) {
           shouldDeleteOldAvatar = true;
@@ -281,14 +283,14 @@ export function UserFormSheet({
         avatarUrl?: string | null;
       } & Omit<UpdateUserSchema, "avatarUrl"> & { avatarUrl?: string | null };
 
-      console.log("📝 Final data to submit:", {
+      logger.debug("Final data to submit:", {
         ...finalData,
         avatarUrl: finalAvatarUrl,
       });
 
       if (isEditing) {
         // Update user
-        console.log("🔄 Updating user:", user!.id);
+        logger.debug("Updating user:", user!.id);
         const updateData = finalData as Omit<UpdateUserSchema, "avatarUrl"> & {
           avatarUrl?: string | null;
         };
@@ -304,12 +306,12 @@ export function UserFormSheet({
           try {
             await uploadService.deleteImage(previousAvatarUrl);
           } catch (deleteError) {
-            console.warn("⚠️ Không thể xóa ảnh cũ:", deleteError);
+            logger.warn("Không thể xóa ảnh cũ:", deleteError);
           }
         }
       } else {
         // Create user
-        console.log("➕ Creating new user");
+        logger.debug("Creating new user");
         const createData = finalData as Omit<CreateUserSchema, "avatarUrl"> & {
           avatarUrl?: string | null;
         };
@@ -320,12 +322,12 @@ export function UserFormSheet({
         try {
           await uploadService.deleteImage(uploadedAvatarUrl);
         } catch (cleanupError) {
-          console.warn("⚠️ Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
+          logger.warn("Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
         }
       }
       // useAppMutation sẽ tự động xử lý lỗi và gán vào form
       // Nhưng vẫn log để debug
-      console.error("❌ Error in onSubmit:", error);
+      logger.error("Error in onSubmit:", error);
       // Hiển thị toast error nếu có
       if (error instanceof Error) {
         toast.error(error.message || "Có lỗi xảy ra khi xử lý");
@@ -401,8 +403,8 @@ export function UserFormSheet({
                           name="avatarUrl"
                           control={form.control}
                           render={({ field }) => {
-                            // Debug: Log form values
-                            console.log("📝 UserForm - Edit mode:", {
+                            // Debug: Log form values (only in development)
+                            logger.debug("UserForm - Edit mode:", {
                               fieldValue: field.value,
                               userAvatarUrl: user?.avatarUrl,
                               formAvatarUrl: form.watch("avatarUrl"),

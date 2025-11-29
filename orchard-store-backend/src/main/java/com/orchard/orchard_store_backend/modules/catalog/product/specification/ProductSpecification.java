@@ -33,6 +33,7 @@ import java.util.Map;
 public class ProductSpecification implements Specification<Product> {
 
     private Long brandId;
+    private List<Long> brandIds; // Support multiple brands with OR condition
     private Long categoryId;
     private Map<String, String> jsonbAttributes; // attributeKey -> attributeValue
     private Product.Status status;
@@ -50,8 +51,16 @@ public class ProductSpecification implements Specification<Product> {
     public Predicate toPredicate(@NonNull Root<Product> root, @NonNull CriteriaQuery<?> query, @NonNull CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
 
-        // Filter by Brand ID
-        if (brandId != null) {
+        // Filter by Brand ID(s)
+        if (brandIds != null && !brandIds.isEmpty()) {
+            // Multiple brands: use OR condition
+            List<Predicate> brandPredicates = new ArrayList<>();
+            for (Long id : brandIds) {
+                brandPredicates.add(cb.equal(root.get("brand").get("id"), id));
+            }
+            predicates.add(cb.or(brandPredicates.toArray(new Predicate[0])));
+        } else if (brandId != null) {
+            // Single brand: use simple equality
             predicates.add(cb.equal(root.get("brand").get("id"), brandId));
         }
 
@@ -125,6 +134,11 @@ public class ProductSpecification implements Specification<Product> {
 
         public Builder brandId(Long brandId) {
             specification.brandId = brandId;
+            return this;
+        }
+
+        public Builder brandIds(List<Long> brandIds) {
+            specification.brandIds = brandIds;
             return this;
         }
 

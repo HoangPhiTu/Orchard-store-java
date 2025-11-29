@@ -1,6 +1,6 @@
 # 🚀 Hướng Dẫn Setup Dự Án Orchard Store
 
-> **Hướng dẫn chi tiết để chạy dự án sau khi clone từ GitHub**
+> **Hướng dẫn chi tiết và đầy đủ để clone và chạy dự án từ GitHub**
 
 ---
 
@@ -13,7 +13,7 @@
 5. [Bước 4: Setup Frontend Storefront](#bước-4-setup-frontend-storefront)
 6. [Bước 5: Chạy Dự Án](#bước-5-chạy-dự-án)
 7. [Kiểm Tra & Xác Minh](#kiểm-tra--xác-minh)
-8. [Troubleshooting](#troubleshooting)
+8. [Troubleshooting Chi Tiết](#troubleshooting-chi-tiết)
 
 ---
 
@@ -21,8 +21,8 @@
 
 ### Phần Mềm Bắt Buộc
 
-| Phần Mềm | Phiên Bản | Download |
-|----------|-----------|----------|
+| Phần Mềm | Phiên Bản Tối Thiểu | Download Link |
+|----------|---------------------|---------------|
 | **Java** | 21 LTS | [Oracle JDK](https://www.oracle.com/java/technologies/downloads/) hoặc [OpenJDK](https://adoptium.net/) |
 | **Maven** | 3.9+ | [Maven](https://maven.apache.org/download.cgi) hoặc dùng Maven Wrapper (đã có sẵn) |
 | **Node.js** | 20+ | [Node.js](https://nodejs.org/) |
@@ -37,51 +37,99 @@
 - **IntelliJ IDEA** / **VS Code** - IDEs
 - **Postman** / **Thunder Client** - API testing
 
+### Kiểm Tra Yêu Cầu
+
+```bash
+# Kiểm tra Java
+java -version
+# Kết quả mong đợi: openjdk version "21" hoặc tương tự
+
+# Kiểm tra Maven (nếu đã cài)
+mvn -version
+# Hoặc dùng Maven Wrapper: .\mvnw.cmd -version (Windows) hoặc ./mvnw -version (Linux/Mac)
+
+# Kiểm tra Node.js
+node -v
+# Kết quả mong đợi: v20.x.x hoặc cao hơn
+
+# Kiểm tra npm
+npm -v
+# Kết quả mong đợi: 10.x.x hoặc cao hơn
+
+# Kiểm tra Git
+git --version
+```
+
 ---
 
 ## 📥 Bước 1: Clone Repository
 
+### 1.1. Clone từ GitHub
+
 ```bash
-# Clone repository từ GitHub
+# Clone repository
 git clone https://github.com/HoangPhiTu/Orchard-store-java-private.git
 
 # Di chuyển vào thư mục dự án
 cd Orchard-store-java-private
 ```
 
+### 1.2. Kiểm Tra Cấu Trúc Dự Án
+
+Sau khi clone, bạn sẽ thấy cấu trúc như sau:
+
+```
+Orchard-store-java-private/
+├── orchard-store-backend/      # Spring Boot Backend
+├── orchard-store-dashboad/     # Next.js Admin Dashboard
+├── orchard-storefront/          # Next.js Storefront
+├── docs/                        # Tài liệu
+├── README.md                    # Tài liệu tổng quan
+└── SETUP_GUIDE.md              # File này
+```
+
 ---
 
 ## ☕ Bước 2: Setup Backend (Spring Boot)
 
-### 2.1. Kiểm Tra Java Version
+### 2.1. Di Chuyển Vào Thư Mục Backend
 
 ```bash
-# Kiểm tra Java đã cài đặt chưa
-java -version
-
-# Kết quả mong đợi: openjdk version "21" hoặc tương tự
+cd orchard-store-backend
 ```
 
-### 2.2. Cấu Hình Database
+### 2.2. Kiểm Tra Java Version
 
-Dự án đã có sẵn file `application.properties` với cấu hình Supabase. Nếu muốn thay đổi:
+```bash
+java -version
+```
+
+**Kết quả mong đợi:** `openjdk version "21"` hoặc tương tự
+
+Nếu chưa có Java 21, cài đặt từ:
+- Windows: [Adoptium](https://adoptium.net/)
+- Linux: `sudo apt install openjdk-21-jdk`
+- Mac: `brew install openjdk@21`
+
+### 2.3. Cấu Hình Database
+
+Dự án đã có sẵn file `application.properties` với cấu hình Supabase. File này đã được commit vào repository.
 
 **File:** `orchard-store-backend/src/main/resources/application.properties`
 
-```properties
-# Database Configuration
-spring.datasource.url=jdbc:postgresql://your-host:5432/postgres
-spring.datasource.username=your-username
-spring.datasource.password=your-password
-```
+Các thông tin database đã được cấu hình sẵn:
+- Database URL: Supabase PostgreSQL
+- Username và Password: Đã có sẵn
+- JWT Secrets: Đã có sẵn
+- Email Configuration: Đã có sẵn
 
-### 2.3. Build Backend
+**Lưu ý:** Nếu muốn thay đổi database, chỉnh sửa file `application.properties`.
+
+### 2.4. Build Backend
 
 ```bash
-# Di chuyển vào thư mục backend
-cd orchard-store-backend
-
 # Build project với Maven (sẽ tải dependencies và compile)
+# Lần đầu có thể mất 5-10 phút
 mvn clean install
 
 # Hoặc nếu không có Maven global, dùng Maven Wrapper:
@@ -91,9 +139,12 @@ mvn clean install
 ./mvnw clean install
 ```
 
-**Lưu ý:** Lần đầu build có thể mất 5-10 phút để tải dependencies.
+**Lưu ý quan trọng:**
+- Lần đầu build sẽ tải tất cả dependencies (có thể mất 5-10 phút)
+- Annotation processors (Lombok, MapStruct) sẽ chạy tự động
+- Nếu gặp lỗi, xem phần [Troubleshooting](#troubleshooting-chi-tiết)
 
-### 2.4. Chạy Backend
+### 2.5. Chạy Backend
 
 ```bash
 # Chạy Spring Boot application
@@ -104,11 +155,18 @@ mvn spring-boot:run
 .\mvnw.cmd spring-boot:run
 # Linux/Mac:
 ./mvnw spring-boot:run
+
+# Hoặc chạy JAR trực tiếp (sau khi build):
+java -jar target/orchard-store-backend-0.0.1-SNAPSHOT.jar
 ```
 
 **Backend sẽ chạy tại:** `http://localhost:8080`
 
 **API Base URL:** `http://localhost:8080/api`
+
+**Kiểm tra Backend đã chạy:**
+- Mở trình duyệt: `http://localhost:8080/api/brands`
+- Hoặc dùng curl: `curl http://localhost:8080/api/brands`
 
 ---
 
@@ -124,7 +182,8 @@ cd orchard-store-dashboad
 ### 3.2. Cài Đặt Dependencies
 
 ```bash
-# Cài đặt tất cả dependencies (lần đầu có thể mất 3-5 phút)
+# Cài đặt tất cả dependencies
+# Lần đầu có thể mất 3-5 phút
 npm install
 
 # Hoặc nếu dùng yarn:
@@ -134,9 +193,13 @@ yarn install
 pnpm install
 ```
 
+**Lưu ý:** Lần đầu cài đặt sẽ tải tất cả packages từ npm registry.
+
 ### 3.3. Cấu Hình Environment Variables
 
 File `.env.local` đã có sẵn trong repository với cấu hình mặc định:
+
+**File:** `orchard-store-dashboad/.env.local`
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8080
@@ -144,7 +207,9 @@ NEXT_PUBLIC_ACCESS_TOKEN_KEY=orchard_admin_token
 JWT_SECRET=your-jwt-secret-key-here
 ```
 
-Nếu cần thay đổi, chỉnh sửa file `orchard-store-dashboad/.env.local`
+**Lưu ý:** File này đã được commit vào repository, bạn không cần tạo mới.
+
+Nếu cần thay đổi, chỉnh sửa file `orchard-store-dashboad/.env.local`.
 
 ### 3.4. Chạy Dashboard
 
@@ -159,6 +224,13 @@ pnpm dev
 ```
 
 **Dashboard sẽ chạy tại:** `http://localhost:3000`
+
+**Kiểm tra Dashboard:**
+- Mở trình duyệt: `http://localhost:3000`
+- Trang login sẽ hiển thị
+- Đăng nhập với:
+  - Email: `tuhoang.170704@gmail.com`
+  - Password: `admin123`
 
 ---
 
@@ -260,37 +332,128 @@ Mở trình duyệt: `http://localhost:3001` (hoặc port tương ứng)
 
 ---
 
-## 🔧 Troubleshooting
+## 🔧 Troubleshooting Chi Tiết
 
-### ❌ Lỗi: "Java not found"
+### ❌ Lỗi: "Java not found" hoặc "java: command not found"
+
+**Nguyên nhân:** Java chưa được cài đặt hoặc chưa được thêm vào PATH.
 
 **Giải pháp:**
+
 ```bash
 # Kiểm tra Java đã cài đặt chưa
 java -version
 
 # Nếu chưa có, cài đặt Java 21:
-# Windows: Tải từ https://adoptium.net/
-# Linux: sudo apt install openjdk-21-jdk
-# Mac: brew install openjdk@21
+# Windows: Tải từ https://adoptium.net/ và cài đặt
+# Linux: 
+sudo apt update
+sudo apt install openjdk-21-jdk
+
+# Mac:
+brew install openjdk@21
+
+# Sau khi cài, kiểm tra lại:
+java -version
 ```
 
-### ❌ Lỗi: "Maven not found"
+### ❌ Lỗi: "Maven not found" hoặc "mvn: command not found"
+
+**Nguyên nhân:** Maven chưa được cài đặt.
 
 **Giải pháp:**
 - Dự án đã có Maven Wrapper, không cần cài Maven global
 - Dùng `.\mvnw.cmd` (Windows) hoặc `./mvnw` (Linux/Mac) thay vì `mvn`
 
-### ❌ Lỗi: "Cannot connect to database"
+```bash
+# Windows:
+.\mvnw.cmd clean install
+.\mvnw.cmd spring-boot:run
+
+# Linux/Mac:
+./mvnw clean install
+./mvnw spring-boot:run
+```
+
+### ❌ Lỗi: "Could not find or load main class com.orchard.orchard_store_backend.OrchardStoreBackendApplication"
+
+**Nguyên nhân:** 
+- Annotation processors (Lombok, MapStruct) chưa chạy
+- Target folder bị lỗi
+- Main class chưa được compile
 
 **Giải pháp:**
+
+```bash
+# Bước 1: Clean project
+mvn clean
+
+# Bước 2: Xóa target folder (nếu cần)
+# Windows:
+rmdir /s /q target
+# Linux/Mac:
+rm -rf target
+
+# Bước 3: Rebuild
+mvn clean compile
+
+# Bước 4: Kiểm tra main class đã được compile
+# Windows:
+dir target\classes\com\orchard\orchard_store_backend\OrchardStoreBackendApplication.class
+# Linux/Mac:
+ls target/classes/com/orchard/orchard_store_backend/OrchardStoreBackendApplication.class
+
+# Bước 5: Build JAR
+mvn clean package
+
+# Bước 6: Chạy
+mvn spring-boot:run
+```
+
+**Nếu vẫn lỗi:**
+
+1. Kiểm tra IDE settings (nếu dùng IntelliJ IDEA):
+   - File → Settings → Build, Execution, Deployment → Compiler → Annotation Processors
+   - Đảm bảo "Enable annotation processing" được bật
+   - Rebuild project: Build → Rebuild Project
+
+2. Kiểm tra Java version:
+   ```bash
+   java -version
+   # Phải là version 21
+   ```
+
+3. Xóa .m2 cache và tải lại:
+   ```bash
+   # Windows:
+   rmdir /s /q %USERPROFILE%\.m2\repository\org\projectlombok
+   rmdir /s /q %USERPROFILE%\.m2\repository\org\mapstruct
+   
+   # Linux/Mac:
+   rm -rf ~/.m2/repository/org/projectlombok
+   rm -rf ~/.m2/repository/org/mapstruct
+   
+   # Rebuild
+   mvn clean install
+   ```
+
+### ❌ Lỗi: "Cannot connect to database"
+
+**Nguyên nhân:** Database connection không đúng hoặc database không khả dụng.
+
+**Giải pháp:**
+
 1. Kiểm tra file `application.properties` có đúng thông tin database không
 2. Kiểm tra Supabase project đang hoạt động
 3. Kiểm tra network connection
+4. Kiểm tra logs trong `orchard-store-backend/logs/orchard-backend.log`
 
 ### ❌ Lỗi: "Port 8080 already in use"
 
+**Nguyên nhân:** Port 8080 đã được sử dụng bởi process khác.
+
 **Giải pháp:**
+
 ```bash
 # Windows: Tìm process đang dùng port 8080
 netstat -ano | findstr :8080
@@ -298,18 +461,32 @@ netstat -ano | findstr :8080
 # Kill process (thay PID bằng process ID tìm được)
 taskkill /PID <PID> /F
 
+# Linux/Mac:
+lsof -ti:8080 | xargs kill -9
+
 # Hoặc đổi port trong application.properties:
 server.port=8081
 ```
 
 ### ❌ Lỗi: "npm install failed"
 
+**Nguyên nhân:** Network issue hoặc npm cache bị lỗi.
+
 **Giải pháp:**
+
 ```bash
 # Xóa node_modules và package-lock.json
 rm -rf node_modules package-lock.json
 
+# Windows:
+rmdir /s /q node_modules
+del package-lock.json
+
 # Cài lại
+npm install
+
+# Hoặc clear npm cache:
+npm cache clean --force
 npm install
 
 # Hoặc dùng yarn:
@@ -318,7 +495,10 @@ yarn install
 
 ### ❌ Lỗi: "Module not found" hoặc "Cannot find module"
 
+**Nguyên nhân:** Dependencies chưa được cài đặt.
+
 **Giải pháp:**
+
 ```bash
 # Đảm bảo đã chạy npm install
 cd orchard-store-dashboad
@@ -332,6 +512,7 @@ npm install
 ### ❌ Lỗi: "Backend không chạy được"
 
 **Giải pháp:**
+
 1. Kiểm tra Java version: `java -version` (phải là 21)
 2. Kiểm tra Maven build: `mvn clean install` (phải thành công)
 3. Kiểm tra logs trong `orchard-store-backend/logs/orchard-backend.log`
@@ -340,9 +521,34 @@ npm install
 ### ❌ Lỗi: "Frontend không kết nối được Backend"
 
 **Giải pháp:**
+
 1. Đảm bảo Backend đang chạy tại `http://localhost:8080`
 2. Kiểm tra file `.env.local` có đúng `NEXT_PUBLIC_API_URL=http://localhost:8080` không
 3. Restart frontend server sau khi sửa `.env.local`
+4. Kiểm tra CORS settings trong backend
+
+### ❌ Lỗi: "Cannot find path" (Windows với OneDrive)
+
+**Nguyên nhân:** Đường dẫn có ký tự đặc biệt (như "Tài liệu") có thể gây vấn đề.
+
+**Giải pháp:**
+
+Di chuyển project ra ngoài OneDrive:
+
+```bash
+# Di chuyển project ra C:\
+# Ví dụ: C:\Projects\Orchard-store-java-private
+```
+
+Sau đó clone lại:
+
+```bash
+cd C:\Projects
+git clone https://github.com/HoangPhiTu/Orchard-store-java-private.git
+cd Orchard-store-java-private\orchard-store-backend
+mvn clean compile
+mvn spring-boot:run
+```
 
 ---
 
@@ -369,7 +575,12 @@ Các file quan trọng đã được commit:
 - ✅ `application.properties` - Backend configuration (với credentials)
 - ✅ `.env.local` - Frontend environment variables
 - ✅ `mvnw` / `mvnw.cmd` - Maven Wrapper
+- ✅ `.mvn/wrapper/` - Maven Wrapper files
 - ✅ Tất cả source code
+
+### 🔒 Bảo Mật
+
+**Lưu ý:** File `application.properties` và `.env.local` chứa thông tin nhạy cảm (database credentials, JWT secrets). Repository này là **private**, nhưng vẫn nên cẩn thận khi chia sẻ.
 
 ---
 
@@ -407,19 +618,37 @@ npm run dev
 - [Frontend Documentation](./docs/frontend/README.md)
 - [Getting Started Guide](./docs/01_GETTING_STARTED.md)
 - [API Reference](./docs/backend/API_REFERENCE.md)
+- [Main README](./README.md)
 
 ---
 
 ## 🆘 Cần Giúp Đỡ?
 
 Nếu gặp vấn đề không giải quyết được:
-1. Kiểm tra [Troubleshooting](#troubleshooting) ở trên
+
+1. Kiểm tra [Troubleshooting](#troubleshooting-chi-tiết) ở trên
 2. Xem logs trong `orchard-store-backend/logs/orchard-backend.log`
 3. Kiểm tra console của trình duyệt (F12) cho frontend errors
-4. Tạo issue trên GitHub repository
+4. Tạo issue trên GitHub repository: https://github.com/HoangPhiTu/Orchard-store-java-private
 
 ---
 
-**Last Updated:** 2025-11-27  
-**Version:** 1.0.0
+## ✅ Checklist Sau Khi Setup
+
+- [ ] Java 21 đã được cài đặt và có trong PATH
+- [ ] Node.js 20+ đã được cài đặt
+- [ ] Backend build thành công (`mvn clean install`)
+- [ ] Backend chạy được (`mvn spring-boot:run`)
+- [ ] Backend API hoạt động (`http://localhost:8080/api/brands`)
+- [ ] Dashboard dependencies đã được cài (`npm install`)
+- [ ] Dashboard chạy được (`npm run dev`)
+- [ ] Dashboard hiển thị trang login (`http://localhost:3000`)
+- [ ] Có thể đăng nhập vào Dashboard
+- [ ] Storefront (nếu cần) đã được setup và chạy
+
+---
+
+**Last Updated:** 2025-11-28  
+**Version:** 2.0.0  
+**Repository:** https://github.com/HoangPhiTu/Orchard-store-java-private
 

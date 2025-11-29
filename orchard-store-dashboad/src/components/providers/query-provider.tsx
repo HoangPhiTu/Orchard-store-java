@@ -52,11 +52,13 @@ export default function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             refetchOnWindowFocus: false,
-            staleTime: 60 * 1000,
-            gcTime: 5 * 60 * 1000,
+            staleTime: 60 * 1000, // 1 minute default
+            gcTime: 5 * 60 * 1000, // 5 minutes default
             retry: 1,
             // Queries sẽ không throw error để UI có thể handle gracefully
             throwOnError: false,
+            // Background refetching để giữ data fresh
+            refetchInterval: false, // Disable by default, enable per query if needed
           },
           mutations: {
             // Mutations sẽ throw error để component có thể handle nếu cần
@@ -70,9 +72,7 @@ export default function Providers({ children }: { children: ReactNode }) {
   const antdTheme = useMemo(
     () => ({
       algorithm:
-        resolvedTheme === "dark"
-          ? theme.darkAlgorithm
-          : theme.defaultAlgorithm,
+        resolvedTheme === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
       token: {
         colorPrimary: primaryColor,
         colorBgBase: backgroundColor,
@@ -80,19 +80,11 @@ export default function Providers({ children }: { children: ReactNode }) {
         colorBorder: borderColor,
       },
     }),
-    [
-      backgroundColor,
-      borderColor,
-      foregroundColor,
-      primaryColor,
-      resolvedTheme,
-    ]
+    [backgroundColor, borderColor, foregroundColor, primaryColor, resolvedTheme]
   );
 
   return (
-    <ConfigProvider
-      theme={antdTheme}
-    >
+    <ConfigProvider theme={antdTheme}>
       <QueryClientProvider client={queryClient}>
         <AntdApp>
           <AuthBootstrapper />

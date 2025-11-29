@@ -4,9 +4,11 @@ import { useEffect, useRef } from "react";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useNotificationStore } from "@/stores/notification-store";
 import { env } from "@/config/env";
+import { logger } from "@/lib/logger";
 
 /**
  * Hook để kết nối WebSocket và nhận thông báo real-time
@@ -18,6 +20,7 @@ export function useWebSocket() {
   const clientRef = useRef<Client | null>(null);
   const { isAuthenticated } = useAuthStore();
   const { addNotification } = useNotificationStore();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Chỉ connect khi đã authenticated
@@ -28,13 +31,14 @@ export function useWebSocket() {
     // Tạo WebSocket client với SockJS fallback
     const client = new Client({
       webSocketFactory: () => {
-        return new SockJS(`${env.apiUrl}/ws`) as any;
+        // SockJS returns a WebSocket-like object that STOMP can use
+        return new SockJS(`${env.apiUrl}/ws`) as unknown as WebSocket;
       },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
       onConnect: () => {
-        console.log("WebSocket connected");
+        logger.log("WebSocket connected");
 
         // Subscribe vào topic admin-notifications
         client.subscribe("/topic/admin-notifications", (message: IMessage) => {
@@ -67,22 +71,60 @@ export function useWebSocket() {
               audio.play().catch(() => {
                 // Ignore audio play errors (user may have blocked autoplay)
               });
-            } catch (e) {
+            } catch {
               // Ignore audio errors
             }
           } catch (error) {
-            console.error("Failed to parse notification:", error);
+            logger.error("Failed to parse notification:", error);
+          }
+        });
+
+        // Subscribe vào topic data-updates để nhận realtime updates cho Brands, Categories, Users
+        client.subscribe("/topic/data-updates", (message: IMessage) => {
+          try {
+            const update = JSON.parse(message.body);
+            const { entityType, action, entityId } = update;
+
+            logger.debug("Received data update:", {
+              entityType,
+              action,
+              entityId,
+            });
+
+            // Invalidate queries dựa trên entity type
+            switch (entityType) {
+              case "BRAND":
+                queryClient.invalidateQueries({
+                  queryKey: ["admin", "brands"],
+                });
+                logger.debug("Invalidated brands queries");
+                break;
+              case "CATEGORY":
+                queryClient.invalidateQueries({
+                  queryKey: ["admin", "categories"],
+                });
+                logger.debug("Invalidated categories queries");
+                break;
+              case "USER":
+                queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+                logger.debug("Invalidated users queries");
+                break;
+              default:
+                logger.debug("Unknown entity type:", entityType);
+            }
+          } catch (error) {
+            logger.error("Failed to parse data update:", error);
           }
         });
       },
       onDisconnect: () => {
-        console.log("WebSocket disconnected");
+        logger.log("WebSocket disconnected");
       },
       onStompError: (frame) => {
-        console.error("STOMP error:", frame);
+        logger.error("STOMP error:", frame);
       },
       onWebSocketError: (event) => {
-        console.error("WebSocket error:", event);
+        logger.error("WebSocket error:", event);
       },
     });
 
@@ -97,5 +139,5 @@ export function useWebSocket() {
         clientRef.current = null;
       }
     };
-  }, [isAuthenticated, addNotification]);
+  }, [isAuthenticated, addNotification, queryClient]);
 }

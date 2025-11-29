@@ -158,9 +158,8 @@ public class AdminOtpService {
      */
     @Transactional
     public void resetPasswordWithOtp(String email, String newPassword) {
-        log.info("=== RESET PASSWORD WITH OTP ===");
-        log.info("Email: {}", email);
-        log.info("New password (plain): {}", newPassword != null ? "***" : "NULL");
+        log.info("Password reset request for email: {}", email);
+        // KHÔNG log password để bảo mật
         
         // Clear entity manager cache first
         entityManager.clear();
@@ -169,18 +168,20 @@ public class AdminOtpService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        log.info("User found. ID: {}, Current password hash: {}", user.getId(), user.getPassword());
+        log.debug("User found. ID: {}", user.getId());
+        // KHÔNG log password hash
         
         // Encode new password
         String encodedPassword = passwordEncoder.encode(newPassword);
-        log.info("New password encoded. Hash: {}", encodedPassword);
         
-        // Verify encoding works before saving
+        // Verify encoding works before saving (chỉ log trong debug mode)
         boolean testMatch = passwordEncoder.matches(newPassword, encodedPassword);
-        log.info("Test password match (before save): {}", testMatch ? "SUCCESS" : "FAILED");
+        if (!testMatch && log.isDebugEnabled()) {
+            log.debug("Password encoding verification failed before save");
+        }
         
         if (!testMatch) {
-            log.error("CRITICAL: Password encoding failed! Cannot match new password against encoded hash.");
+            log.error("CRITICAL: Password encoding failed for user ID: {}", user.getId());
             throw new RuntimeException("Password encoding failed. Please try again.");
         }
         
@@ -200,26 +201,21 @@ public class AdminOtpService {
         entityManager.flush();
         entityManager.clear();
         
-        log.info("User password saved. Flushed to database.");
+        log.debug("User password saved. Flushed to database.");
         
         // Verify password was saved correctly by querying fresh from database
         User verifyUser = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found after save"));
         
-        log.info("Verifying saved password...");
-        log.info("Plain password: {}", newPassword);
-        log.info("Stored hash: {}", verifyUser.getPassword());
-        
         boolean passwordMatches = passwordEncoder.matches(newPassword, verifyUser.getPassword());
-        log.info("Password verification after save: {}", passwordMatches ? "SUCCESS" : "FAILED");
         
         if (!passwordMatches) {
-            log.error("CRITICAL: Password was not saved correctly for user: {}", email);
-            log.error("Trying to match: '{}' against hash: '{}'", newPassword, verifyUser.getPassword());
+            log.error("CRITICAL: Password was not saved correctly for user ID: {}", verifyUser.getId());
+            // KHÔNG log password hoặc hash
             throw new RuntimeException("Password was not saved correctly. Please try again.");
         }
         
-        log.info("Password reset successful for user: {}", email);
+        log.info("Password reset successful for user ID: {}", verifyUser.getId());
         
         // Delete reset token and OTP
         deleteResetToken(email);

@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Custom UserDetailsService that loads User with eager fetching of roles and permissions
@@ -35,17 +34,17 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
+        // Use findByEmailWithRolesAndPermissions to eager fetch roles for authorities
+        // This prevents LazyInitializationException when accessing userRoles in getAuthorities()
+        User user = userRepository.findByEmailWithRolesAndPermissions(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
         
-        // Log for debugging
-        log.info("=== CustomUserDetailsService.loadUserByUsername ===");
-        log.info("Email: {}", email);
-        log.info("User ID: {}", user.getId());
-        log.info("Password hash: {}", user.getPassword());
-        log.info("Account locked: {}", user.isAccountLocked());
-        log.info("Status: {}", user.getStatus());
-        log.info("Failed login attempts: {}", user.getFailedLoginAttempts());
+        // Log for debugging (KHÔNG log password hash)
+        if (log.isDebugEnabled()) {
+            log.debug("Loading user by email: {}", email);
+            log.debug("User ID: {}, Account locked: {}, Status: {}, Failed attempts: {}", 
+                user.getId(), user.isAccountLocked(), user.getStatus(), user.getFailedLoginAttempts());
+        }
         
         // Check if account is locked
         boolean isLocked = user.isAccountLocked() || user.getStatus() == User.Status.BANNED;

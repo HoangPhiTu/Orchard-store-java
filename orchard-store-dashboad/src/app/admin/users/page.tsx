@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus, Search, ChevronDown } from "lucide-react";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useUsers } from "@/hooks/use-users";
+import { usePrefetchNextPage } from "@/hooks/use-realtime-updates";
+import { userService } from "@/services/user.service";
 import type { Page, User, UserStatus } from "@/types/user.types";
 import { STATUS_OPTIONS } from "@/config/options";
 import { UserTable } from "@/components/features/user/user-table";
+import { VirtualUserTable } from "@/components/features/user/virtual-user-table";
 import { UserFormSheet } from "@/components/features/user/user-form-sheet";
 import { ResetPasswordDialog } from "@/components/features/user/reset-password-dialog";
 import { DeleteUserDialog } from "@/components/features/user/delete-user-dialog";
@@ -57,6 +60,14 @@ export default function Page() {
     }
   }, [statusFilter, onPaginationChange, pageSize]);
 
+  const prevSearchRef = useRef(debouncedSearch);
+  useEffect(() => {
+    if (prevSearchRef.current !== debouncedSearch) {
+      prevSearchRef.current = debouncedSearch;
+      onPaginationChange(1, pageSize);
+    }
+  }, [debouncedSearch, onPaginationChange, pageSize]);
+
   const filters = useMemo(
     () => ({
       keyword: debouncedSearch || undefined,
@@ -69,15 +80,27 @@ export default function Page() {
 
   const { data, isLoading, error } = useUsers(filters);
   const userPage = data as Page<User> | undefined;
+
+  // Prefetch next page để tải nhanh hơn khi user navigate
+  usePrefetchNextPage(
+    ["admin", "users"],
+    (filters) => userService.getUsers(filters as UserFilters),
+    filters,
+    zeroBasedPage + 1,
+    userPage?.totalPages ?? 0
+  );
   const users = userPage?.content ?? [];
   const totalElements = userPage?.totalElements ?? 0;
   const totalPages = userPage?.totalPages ?? 0;
+  const preferredView = searchParams.get("view");
+  const shouldUseVirtualTable =
+    preferredView === "virtual" ||
+    (preferredView !== "table" && users.length > 40);
 
-  // Reset to first page when search or filter changes
-  const handleSearchChange = (value: string) => {
+  // Reset to first page handled via effect watching debouncedSearch
+  const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
-    onPaginationChange(1, pageSize);
-  };
+  }, []);
 
   const handleEdit = (user: User) => {
     setSelectedUser(user);
@@ -180,14 +203,27 @@ export default function Page() {
               </div>
             </div>
           ) : (
-            <UserTable
-              users={users}
-              onEdit={handleEdit}
-              onResetPassword={handleResetPassword}
-              onToggleStatus={handleToggleStatus}
-              onDelete={handleDelete}
-              isLoading={isLoading}
-            />
+            <>
+              {shouldUseVirtualTable ? (
+                <VirtualUserTable
+                  users={users}
+                  onEdit={handleEdit}
+                  onResetPassword={handleResetPassword}
+                  onToggleStatus={handleToggleStatus}
+                  onDelete={handleDelete}
+                  isLoading={isLoading}
+                />
+              ) : (
+                <UserTable
+                  users={users}
+                  onEdit={handleEdit}
+                  onResetPassword={handleResetPassword}
+                  onToggleStatus={handleToggleStatus}
+                  onDelete={handleDelete}
+                  isLoading={isLoading}
+                />
+              )}
+            </>
           )}
         </div>
 

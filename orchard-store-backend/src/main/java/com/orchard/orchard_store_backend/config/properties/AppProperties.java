@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 public class AppProperties {
 
     private String frontendUrl = "http://localhost:3001";
+    
+    private String corsAllowedOrigins = "http://localhost:3000,http://localhost:3001";
 
     public String getFrontendUrl() {
         return frontendUrl;
@@ -15,6 +17,14 @@ public class AppProperties {
 
     public void setFrontendUrl(String frontendUrl) {
         this.frontendUrl = frontendUrl;
+    }
+    
+    public String getCorsAllowedOrigins() {
+        return corsAllowedOrigins;
+    }
+    
+    public void setCorsAllowedOrigins(String corsAllowedOrigins) {
+        this.corsAllowedOrigins = corsAllowedOrigins;
     }
 }
 

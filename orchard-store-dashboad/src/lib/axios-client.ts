@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { forceLogout } from "@/stores/auth-store";
 import { env, REFRESH_TOKEN_STORAGE_KEY } from "@/config/env";
 import type { LoginResponse } from "@/types/auth.types";
+import { getEncryptedToken } from "@/lib/security/token-encryption";
 
 const API_URL = env.apiUrl;
 const TOKEN_KEY = "orchard_admin_token"; // Hardcode theo yêu cầu
@@ -96,7 +97,20 @@ http.interceptors.request.use((config) => {
   }
 
   // Lấy token từ cookie tên là "orchard_admin_token"
-  const token = Cookies.get(TOKEN_KEY);
+  // Prefer cookie (set by backend), fallback to encrypted localStorage
+  let token = Cookies.get(TOKEN_KEY);
+  if (!token && typeof window !== "undefined") {
+    // Try to get from encrypted localStorage (async, but we'll handle it)
+    getEncryptedToken(TOKEN_KEY)
+      .then((encryptedToken) => {
+        if (encryptedToken && config.headers) {
+          config.headers.Authorization = `Bearer ${encryptedToken}`;
+        }
+      })
+      .catch(() => {
+        // Ignore errors
+      });
+  }
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -138,9 +152,10 @@ http.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      // Get refresh token from encrypted storage
       const refreshToken =
         typeof window !== "undefined"
-          ? localStorage.getItem(REFRESH_TOKEN_KEY)
+          ? await getEncryptedToken(REFRESH_TOKEN_KEY)
           : null;
 
       if (!refreshToken) {
@@ -149,8 +164,11 @@ http.interceptors.response.use(
         isRefreshing = false;
         Cookies.remove(TOKEN_KEY, { path: "/" });
         if (typeof window !== "undefined") {
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(REFRESH_TOKEN_KEY);
+          const { removeEncryptedToken } = await import(
+            "@/lib/security/token-encryption"
+          );
+          removeEncryptedToken(TOKEN_KEY);
+          removeEncryptedToken(REFRESH_TOKEN_KEY);
         }
         toast.error("Phiên đăng nhập hết hạn");
         forceLogout();
@@ -183,7 +201,14 @@ http.interceptors.response.use(
         Cookies.set(TOKEN_KEY, loginResponse.accessToken, cookieOptions);
 
         if (loginResponse.refreshToken) {
-          localStorage.setItem(REFRESH_TOKEN_KEY, loginResponse.refreshToken);
+          // Store encrypted refresh token
+          const { setEncryptedToken } = await import(
+            "@/lib/security/token-encryption"
+          );
+          await setEncryptedToken(
+            REFRESH_TOKEN_KEY,
+            loginResponse.refreshToken
+          );
         }
 
         // Cập nhật header cho request gốc

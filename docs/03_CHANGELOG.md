@@ -1,9 +1,61 @@
-# 📝 Changelog - Orchard Store Admin Dashboard
+# 📝 Changelog - Orchard Store E-Commerce Platform
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [0.4.0] - 2025-11-29 (Documentation Consolidation) 📚
+
+### 🎯 Highlights
+
+- Consolidated and reorganized all documentation files
+- Removed duplicate and legacy documentation
+- Created comprehensive guides for admin dashboard, products management, and coding standards
+- Updated project documentation index and navigation
+
+### ✨ Added
+
+#### Documentation
+
+- **[SETUP.md](../SETUP.md)** - Complete setup guide with troubleshooting (655 lines)
+- **[docs/ADMIN_DASHBOARD_COMPLETE.md](./ADMIN_DASHBOARD_COMPLETE.md)** - Admin dashboard analysis & fix roadmap
+- **[docs/PRODUCTS_MANAGEMENT_COMPLETE.md](./PRODUCTS_MANAGEMENT_COMPLETE.md)** - Complete products management development plan
+- **[docs/CODING_STANDARDS_COMPLETE.md](./CODING_STANDARDS_COMPLETE.md)** - Complete coding standards guide (full stack)
+
+### 🗑️ Removed
+
+#### Legacy Documentation
+
+- `SETUP_GUIDE.md` - Merged into `SETUP.md`
+- `docs/ADMIN_DASHBOARD_ANALYSIS_REPORT.md` - Merged into `ADMIN_DASHBOARD_COMPLETE.md`
+- `docs/ADMIN_DASHBOARD_BUG_ANALYSIS.md` - Merged into `ADMIN_DASHBOARD_COMPLETE.md`
+- `docs/ADMIN_DASHBOARD_FIX_ROADMAP.md` - Merged into `ADMIN_DASHBOARD_COMPLETE.md`
+- `orchard-store-dashboad/ADMIN_DASHBOARD_PROGRESS.md` - Merged into `ADMIN_DASHBOARD_COMPLETE.md`
+- `orchard-store-backend/BACKEND_PRODUCTS_DEVELOPMENT_PLAN.md` - Merged into `PRODUCTS_MANAGEMENT_COMPLETE.md`
+- `orchard-store-dashboad/PRODUCTS_MANAGEMENT_PLAN.md` - Merged into `PRODUCTS_MANAGEMENT_COMPLETE.md`
+- `docs/guides/coding-standards.md` - Merged into `CODING_STANDARDS_COMPLETE.md`
+- `docs/frontend/FE_CODING_RULES.md` - Merged into `CODING_STANDARDS_COMPLETE.md`
+- `docs/archive/legacy/` - Entire legacy directory removed
+
+### 📝 Updated
+
+#### Documentation Navigation
+
+- Updated `README.md` with new documentation links
+- Updated `docs/00_INDEX.md` with consolidated documentation structure
+- Updated `docs/01_GETTING_STARTED.md` to reference main `SETUP.md`
+- Updated `docs/02_ROADMAP.md` project description
+- Updated `docs/03_CHANGELOG.md` platform description
+
+### 📊 Statistics
+
+- **Before:** 12+ separate documentation files
+- **After:** 4 consolidated documentation files
+- **Lines of Documentation:** ~4,000+ lines consolidated
+- **Reduction:** ~67% fewer files with more comprehensive content
 
 ---
 
