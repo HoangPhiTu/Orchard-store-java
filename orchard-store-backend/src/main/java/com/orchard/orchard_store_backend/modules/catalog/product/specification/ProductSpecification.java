@@ -48,7 +48,7 @@ public class ProductSpecification implements Specification<Product> {
 
     @Override
     @Nullable
-    public Predicate toPredicate(@NonNull Root<Product> root, @NonNull CriteriaQuery<?> query, @NonNull CriteriaBuilder cb) {
+    public Predicate toPredicate(@NonNull Root<Product> root, @Nullable CriteriaQuery<?> query, @NonNull CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
 
         // Filter by Brand ID(s)
@@ -71,7 +71,7 @@ public class ProductSpecification implements Specification<Product> {
 
         // Filter by Category ID (through variants)
         // This requires a subquery to check if product has variant with this category
-        if (categoryId != null) {
+        if (categoryId != null && query != null) {
             Subquery<Long> variantSubquery = query.subquery(Long.class);
             Root<ProductVariant> variantRoot = variantSubquery.from(ProductVariant.class);
             variantSubquery.select(variantRoot.get("product").get("id"));
@@ -92,7 +92,7 @@ public class ProductSpecification implements Specification<Product> {
         // 
         // Ở đây chúng ta chỉ check variant có cachedAttributes không null
         // Để filter chính xác theo JSONB, sử dụng ProductVariantRepository.findByMultipleAttributes()
-        if (jsonbAttributes != null && !jsonbAttributes.isEmpty()) {
+        if (jsonbAttributes != null && !jsonbAttributes.isEmpty() && query != null) {
             // Create subquery to check if product has variant with cachedAttributes
             // For actual JSONB filtering, use ProductVariantRepository methods
             Subquery<Long> attributeSubquery = query.subquery(Long.class);
@@ -112,7 +112,7 @@ public class ProductSpecification implements Specification<Product> {
         }
 
         // Filter by has active variants
-        if (hasActiveVariants != null && hasActiveVariants) {
+        if (hasActiveVariants != null && hasActiveVariants && query != null) {
             Subquery<Long> activeVariantSubquery = query.subquery(Long.class);
             Root<ProductVariant> variantRoot = activeVariantSubquery.from(ProductVariant.class);
             activeVariantSubquery.select(variantRoot.get("product").get("id"));

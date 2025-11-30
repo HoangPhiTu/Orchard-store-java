@@ -29,10 +29,11 @@ import {
 } from "@/components/ui/sheet";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageUpload } from "@/components/shared/image-upload";
-import { uploadService } from "@/services/upload.service";
 import { userService } from "@/services/user.service";
+import { useImageManagement } from "@/hooks/use-image-management";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import type { User as UserType } from "@/types/auth.types";
 
 // Schema cho profile edit (fullName, phone, và avatarUrl)
@@ -86,12 +87,17 @@ export default function ProfilePage() {
   const { data: user, isLoading, error } = useCurrentUser();
   const { user: storeUser } = useAuthStore();
   const queryClient = useQueryClient();
+  
+  // Image management hook (reusable, implements best practices)
+  const imageManagement = useImageManagement("users");
 
   // Fallback to store user if query fails
   const displayUser: UserType | null = (user as UserType) || storeUser;
 
   // State for edit profile sheet
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+  // ✅ State để hiển thị avatar ngay lập tức sau khi update
+  const [latestAvatarUrl, setLatestAvatarUrl] = useState<string | null | undefined>(undefined);
 
   // Form cho edit profile
   const editForm = useForm<ProfileEditFormData>({
@@ -114,12 +120,18 @@ export default function ProfilePage() {
         phone: displayUser.phone || null,
         avatarUrl: displayUser.avatarUrl || null,
       });
+      // ✅ Clear latestAvatarUrl khi form được mở
+      setLatestAvatarUrl(undefined);
     }
   }, [displayUser, isEditSheetOpen, editForm]);
 
   const handleEditSheetOpenChange = (open: boolean) => {
     setIsEditSheetOpen(open);
-    setFormAvatarFile(null);
+    setFormAvatarFile(undefined);
+    // ✅ Clear latestAvatarUrl khi đóng form
+    if (!open) {
+      setLatestAvatarUrl(undefined);
+    }
   };
 
   // Mutation để update profile info
@@ -140,10 +152,7 @@ export default function ProfilePage() {
       // Nếu có file avatar mới, upload trước
       if (formAvatarFile) {
         try {
-          uploadedAvatarUrl = await uploadService.uploadImage(
-            formAvatarFile,
-            "users"
-          );
+          uploadedAvatarUrl = await imageManagement.uploadImage(formAvatarFile);
           avatarUrl = uploadedAvatarUrl;
         } catch (error) {
           throw new Error(
@@ -170,36 +179,36 @@ export default function ProfilePage() {
           typeof normalizedAvatarUrl === "string" &&
           normalizedAvatarUrl !== previousAvatarUrl;
 
+        // Mark old avatar for deletion (soft delete) AFTER DB update success
         if ((hasNewAvatar || isRemovingAvatar) && previousAvatarUrl) {
-          try {
-            await uploadService.deleteImage(previousAvatarUrl);
-          } catch (deleteError) {
-            logger.warn("Không thể xóa ảnh cũ:", deleteError);
-          }
+          await imageManagement.markImageForDeletion(previousAvatarUrl, {
+            entityId: displayUser.id,
+            reason: hasNewAvatar ? "replaced" : "removed",
+          });
         }
 
         return response;
       } catch (error) {
-        // Nếu update thất bại, xóa ảnh mới đã upload để tránh rác
+        // Nếu update thất bại, mark ảnh mới đã upload để cleanup (soft delete)
         if (uploadedAvatarUrl) {
-        try {
-          await uploadService.deleteImage(uploadedAvatarUrl);
-        } catch (cleanupError) {
-          logger.warn("Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
-        }
+          await imageManagement.cleanupImage(uploadedAvatarUrl);
         }
         throw error;
       }
     },
     onSuccess: (updatedUser) => {
-      // Invalidate và refetch current user data
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      // ✅ Cập nhật latestAvatarUrl để hiển thị ngay lập tức
       if (updatedUser) {
+        setLatestAvatarUrl(updatedUser.avatarUrl ?? undefined);
         useAuthStore.setState({ user: updatedUser as UserType });
       }
+      
+      // Invalidate và refetch current user data
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      
       toast.success("Cập nhật thông tin thành công");
       setIsEditSheetOpen(false);
-      setFormAvatarFile(null); // Reset avatar file sau khi thành công
+      setFormAvatarFile(undefined); // Reset avatar file sau khi thành công
     },
     onError: (error: Error) => {
       toast.error(error.message || "Cập nhật thông tin thất bại");
@@ -215,17 +224,9 @@ export default function ProfilePage() {
     return fullName.substring(0, 2).toUpperCase();
   };
 
-  // Debug: Log avatarUrl (only in development)
-  logger.debug("Profile Page - displayUser:", {
-    id: displayUser?.id,
-    email: displayUser?.email,
-    avatarUrl: displayUser?.avatarUrl,
-    hasAvatarUrl: Boolean(displayUser?.avatarUrl),
-  });
-
   if (isLoading) {
     return (
-        <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Đang tải thông tin...</p>
@@ -274,14 +275,14 @@ export default function ProfilePage() {
                   onError={(
                     e: React.SyntheticEvent<HTMLImageElement, Event>
                   ) => {
-                    console.error("❌ Error loading profile avatar:", {
+                    logger.error("Error loading profile avatar:", {
                       url: displayUser.avatarUrl,
                       error: e,
                     });
                   }}
                   onLoad={() => {
-                    console.log(
-                      "✅ Profile avatar loaded:",
+                    logger.debug(
+                      "Profile avatar loaded:",
                       displayUser.avatarUrl
                     );
                   }}
@@ -351,7 +352,9 @@ export default function ProfilePage() {
               <Shield className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <p className="mb-2 text-sm font-medium text-foreground">Vai trò</p>
+              <p className="mb-2 text-sm font-medium text-foreground">
+                Vai trò
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {displayUser?.roles && displayUser.roles.length > 0 ? (
                   displayUser.roles.map((role: string, index: number) => {
@@ -444,8 +447,41 @@ export default function ProfilePage() {
               <Label>Ảnh đại diện</Label>
               <div className="flex justify-center">
                 <ImageUpload
-                  value={formAvatarFile}
-                  previewUrl={displayUser?.avatarUrl || null}
+                  key={(() => {
+                    // ✅ Key thay đổi khi avatar URL thay đổi để force re-render
+                    const currentValue = (() => {
+                      if (formAvatarFile !== undefined) {
+                        return formAvatarFile instanceof File 
+                          ? `file-${formAvatarFile.name}-${formAvatarFile.size}` 
+                          : formAvatarFile === null ? "null" : String(formAvatarFile);
+                      }
+                      if (latestAvatarUrl !== undefined) {
+                        return typeof latestAvatarUrl === "string" ? latestAvatarUrl : "null";
+                      }
+                      return displayUser?.avatarUrl || "no-avatar";
+                    })();
+                    return `profile-avatar-${displayUser?.id || "current"}-${currentValue}`;
+                  })()}
+                  value={(() => {
+                    // ✅ Ưu tiên latestAvatarUrl để hiển thị ngay sau khi update
+                    if (formAvatarFile !== undefined) {
+                      return formAvatarFile; // File hoặc null
+                    }
+                    if (latestAvatarUrl !== undefined) {
+                      return typeof latestAvatarUrl === "string" ? latestAvatarUrl : null;
+                    }
+                    return formAvatarFile;
+                  })()}
+                  previewUrl={
+                    // Chỉ dùng previewUrl khi formAvatarFile là undefined và không có latestAvatarUrl
+                    // Nếu formAvatarFile === null (user đã xóa), không dùng previewUrl
+                    formAvatarFile === undefined && 
+                    latestAvatarUrl === undefined && 
+                    displayUser?.avatarUrl
+                      ? displayUser.avatarUrl
+                      : null
+                  }
+                  folder={imageManagement.getImageFolder()}
                   onChange={(file) => {
                     setFormAvatarFile(file);
                     editForm.setValue("avatarUrl", file || null);
@@ -454,9 +490,6 @@ export default function ProfilePage() {
                   size="md"
                 />
               </div>
-              <p className="text-center text-xs text-muted-foreground">
-                Nhấn vào avatar để chọn ảnh mới
-              </p>
             </div>
 
             {/* Full Name */}
@@ -502,10 +535,12 @@ export default function ProfilePage() {
                 disabled
                 className="bg-muted/40 text-muted-foreground"
               />
-              <p className="text-xs text-muted-foreground">Email không thể thay đổi</p>
+              <p className="text-xs text-muted-foreground">
+                Email không thể thay đổi
+              </p>
             </div>
 
-            <SheetFooter>
+            <SheetFooter className="gap-3">
               <Button
                 type="button"
                 variant="outline"

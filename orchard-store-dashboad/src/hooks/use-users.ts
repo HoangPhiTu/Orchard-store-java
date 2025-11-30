@@ -22,24 +22,50 @@ const USERS_QUERY_KEY = ["admin", "users"] as const;
  * Hook để lấy danh sách users với tìm kiếm và phân trang
  * Sử dụng keepPreviousData để tránh nháy khi phân trang
  */
+/**
+ * Normalize user filters to ensure consistent query keys
+ */
+const normalizeUserFilters = (
+  filters?: UserFilters
+): UserFilters | undefined => {
+  if (!filters) return undefined;
+
+  const normalized: UserFilters = {};
+
+  // Always include page and size if defined
+  if (filters.page !== undefined && filters.page !== null) {
+    normalized.page = Math.max(0, filters.page);
+  }
+  if (filters.size !== undefined && filters.size !== null) {
+    normalized.size = Math.max(1, filters.size);
+  }
+
+  // Normalize keyword: trim and only include if not empty
+  if (filters.keyword && filters.keyword.trim() !== "") {
+    normalized.keyword = filters.keyword.trim();
+  }
+
+  // Include status if defined and not "ALL"
+  if (filters.status && filters.status !== "ALL") {
+    normalized.status = filters.status;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+};
+
 export const useUsers = (filters?: UserFilters) => {
-  const requestFilters = useMemo<UserFilters | undefined>(() => {
-    if (!filters) return undefined;
-    return {
-      ...filters,
-      keyword: filters.keyword?.trim() || undefined,
-      status:
-        filters.status && filters.status !== "ALL" ? filters.status : undefined,
-    };
-  }, [filters]);
+  const requestFilters = useMemo(
+    () => normalizeUserFilters(filters),
+    [filters]
+  );
 
   return useQuery<Page<User>, Error>({
     queryKey: [...USERS_QUERY_KEY, requestFilters] as const,
     queryFn: () => userService.getUsers(requestFilters),
     placeholderData: keepPreviousData,
     // Users có thể thay đổi thường xuyên hơn, nhưng vẫn cache để tối ưu
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - increased for better performance
+    gcTime: 15 * 60 * 1000, // 15 minutes - keep in cache longer
     refetchOnMount: false,
     refetchOnReconnect: false,
   });
@@ -47,6 +73,7 @@ export const useUsers = (filters?: UserFilters) => {
 
 /**
  * Hook để lấy chi tiết một user theo ID
+ * Có caching để tránh refetch không cần thiết
  */
 export const useUser = (id: number | null) => {
   return useQuery<User, Error>({
@@ -58,6 +85,10 @@ export const useUser = (id: number | null) => {
       return userService.getUser(id);
     },
     enabled: !!id, // Chỉ query khi có ID
+    staleTime: 5 * 60 * 1000, // 5 minutes - user data ít thay đổi
+    gcTime: 15 * 60 * 1000, // 15 minutes - keep in cache longer
+    refetchOnMount: false, // Không refetch khi component mount lại
+    refetchOnWindowFocus: false, // Không refetch khi window focus
   });
 };
 
@@ -71,9 +102,11 @@ export const useCreateUser = (
   return useMutation<User, Error, UserCreateRequestDTO>({
     mutationFn: (data) => userService.createUser(data),
     ...options,
-    onSuccess: (data, variables, context, mutation) => {
-      // Invalidate users list và detail queries
-      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+    onSuccess: async (data, variables, context, mutation) => {
+      // ✅ Invalidate queries (mark as stale)
+      await queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
+      await queryClient.refetchQueries({ queryKey: USERS_QUERY_KEY });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -94,9 +127,11 @@ export const useUpdateUser = (
   return useMutation<User, Error, { id: number; data: UserUpdateRequestDTO }>({
     mutationFn: ({ id, data }) => userService.updateUser(id, data),
     ...options,
-    onSuccess: (data, variables, context, mutation) => {
-      // Invalidate users list và detail queries
-      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+    onSuccess: async (data, variables, context, mutation) => {
+      // ✅ Invalidate queries (mark as stale)
+      await queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
+      await queryClient.refetchQueries({ queryKey: USERS_QUERY_KEY });
       // Cập nhật cache cho user detail nếu đang được query
       queryClient.setQueryData(
         [...USERS_QUERY_KEY, "detail", variables.id],
@@ -197,8 +232,11 @@ export const useChangeEmailVerify = (
     mutationFn: ({ id, newEmail, otp }) =>
       userService.verifyChangeEmail(id, newEmail, otp),
     ...options,
-    onSuccess: (data, variables, context, mutation) => {
-      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+    onSuccess: async (data, variables, context, mutation) => {
+      // ✅ Invalidate queries (mark as stale)
+      await queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
+      await queryClient.refetchQueries({ queryKey: USERS_QUERY_KEY });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });

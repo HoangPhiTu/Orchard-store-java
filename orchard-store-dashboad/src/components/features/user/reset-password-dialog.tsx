@@ -26,6 +26,7 @@ import { userService } from "@/services/user.service";
 import { cn } from "@/lib/utils";
 import { useRateLimit } from "@/lib/security/rate-limit-utils";
 import { toast } from "sonner";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface ResetPasswordDialogProps {
   userId: number;
@@ -42,6 +43,7 @@ export function ResetPasswordDialog({
   onClose,
   onSuccess,
 }: ResetPasswordDialogProps) {
+  const { t } = useI18n();
   // Rate limiting: Max 5 attempts per 15 minutes
   const { checkRateLimit, getRemainingTime, resetRateLimit } = useRateLimit({
     maxAttempts: 5,
@@ -82,9 +84,12 @@ export function ResetPasswordDialog({
     // Check rate limit before submitting
     if (!checkRateLimit()) {
       const remaining = getRemainingTime();
-      const remainingStr = remaining > 0 
-        ? `${Math.floor(remaining / 60000)} phút ${Math.floor((remaining % 60000) / 1000)} giây`
-        : "một chút";
+      const remainingStr =
+        remaining > 0
+          ? `${Math.floor(remaining / 60000)} phút ${Math.floor(
+              (remaining % 60000) / 1000
+            )} giây`
+          : "một chút";
       toast.error(
         `Quá nhiều lần thử. Vui lòng đợi ${remainingStr} trước khi thử lại.`
       );
@@ -97,7 +102,7 @@ export function ResetPasswordDialog({
       // ✅ Nếu thành công: Hook tự động gọi onClose() trong onSuccess
       // ✅ Nếu lỗi: Hook tự động gán lỗi vào form, không gọi onClose()
       await resetPasswordMutation.mutateAsync(data);
-      
+
       // Reset rate limit on success
       resetRateLimit();
     } catch (error) {
@@ -114,13 +119,13 @@ export function ResetPasswordDialog({
           <div className="flex items-center gap-2 text-primary">
             <Key className="h-5 w-5" />
             <DialogTitle className="text-foreground">
-              Đặt lại mật khẩu
+              {t("admin.dialogs.resetPassword")}
             </DialogTitle>
           </div>
           <DialogDescription className="text-muted-foreground">
             {userName
-              ? `Nhập mật khẩu mới cho user: ${userName}`
-              : "Nhập mật khẩu mới cho user này"}
+              ? `${t("admin.dialogs.resetPasswordForUser")}: ${userName}`
+              : t("admin.dialogs.resetPasswordForUser")}
           </DialogDescription>
         </DialogHeader>
 
@@ -132,7 +137,7 @@ export function ResetPasswordDialog({
           <LoadingOverlay isLoading={resetPasswordMutation.isPending} />
 
           <FormField
-            label="Mật khẩu mới"
+            label={t("admin.dialogs.newPassword")}
             htmlFor="newPassword"
             required
             error={form.formState.errors.newPassword}
@@ -140,7 +145,7 @@ export function ResetPasswordDialog({
             <Input
               id="newPassword"
               type="password"
-              placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+              placeholder={t("admin.dialogs.enterNewPassword")}
               {...form.register("newPassword")}
               className={cn(
                 form.formState.errors.newPassword &&
@@ -157,7 +162,7 @@ export function ResetPasswordDialog({
               disabled={resetPasswordMutation.isPending}
               className="rounded-lg border-border bg-card text-card-foreground font-semibold hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
             >
-              Hủy
+              {t("admin.dialogs.cancel")}
             </Button>
             <Button
               type="submit"
@@ -167,10 +172,10 @@ export function ResetPasswordDialog({
               {resetPasswordMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xử lý...
+                  {t("admin.common.loading")}
                 </>
               ) : (
-                "Xác nhận"
+                t("admin.dialogs.confirm")
               )}
             </Button>
           </DialogFooter>

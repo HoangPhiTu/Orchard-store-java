@@ -134,16 +134,21 @@ export const useAuthStore = create(
         const token = await readToken();
         const storedUser = get().user;
 
+        // If we have both stored user and token, assume authenticated (optimistic)
+        // Only verify with API if we have token but no stored user
         if (storedUser && token) {
           set({ isAuthenticated: true, isInitialized: true });
           return;
         }
 
+        // No token means not authenticated - skip API call
         if (!token) {
           set({ ...initialState, isInitialized: true });
           return;
         }
 
+        // Only verify token with API if we have token but no stored user
+        // This reduces unnecessary API calls on login page
         try {
           const user = await authService.getCurrentUser();
           set({ user, isAuthenticated: true, isInitialized: true });

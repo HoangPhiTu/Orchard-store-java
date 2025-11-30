@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 /**
  * Verify Cloudflare Turnstile Token
@@ -23,9 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!TURNSTILE_SECRET_KEY) {
-      console.warn(
-        "TURNSTILE_SECRET_KEY not configured, skipping verification"
-      );
+      logger.warn("TURNSTILE_SECRET_KEY not configured, skipping verification");
       // Trong development, có thể skip verification
       if (process.env.NODE_ENV === "development") {
         return NextResponse.json({ success: true });
@@ -41,24 +40,42 @@ export async function POST(request: NextRequest) {
     formData.append("secret", TURNSTILE_SECRET_KEY);
     formData.append("response", token);
 
-    const verifyResponse = await fetch(TURNSTILE_VERIFY_URL, {
-      method: "POST",
-      body: formData,
-    });
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
-    const verifyData = await verifyResponse.json();
+    try {
+      const verifyResponse = await fetch(TURNSTILE_VERIFY_URL, {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      });
 
-    if (verifyData.success) {
-      return NextResponse.json({ success: true });
-    } else {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Turnstile verification failed",
-          errors: verifyData["error-codes"],
-        },
-        { status: 400 }
-      );
+      clearTimeout(timeoutId);
+
+      const verifyData = await verifyResponse.json();
+
+      if (verifyData.success) {
+        return NextResponse.json({ success: true });
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Turnstile verification failed",
+            errors: verifyData["error-codes"],
+          },
+          { status: 400 }
+        );
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
+        return NextResponse.json(
+          { success: false, error: "Turnstile verification timeout" },
+          { status: 408 }
+        );
+      }
+      throw fetchError;
     }
   } catch (error) {
     console.error("Turnstile verification error:", error);

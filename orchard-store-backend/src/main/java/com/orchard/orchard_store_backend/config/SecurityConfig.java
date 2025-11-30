@@ -44,7 +44,12 @@ public class SecurityConfig {
     }
     
     @Bean
+    @SuppressWarnings("deprecation")
     public DaoAuthenticationProvider authenticationProvider() {
+        // NOTE: DaoAuthenticationProvider constructor và setUserDetailsService() 
+        // đã deprecated trong Spring Security 6.x nhưng vẫn hoạt động.
+        // Sẽ được cập nhật khi upgrade lên Spring Security 7.x với API mới.
+        // Hiện tại giữ nguyên để đảm bảo tương thích.
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());

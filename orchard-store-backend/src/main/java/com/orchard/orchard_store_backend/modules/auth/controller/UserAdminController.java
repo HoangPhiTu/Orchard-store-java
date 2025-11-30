@@ -76,6 +76,25 @@ public class UserAdminController {
     }
 
     /**
+     * Lấy chi tiết một user theo ID.
+     * 
+     * GET /api/admin/users/{id}
+     * 
+     * @param id ID của user cần lấy
+     * @return UserResponseDTO wrapped in ApiResponse
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<UserResponseDTO>> getUserById(
+            @PathVariable @org.springframework.lang.NonNull Long id
+    ) {
+        log.info("GET /api/admin/users/{}", id);
+        
+        UserResponseDTO user = userAdminService.getUserById(id);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin user thành công", user));
+    }
+
+    /**
      * Tạo user mới.
      * 
      * POST /api/admin/users

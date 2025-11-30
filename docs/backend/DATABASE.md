@@ -10,8 +10,10 @@
 2. [RBAC System](#rbac-system)
 3. [Product Catalog (Hybrid EAV)](#product-catalog-hybrid-eav)
 4. [Supporting Tables](#supporting-tables)
-5. [Indexing Strategy](#indexing-strategy)
-6. [JSONB Usage](#jsonb-usage)
+5. [Image Management](#image-management)
+6. [Product Media & Translations](#product-media--translations)
+7. [Indexing Strategy](#indexing-strategy)
+8. [JSONB Usage](#jsonb-usage)
 
 ---
 
@@ -632,6 +634,68 @@ CREATE INDEX idx_concentrations_intensity ON concentrations(intensity_level);
 
 ---
 
+## 🖼️ Image Management
+
+### `image_deletion_queue` Table
+
+**Purpose:** Queue để quản lý soft delete của images (soft delete strategy)
+
+```sql
+CREATE TABLE image_deletion_queue (
+    id BIGSERIAL PRIMARY KEY,
+    image_url VARCHAR(500) NOT NULL,
+    entity_type VARCHAR(50),                      -- users, brands, categories, products, etc.
+    entity_id BIGINT,                             -- ID của entity (optional)
+    reason VARCHAR(100),                           -- REPLACED, REMOVED, ENTITY_DELETED, ORPHANED
+    marked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,                         -- Thời điểm xóa vật lý (sau khi cleanup job xóa thành công)
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- PENDING, PROCESSING, COMPLETED, FAILED
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_image_deletion_marked_at ON image_deletion_queue(marked_at);
+CREATE INDEX idx_image_deletion_status ON image_deletion_queue(status);
+CREATE INDEX idx_image_deletion_entity ON image_deletion_queue(entity_type, entity_id);
+```
+
+**Key Features:**
+
+- ✅ **Soft Delete Strategy**: Images được mark for deletion thay vì xóa ngay
+- ✅ **Data Consistency**: Đảm bảo không mất data khi transaction fail
+- ✅ **Cleanup Job**: Scheduled job xóa vật lý sau khi verify DB transaction thành công
+- ✅ **Status Tracking**: PENDING → PROCESSING → COMPLETED/FAILED
+- ✅ **Entity Tracking**: Lưu entity_type và entity_id để trace
+
+**Deletion Reasons:**
+
+| Reason           | Description                                     |
+| ---------------- | ----------------------------------------------- |
+| `REPLACED`       | Ảnh bị thay thế bởi ảnh mới                     |
+| `REMOVED`        | User xóa ảnh                                    |
+| `ENTITY_DELETED` | Entity bị xóa                                   |
+| `ORPHANED`       | Ảnh mồ côi (upload nhưng không được lưu vào DB) |
+
+**Status Flow:**
+
+```
+PENDING → PROCESSING → COMPLETED
+                ↓
+             FAILED (có thể retry)
+```
+
+**Cleanup Job:**
+
+- **Daily**: 2h AM - Xóa images marked > 24 hours
+- **Weekly**: Sunday 3h AM - Archive old completed records > 30 days
+
+**Related Documentation:**
+
+- [Image Management Strategy](../../IMAGE_MANAGEMENT_STRATEGY.md)
+- [Backend Image Deletion Implementation](../../BACKEND_IMAGE_DELETION_IMPLEMENTATION.md)
+
+---
+
 ## 🎨 Product Media & Translations
 
 ### 1. `product_images` Table
@@ -982,21 +1046,22 @@ erDiagram
 
 ### By Category
 
-| Category         | Tables | Purpose                                                                             |
-| ---------------- | ------ | ----------------------------------------------------------------------------------- |
-| **RBAC**         | 4      | users, roles, user_roles, login_history                                             |
-| **Catalog Core** | 3      | brands, categories, concentrations                                                  |
-| **Products**     | 2      | products, product_variants                                                          |
-| **EAV System**   | 4      | product_attributes, attribute_values, product_attribute_values, category_attributes |
-| **Media**        | 3      | product_images, product_translations, product_seo_urls                              |
-| **Inventory**    | 5      | warehouses, warehouse_stock, inventory_transactions, pre_orders, stock_alerts       |
-| **Orders**       | 5      | orders, order_items, order_statuses, order_status_history, delivery_addresses       |
-| **Customers**    | 4      | customers, addresses, customer_notes, customer_tags                                 |
-| **Pricing**      | 3      | member_pricing_tiers, tier_product_prices, discount_rules                           |
-| **Payments**     | 3      | payments, payment_methods, refunds                                                  |
-| **Other**        | 5+     | reviews, carts, wishlists, notifications...                                         |
+| Category             | Tables | Purpose                                                                             |
+| -------------------- | ------ | ----------------------------------------------------------------------------------- |
+| **RBAC**             | 4      | users, roles, user_roles, login_history                                             |
+| **Catalog Core**     | 3      | brands, categories, concentrations                                                  |
+| **Products**         | 2      | products, product_variants                                                          |
+| **EAV System**       | 4      | product_attributes, attribute_values, product_attribute_values, category_attributes |
+| **Media**            | 3      | product_images, product_translations, product_seo_urls                              |
+| **Inventory**        | 5      | warehouses, warehouse_stock, inventory_transactions, pre_orders, stock_alerts       |
+| **Orders**           | 5      | orders, order_items, order_statuses, order_status_history, delivery_addresses       |
+| **Customers**        | 4      | customers, addresses, customer_notes, customer_tags                                 |
+| **Pricing**          | 3      | member_pricing_tiers, tier_product_prices, discount_rules                           |
+| **Payments**         | 3      | payments, payment_methods, refunds                                                  |
+| **Image Management** | 1      | image_deletion_queue                                                                |
+| **Other**            | 5+     | reviews, carts, wishlists, notifications...                                         |
 
-**Total:** 40+ tables
+**Total:** 61 tables (60 từ orchard_backup.sql + 1 mới thêm)
 
 ---
 

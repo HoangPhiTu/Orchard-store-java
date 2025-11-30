@@ -55,63 +55,16 @@ export const userService = {
   /**
    * Lấy chi tiết một user theo ID
    *
-   * ⚠️ WORKAROUND: Backend chưa có endpoint GET /api/admin/users/{id}
-   * Tạm thời sử dụng workaround: fetch danh sách và filter theo ID
-   *
-   * TODO: Backend cần thêm endpoint GET /api/admin/users/{id} để:
-   * - Tối ưu hiệu suất (không cần fetch toàn bộ danh sách)
-   * - Đảm bảo tìm thấy user ngay cả khi không nằm trong page đầu tiên
+   * GET /api/admin/users/{id}
    *
    * @param id - User ID
    * @returns User object
    * @throws Error nếu không tìm thấy user
    */
-  getUser: (id: number): Promise<User> => {
-    // Workaround: Fetch với size lớn để tăng khả năng tìm thấy user
-    // Lưu ý: Nếu user không nằm trong 1000 users đầu tiên, sẽ không tìm thấy
-    const MAX_FETCH_SIZE = 1000;
-
-    return http
-      .get<ApiResponse<Page<User>>>(API_ROUTES.USERS, {
-        params: { size: MAX_FETCH_SIZE },
-      })
-      .then((res) => {
-        try {
-          const page = unwrapPage(res);
-          const user = page.content.find((u) => u.id === id);
-
-          if (!user) {
-            // Provide helpful error message
-            const totalElements = page.totalElements || 0;
-            const errorMessage =
-              totalElements > MAX_FETCH_SIZE
-                ? `User with ID ${id} not found in first ${MAX_FETCH_SIZE} users. Backend needs GET /api/admin/users/{id} endpoint.`
-                : `User with ID ${id} not found`;
-
-            throw new Error(errorMessage);
-          }
-
-          return user;
-        } catch (error) {
-          // Re-throw with more context
-          if (error instanceof Error) {
-            throw error;
-          }
-          throw new Error(`Failed to get user with ID ${id}: ${String(error)}`);
-        }
-      })
-      .catch((error) => {
-        // Improve error handling
-        if (error instanceof Error) {
-          throw error;
-        }
-        throw new Error(
-          `Failed to fetch user with ID ${id}. Backend should implement GET /api/admin/users/{id} endpoint. Original error: ${String(
-            error
-          )}`
-        );
-      });
-  },
+  getUser: (id: number): Promise<User> =>
+    http
+      .get<ApiResponse<User>>(`${API_ROUTES.USERS}/${id}`)
+      .then((res) => unwrapItem(res)),
 
   /**
    * Tạo user mới

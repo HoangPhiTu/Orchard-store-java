@@ -7,16 +7,32 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useBrands } from "@/hooks/use-brands";
 import { usePrefetchNextPage } from "@/hooks/use-realtime-updates";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCancelQueriesOnUnmount } from "@/hooks/use-request-cancellation";
 import { brandService } from "@/services/brand.service";
 import type { Brand, CatalogStatus } from "@/types/catalog.types";
 import { STATUS_OPTIONS } from "@/config/options";
 import { BrandTable } from "@/components/features/catalog/brand-table";
 import { DeleteBrandDialog } from "@/components/features/catalog/delete-brand-dialog";
-import { BrandFormSheet } from "@/components/features/catalog/brand-form-sheet";
+import dynamic from "next/dynamic";
+
+// Lazy load form component để giảm initial bundle size
+const BrandFormSheet = dynamic(
+  () =>
+    import("@/components/features/catalog/brand-form-sheet").then(
+      (mod) => mod.BrandFormSheet
+    ),
+  {
+    ssr: false,
+    loading: () => null, // Form sẽ tự quản lý loading state
+  }
+);
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
 import { BrandTableToolbar } from "@/components/features/catalog/brand-table-toolbar";
+import { useI18n } from "@/hooks/use-i18n";
 
 export default function BrandManagementPage() {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const searchParams = useSearchParams();
   const { page, pageSize, onPaginationChange } = useDataTable();
@@ -57,6 +73,7 @@ export default function BrandManagementPage() {
     [debouncedSearch, statusFilter, zeroBasedPage, pageSize]
   );
 
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useBrands(filters);
   const brandPage = data as
     | {
@@ -68,6 +85,9 @@ export default function BrandManagementPage() {
   const brands = brandPage?.content ?? [];
   const totalElements = brandPage?.totalElements ?? 0;
   const totalPages = brandPage?.totalPages ?? 0;
+
+  // Cancel queries when component unmounts to prevent memory leaks
+  useCancelQueriesOnUnmount(queryClient, ["admin", "brands"]);
 
   // Prefetch next page để tải nhanh hơn
   usePrefetchNextPage(
@@ -106,10 +126,10 @@ export default function BrandManagementPage() {
         <div className="flex flex-col gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-card-foreground">
-              Brand Management
+              {t("admin.brands.brandManagement")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage all brands and product lines available in the store.
+              {t("admin.brands.manageBrands")}
             </p>
           </div>
           <BrandTableToolbar

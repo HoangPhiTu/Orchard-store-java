@@ -8,6 +8,7 @@ import {
   ChevronDown,
   CreditCard,
   HelpCircle,
+  Languages,
   LogOut,
   Menu,
   Settings,
@@ -49,6 +50,7 @@ import { ADMIN_MENU } from "@/config/menu";
 import { ModeToggle } from "@/components/shared/mode-toggle";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface HeaderProps {
   userName?: string | null;
@@ -64,6 +66,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
   const breadcrumbs = useBreadcrumbs();
   const { logout } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  const { t, locale, setLocale } = useI18n();
 
   // Kết nối WebSocket để nhận thông báo real-time
   useWebSocket();
@@ -147,10 +150,54 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
             <button
               type="button"
               className="hidden sm:flex rounded-lg p-2.5 text-muted-foreground transition-colors hover:text-foreground"
-              title="Help"
+              title={t("admin.layout.help")}
             >
               <HelpCircle size={18} />
             </button>
+            {/* Language Switcher */}
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="rounded-lg p-2.5 text-muted-foreground transition-colors hover:text-foreground"
+                  title={t("admin.layout.language")}
+                >
+                  <Languages size={18} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>
+                  {t("admin.layout.language")}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setLocale("vi")}
+                  className={cn(
+                    "cursor-pointer",
+                    locale === "vi" && "bg-accent text-accent-foreground"
+                  )}
+                >
+                  <span className="mr-2">🇻🇳</span>
+                  {t("admin.layout.vietnamese")}
+                  {locale === "vi" && (
+                    <span className="ml-auto text-xs">✓</span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setLocale("en")}
+                  className={cn(
+                    "cursor-pointer",
+                    locale === "en" && "bg-accent text-accent-foreground"
+                  )}
+                >
+                  <span className="mr-2">🇬🇧</span>
+                  {t("admin.layout.english")}
+                  {locale === "en" && (
+                    <span className="ml-auto text-xs">✓</span>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <ModeToggle />
             <Popover
               open={isNotificationOpen}
@@ -158,7 +205,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
             >
               <PopoverTrigger
                 className="relative rounded-lg p-2.5 text-muted-foreground transition-colors hover:text-foreground"
-                title="Notifications"
+                title={t("admin.layout.notifications")}
               >
                 <Bell size={18} />
                 {unreadCount > 0 && (
@@ -185,7 +232,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                 >
                   {renderAvatar()}
                   <span className="hidden text-sm font-semibold text-foreground transition-colors group-hover:text-accent-foreground lg:block">
-                    {userName ?? "Admin"}
+                    {userName ?? t("admin.layout.adminUser")}
                   </span>
                   <ChevronDown
                     size={16}
@@ -204,7 +251,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                     {renderAvatar("h-10 w-10")}
                     <div className="flex flex-col min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground truncate">
-                        {userName ?? "Admin User"}
+                        {userName ?? t("admin.layout.adminUser")}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {userEmail ?? "admin@example.com"}
@@ -217,23 +264,25 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
 
                 {/* Group 1: Account */}
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>Account</DropdownMenuLabel>
+                  <DropdownMenuLabel>
+                    {t("admin.layout.account")}
+                  </DropdownMenuLabel>
                   <DropdownMenuItem asChild>
                     <Link href="/admin/profile" className="flex items-center">
                       <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
+                      <span>{t("admin.layout.profile")}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="#" className="flex items-center">
                       <CreditCard className="mr-2 h-4 w-4" />
-                      <span>Billing</span>
+                      <span>{t("admin.layout.billing")}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="#" className="flex items-center">
                       <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
+                      <span>{t("admin.layout.settings")}</span>
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
@@ -247,7 +296,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                     className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                    <span>{t("admin.layout.logOut")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
@@ -258,7 +307,10 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
 
       {/* Mobile Sidebar Sheet */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="w-64 p-0 bg-background text-foreground">
+        <SheetContent
+          side="left"
+          className="w-64 p-0 bg-background text-foreground"
+        >
           <div className="flex h-full flex-col">
             {/* Logo Header */}
             <div className="flex h-16 items-center justify-between border-b border-border px-6">
@@ -271,7 +323,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                     Orchard
                   </p>
                   <p className="text-sm font-semibold text-muted-foreground">
-                    Admin Console
+                    {t("admin.layout.adminConsole")}
                   </p>
                 </div>
               </div>
@@ -289,6 +341,11 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
               {ADMIN_MENU.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname.startsWith(item.href);
+                const menuKey = item.href.split("/").pop() as
+                  | "dashboard"
+                  | "brands"
+                  | "categories"
+                  | "users";
                 return (
                   <Link
                     key={item.href}
@@ -304,10 +361,12 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                     <Icon
                       className={cn(
                         "h-5 w-5 shrink-0",
-                        isActive ? "text-accent-foreground" : "text-muted-foreground"
+                        isActive
+                          ? "text-accent-foreground"
+                          : "text-muted-foreground"
                       )}
                     />
-                    <span>{item.label}</span>
+                    <span>{t(`admin.menu.${menuKey}`)}</span>
                   </Link>
                 );
               })}

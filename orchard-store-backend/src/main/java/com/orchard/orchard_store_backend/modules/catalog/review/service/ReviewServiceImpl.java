@@ -11,7 +11,6 @@ import com.orchard.orchard_store_backend.modules.catalog.review.entity.ReviewIma
 import com.orchard.orchard_store_backend.modules.catalog.review.mapper.ReviewImageMapper;
 import com.orchard.orchard_store_backend.modules.catalog.review.mapper.ReviewMapper;
 import com.orchard.orchard_store_backend.modules.catalog.review.repository.ReviewHelpfulRepository;
-import com.orchard.orchard_store_backend.modules.catalog.review.repository.ReviewImageRepository;
 import com.orchard.orchard_store_backend.modules.catalog.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +28,6 @@ import java.util.stream.Collectors;
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
-    private final ReviewImageRepository reviewImageRepository;
     private final ReviewHelpfulRepository reviewHelpfulRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;

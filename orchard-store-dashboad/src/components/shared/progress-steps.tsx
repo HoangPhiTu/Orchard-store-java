@@ -31,16 +31,16 @@ export function ProgressSteps({ currentStep, className }: ProgressStepsProps) {
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300",
                     isCompleted &&
-                      "bg-slate-800 border-slate-800 text-white shadow-lg shadow-slate-800/30",
+                      "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30",
                     isCurrent &&
-                      "bg-slate-800 border-slate-800 text-white shadow-lg shadow-slate-800/30 ring-4 ring-slate-800/20",
-                    isPending && "bg-white border-slate-300 text-slate-400"
+                      "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-primary/20",
+                    isPending && "bg-background border-border text-muted-foreground"
                   )}
                 >
                   {isCompleted ? (
                     <Check className="h-5 w-5" />
                   ) : (
-                    <span className="text-sm font-semibold">{step.number}</span>
+                    <span className="text-base font-bold">{step.number}</span>
                   )}
                 </div>
                 {/* Step Label */}
@@ -48,8 +48,8 @@ export function ProgressSteps({ currentStep, className }: ProgressStepsProps) {
                   className={cn(
                     "mt-2 text-xs font-medium transition-colors",
                     isCurrent || isCompleted
-                      ? "text-slate-700"
-                      : "text-slate-400"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
                   )}
                 >
                   {step.label}
@@ -60,7 +60,7 @@ export function ProgressSteps({ currentStep, className }: ProgressStepsProps) {
                 <div
                   className={cn(
                     "h-0.5 flex-1 mx-2 transition-all duration-300",
-                    currentStep > step.number ? "bg-slate-700" : "bg-slate-200"
+                    currentStep > step.number ? "bg-primary" : "bg-border"
                   )}
                 />
               )}

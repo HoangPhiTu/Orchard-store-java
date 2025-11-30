@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface BrandTableToolbarProps {
   search: string;
@@ -32,6 +33,7 @@ export function BrandTableToolbar({
   pageSize,
   onPageSizeChange,
 }: BrandTableToolbarProps) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/90 p-4 md:flex-row md:items-center md:justify-between">
       <div className="relative w-full md:max-w-sm">
@@ -39,13 +41,13 @@ export function BrandTableToolbar({
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search by name or slug..."
+          placeholder={t("admin.brands.searchBrands")}
           className="h-10 w-full rounded-lg border-border bg-background pl-9 text-foreground placeholder:text-muted-foreground"
         />
       </div>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
         <DataTableFilter
-          title="Status"
+          title={t("admin.users.status")}
           options={statusOptions}
           paramName="status"
           className="bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -57,11 +59,14 @@ export function BrandTableToolbar({
               variant="outline"
               className="h-10 min-w-[160px] justify-between rounded-lg text-sm text-muted-foreground"
             >
-              Hiển thị: {pageSize}
+              {t("admin.users.display")}: {pageSize}
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44 bg-card text-card-foreground">
+          <DropdownMenuContent
+            align="end"
+            className="w-44 bg-card text-card-foreground"
+          >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <DropdownMenuItem
                 key={size}
@@ -69,17 +74,14 @@ export function BrandTableToolbar({
                 data-active={size === pageSize}
                 className="cursor-pointer text-sm text-muted-foreground data-[active=true]:font-semibold data-[active=true]:text-foreground"
               >
-                {size} dòng / trang
+                {size} {t("admin.users.rowsPerPage")}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          onClick={onAddBrand}
-          className="h-10 rounded-lg"
-        >
+        <Button onClick={onAddBrand} className="h-10 rounded-lg">
           <Plus className="mr-2 h-4 w-4" />
-          Add Brand
+          {t("admin.brands.addBrand")}
         </Button>
       </div>
     </div>

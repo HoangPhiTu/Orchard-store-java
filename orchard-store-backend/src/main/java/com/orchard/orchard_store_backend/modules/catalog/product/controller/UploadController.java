@@ -1,6 +1,8 @@
 package com.orchard.orchard_store_backend.modules.catalog.product.controller;
 
 import com.orchard.orchard_store_backend.dto.ApiResponse;
+import com.orchard.orchard_store_backend.modules.catalog.product.entity.ImageDeletionQueue;
+import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageDeletionService;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 /**
  * Controller cho upload ảnh lên MinIO
@@ -30,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class UploadController {
 
     private final ImageUploadService imageUploadService;
+    private final ImageDeletionService imageDeletionService;
 
     /**
      * Upload một file ảnh lên MinIO
@@ -99,5 +104,152 @@ public class UploadController {
                     .body(ApiResponse.error(500, "Không thể xóa ảnh: " + e.getMessage()));
         }
     }
+
+    /**
+     * Mark image for deletion (soft delete)
+     * 
+     * POST /api/admin/upload/mark-for-deletion
+     * 
+     * Request Body:
+     * {
+     *   "imageUrl": "http://...",
+     *   "entityType": "users",
+     *   "entityId": 123,
+     *   "reason": "REPLACED"
+     * }
+     * 
+     * @param request Mark for deletion request
+     * @return ApiResponse<ImageDeletionQueue> với record đã tạo
+     */
+    @PostMapping("/mark-for-deletion")
+    public ResponseEntity<ApiResponse<ImageDeletionQueue>> markForDeletion(
+            @RequestBody MarkForDeletionRequest request
+    ) {
+        log.info("POST /api/admin/upload/mark-for-deletion - imageUrl: {}, entityType: {}, entityId: {}, reason: {}",
+                request.imageUrl(), request.entityType(), request.entityId(), request.reason());
+
+        try {
+            if (request.imageUrl() == null || request.imageUrl().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(400, "Image URL không được để trống"));
+            }
+
+            if (request.entityType() == null || request.entityType().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(400, "Entity type không được để trống"));
+            }
+
+            // Convert reason string to enum
+            ImageDeletionQueue.DeletionReason reason;
+            try {
+                reason = ImageDeletionQueue.DeletionReason.valueOf(
+                        request.reason() != null ? request.reason().toUpperCase() : "REPLACED"
+                );
+            } catch (IllegalArgumentException e) {
+                reason = ImageDeletionQueue.DeletionReason.REPLACED;
+            }
+
+            ImageDeletionQueue queue = imageDeletionService.markForDeletion(
+                    request.imageUrl(),
+                    request.entityType(),
+                    request.entityId(),
+                    reason
+            );
+
+            return ResponseEntity.ok(ApiResponse.success("Đã đánh dấu ảnh để xóa", queue));
+        } catch (IllegalArgumentException e) {
+            log.error("Validation error: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error marking image for deletion: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "Không thể đánh dấu ảnh để xóa: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Mark multiple images for deletion (batch)
+     * 
+     * POST /api/admin/upload/mark-for-deletion/batch
+     * 
+     * Request Body:
+     * {
+     *   "images": [
+     *     {
+     *       "imageUrl": "http://...",
+     *       "entityType": "users",
+     *       "entityId": 123,
+     *       "reason": "REPLACED"
+     *     }
+     *   ]
+     * }
+     * 
+     * @param request Batch mark for deletion request
+     * @return ApiResponse<List<ImageDeletionQueue>> với danh sách records đã tạo
+     */
+    @PostMapping("/mark-for-deletion/batch")
+    public ResponseEntity<ApiResponse<List<ImageDeletionQueue>>> markBatchForDeletion(
+            @RequestBody BatchMarkForDeletionRequest request
+    ) {
+        log.info("POST /api/admin/upload/mark-for-deletion/batch - count: {}",
+                request.images() != null ? request.images().size() : 0);
+
+        try {
+            if (request.images() == null || request.images().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(400, "Danh sách images không được để trống"));
+            }
+
+            // Convert to service requests
+            List<ImageDeletionService.MarkForDeletionRequest> serviceRequests = request.images().stream()
+                    .map(req -> {
+                        ImageDeletionQueue.DeletionReason reason;
+                        try {
+                            reason = ImageDeletionQueue.DeletionReason.valueOf(
+                                    req.reason() != null ? req.reason().toUpperCase() : "REPLACED"
+                            );
+                        } catch (IllegalArgumentException e) {
+                            reason = ImageDeletionQueue.DeletionReason.REPLACED;
+                        }
+
+                        return new ImageDeletionService.MarkForDeletionRequest(
+                                req.imageUrl(),
+                                req.entityType(),
+                                req.entityId(),
+                                reason
+                        );
+                    })
+                    .toList();
+
+            List<ImageDeletionQueue> queues = imageDeletionService.markBatchForDeletion(serviceRequests);
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    String.format("Đã đánh dấu %d ảnh để xóa", queues.size()),
+                    queues
+            ));
+        } catch (Exception e) {
+            log.error("Error marking images for deletion: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "Không thể đánh dấu ảnh để xóa: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Request DTO for mark for deletion
+     */
+    public record MarkForDeletionRequest(
+            String imageUrl,
+            String entityType,
+            Long entityId,
+            String reason
+    ) {}
+
+    /**
+     * Request DTO for batch mark for deletion
+     */
+    public record BatchMarkForDeletionRequest(
+            List<MarkForDeletionRequest> images
+    ) {}
 }
 

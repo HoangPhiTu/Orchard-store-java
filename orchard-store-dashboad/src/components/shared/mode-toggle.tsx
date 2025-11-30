@@ -1,8 +1,8 @@
 "use client";
 
-import { Sun, MoonStar, Sparkles } from "lucide-react";
+import { Lightbulb, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 export function ModeToggle() {
@@ -21,71 +21,71 @@ export function ModeToggle() {
 
   const isDark = resolvedTheme === "dark";
 
-  const handleToggle = () => {
+  const handleToggle = useCallback(() => {
+    // Prevent multiple rapid clicks
+    if (isAnimating) return;
+
     setIsAnimating(true);
-    // Theme change ngay lập tức để transition chạy song song với animation (0.5s)
-    setTheme(isDark ? "light" : "dark");
-    // Reset animation state sau khi animation hoàn thành (0.5s)
-    setTimeout(() => setIsAnimating(false), 500);
-  };
+
+    // Apply theme change with smooth transition
+    const newTheme = isDark ? "light" : "dark";
+
+    // Use requestAnimationFrame for smoother transition
+    requestAnimationFrame(() => {
+      setTheme(newTheme);
+    });
+
+    // Reset animation state after transition completes
+    setTimeout(() => {
+      setIsAnimating(false);
+    }, 200);
+  }, [isDark, isAnimating, setTheme]);
 
   return (
     <button
       type="button"
       onClick={handleToggle}
-      style={{ transitionDuration: "500ms" }}
+      disabled={isAnimating}
       className={cn(
-        "relative inline-flex h-9 w-16 items-center rounded-full border border-border bg-card transition-all linear focus:outline-none",
+        "relative inline-flex h-9 w-16 items-center rounded-full border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2",
+        "transition-colors duration-200 ease-in-out",
         isDark ? "bg-primary/20 border-primary/40" : "bg-muted/40",
-        isAnimating && "scale-105"
+        isAnimating && "pointer-events-none"
       )}
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
-      {/* Toggle circle với animation */}
+      {/* Toggle circle với animation mượt mà hơn */}
       <span
-        style={{ transitionDuration: "500ms" }}
         className={cn(
-          "absolute flex h-7 w-7 items-center justify-center rounded-full shadow-lg transition-all linear",
+          "absolute flex h-7 w-7 items-center justify-center rounded-full shadow-md",
+          "transition-transform duration-200 ease-in-out will-change-transform",
           isDark ? "translate-x-8 bg-black" : "translate-x-1 bg-white",
-          isAnimating && "scale-110",
-          "hover:scale-105"
+          isAnimating && "scale-105"
         )}
       >
-        {/* Icon với animation mượt hơn - Sparkles cho dark mode */}
+        {/* Icon với animation tối ưu */}
         {isDark ? (
-          <div className="relative">
-            <MoonStar
-              style={{ transitionDuration: "500ms" }}
-              className={cn(
-                "h-4 w-4 text-white transition-all linear",
-                isAnimating && "rotate-180 scale-110"
-              )}
-            />
-            <Sparkles
-              style={{ transitionDuration: "500ms" }}
-              className={cn(
-                "absolute -top-1 -right-1 h-2 w-2 text-yellow-300 transition-all linear",
-                isAnimating && "scale-150 rotate-180"
-              )}
-            />
-          </div>
-        ) : (
-          <Sun
-            style={{ transitionDuration: "500ms" }}
+          <Moon
             className={cn(
-              "h-4 w-4 text-gray-800 transition-all linear",
+              "h-4 w-4 text-white transition-transform duration-200 ease-in-out",
+              isAnimating && "rotate-180 scale-110"
+            )}
+          />
+        ) : (
+          <Lightbulb
+            className={cn(
+              "h-4 w-4 text-gray-800 transition-transform duration-200 ease-in-out",
               isAnimating && "rotate-180 scale-110"
             )}
           />
         )}
       </span>
 
-      {/* Background icons với animation fade mượt hơn */}
+      {/* Background icons với animation fade mượt mà hơn */}
       <div className="absolute left-2 flex items-center justify-center">
-        <Sun
-          style={{ transitionDuration: "500ms" }}
+        <Lightbulb
           className={cn(
-            "h-4 w-4 transition-all linear",
+            "h-4 w-4 transition-all duration-200 ease-in-out",
             isDark
               ? "scale-0 opacity-0 rotate-90"
               : "scale-100 opacity-100 rotate-0 text-foreground"
@@ -93,10 +93,9 @@ export function ModeToggle() {
         />
       </div>
       <div className="absolute right-2 flex items-center justify-center">
-        <MoonStar
-          style={{ transitionDuration: "500ms" }}
+        <Moon
           className={cn(
-            "h-4 w-4 transition-all linear",
+            "h-4 w-4 transition-all duration-200 ease-in-out",
             isDark
               ? "scale-100 opacity-100 rotate-0 text-foreground"
               : "scale-0 opacity-0 -rotate-90"

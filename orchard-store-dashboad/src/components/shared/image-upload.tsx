@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { User, X, Upload } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrlWithTimestamp } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface ImageUploadProps {
@@ -98,6 +98,9 @@ export function ImageUpload({
         setFilePreview(null);
       };
       reader.readAsDataURL(value);
+    } else if (value === null) {
+      // Clear preview khi value = null (user đã xóa)
+      setFilePreview(null);
     }
 
     // Cleanup: Revoke object URL khi component unmount hoặc value thay đổi
@@ -121,7 +124,9 @@ export function ImageUpload({
    * Xử lý khi chọn file
    * KHÔNG upload ngay, chỉ trả về File object
    */
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -169,25 +174,53 @@ export function ImageUpload({
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation(); // Ngăn trigger click vào avatar
     if (disabled) return;
+
+    // Clear file preview state
+    setFilePreview(null);
+
+    // Clear file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    // Notify parent that image is removed
     onChange(null);
   };
 
+  // Logic tính toán effectivePreview
   const effectivePreview = (() => {
+    // Nếu value === null (user đã xóa), không hiển thị previewUrl nữa
+    if (value === null) {
+      return null;
+    }
+
     if (value instanceof File) {
-      return filePreview;
+      return filePreview; // File mới chọn thì giữ nguyên (blob/data url)
     }
+
     if (typeof value === "string" && value.trim() !== "") {
-      return value;
+      return value; // URL từ server
     }
+
+    // Chỉ dùng previewUrl khi value là undefined (chưa có giá trị)
     if (
+      value === undefined &&
       previewUrl &&
       typeof previewUrl === "string" &&
       previewUrl.trim() !== ""
     ) {
       return previewUrl;
     }
+
     return null;
   })();
+
+  // 👇 Tính URL hiển thị (QUAN TRỌNG)
+  // File (blob/data URL) thì giữ nguyên, URL string thì áp dụng timestamp để tránh cache
+  const displayUrl =
+    value instanceof File
+      ? effectivePreview
+      : getImageUrlWithTimestamp(effectivePreview);
 
   const sizeClass =
     variant === "rectangle" ? rectangleSizeClasses[size] : sizeClasses[size];
@@ -206,16 +239,24 @@ export function ImageUpload({
             )}
             onClick={handleClick}
           >
-            {hasImage && effectivePreview ? (
+            {hasImage && displayUrl ? (
               <img
-                key={effectivePreview}
-                src={effectivePreview}
+                key={displayUrl} // 👈 QUAN TRỌNG: Key thay đổi -> React vẽ lại ảnh
+                src={displayUrl || ""} // 👈 QUAN TRỌNG: Src có timestamp -> Trình duyệt tải ảnh mới
                 alt="Logo"
                 className="h-full w-full object-contain p-2"
-                onError={() => {
-                  toast.error(
-                    "Không thể tải ảnh xem trước. Vui lòng chọn ảnh khác."
-                  );
+                onError={(e) => {
+                  // Fallback nếu ảnh timestamp lỗi
+                  if (
+                    effectivePreview &&
+                    e.currentTarget.src !== effectivePreview
+                  ) {
+                    e.currentTarget.src = effectivePreview;
+                  } else {
+                    toast.error(
+                      "Không thể tải ảnh xem trước. Vui lòng chọn ảnh khác."
+                    );
+                  }
                 }}
               />
             ) : (
@@ -272,15 +313,23 @@ export function ImageUpload({
           )}
           onClick={handleClick}
         >
-          {hasImage && effectivePreview ? (
+          {hasImage && displayUrl ? (
             <AvatarImage
-              key={effectivePreview} // Force re-render when preview changes
-              src={effectivePreview}
+              key={displayUrl} // 👈 QUAN TRỌNG: Key thay đổi -> React vẽ lại ảnh
+              src={displayUrl || ""} // 👈 QUAN TRỌNG: Src có timestamp -> Trình duyệt tải ảnh mới
               alt="Avatar"
-              onError={() => {
-                toast.error(
-                  "Không thể tải ảnh xem trước. Vui lòng chọn ảnh khác."
-                );
+              onError={(e) => {
+                // Fallback nếu ảnh timestamp lỗi
+                if (
+                  effectivePreview &&
+                  e.currentTarget.src !== effectivePreview
+                ) {
+                  e.currentTarget.src = effectivePreview;
+                } else {
+                  toast.error(
+                    "Không thể tải ảnh xem trước. Vui lòng chọn ảnh khác."
+                  );
+                }
               }}
             />
           ) : (

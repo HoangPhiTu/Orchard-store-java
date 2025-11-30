@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { getImageUrlWithTimestamp } from "@/lib/utils";
 import type { Brand } from "@/types/catalog.types";
 
 interface BrandRowProps {
@@ -38,7 +39,7 @@ export const BrandRow = React.memo<BrandRowProps>(
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
               {shouldShowImage ? (
                 <Image
-                  src={logoUrl!}
+                  src={getImageUrlWithTimestamp(logoUrl!) || logoUrl!}
                   alt={displayName}
                   fill
                   className="object-contain p-1"

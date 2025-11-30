@@ -6,15 +6,14 @@ import { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
-import { ArrowLeft, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  RefreshCw,
+  Mountain,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,6 +24,7 @@ import { authService } from "@/services/auth.service";
 import { toast } from "sonner";
 import { ProgressSteps } from "@/components/shared/progress-steps";
 import { useAuthStore } from "@/stores/auth-store";
+import { useI18n } from "@/hooks/use-i18n";
 
 export default function VerifyOtpPage() {
   const router = useRouter();
@@ -32,8 +32,10 @@ export default function VerifyOtpPage() {
   const email = searchParams.get("email");
   const [isVerified, setIsVerified] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { isAuthenticated, isInitialized } = useAuthStore();
+  const { t } = useI18n();
 
   const {
     handleSubmit,
@@ -60,15 +62,22 @@ export default function VerifyOtpPage() {
 
   useEffect(() => {
     if (isInitialized && !email && !isAuthenticated) {
-      toast.error("Email is required");
+      toast.error(t("auth.verifyOtp.emailRequired"));
       router.replace("/forgot-password");
     }
-  }, [email, router, isInitialized, isAuthenticated]);
+  }, [email, router, isInitialized, isAuthenticated, t]);
 
   useEffect(() => {
     // Auto-focus first input
     otpInputRefs.current[0]?.focus();
   }, []);
+
+  // Prefetch reset-password page for faster navigation
+  useEffect(() => {
+    if (email) {
+      router.prefetch(`/reset-password?email=${encodeURIComponent(email)}`);
+    }
+  }, [email, router]);
 
   const handleOtpChange = (index: number, value: string) => {
     // Only allow numbers
@@ -107,7 +116,10 @@ export default function VerifyOtpPage() {
 
   const onSubmit = async (values: VerifyOtpSchema) => {
     if (!email) {
-      setError("root", { type: "server", message: "Email is required" });
+      setError("root", {
+        type: "server",
+        message: t("auth.verifyOtp.emailRequired"),
+      });
       return;
     }
 
@@ -117,20 +129,27 @@ export default function VerifyOtpPage() {
         otp: values.otp,
       });
       setIsVerified(true);
-      toast.success(response.message || "OTP verified successfully");
+      toast.success(
+        response.message || t("auth.verifyOtp.otpVerifiedSuccessfully")
+      );
 
-      // Auto-redirect to reset password page with email and OTP
-      // Use replace to prevent back navigation to verify-otp page
+      // Prefetch next page for faster navigation
+      router.prefetch(
+        `/reset-password?email=${encodeURIComponent(email)}&otp=${values.otp}`
+      );
+
+      // Auto-redirect immediately after showing success message
+      setIsRedirecting(true);
       setTimeout(() => {
-        router.replace(
+        router.push(
           `/reset-password?email=${encodeURIComponent(email)}&otp=${values.otp}`
         );
-      }, 1000);
+      }, 500);
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const apiMessage =
         axiosError.response?.data?.message ??
-        "Invalid OTP code. Please try again.";
+        t("auth.verifyOtp.invalidOtpCode");
       setError("root", { type: "server", message: apiMessage });
       toast.error(apiMessage);
       // Clear OTP inputs on error
@@ -145,14 +164,16 @@ export default function VerifyOtpPage() {
     setIsResending(true);
     try {
       const response = await authService.sendOtp({ email });
-      toast.success(response.message || "OTP code resent successfully");
+      toast.success(
+        response.message || t("auth.verifyOtp.otpCodeResentSuccessfully")
+      );
       setValue("otp", "");
       otpInputRefs.current[0]?.focus();
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const apiMessage =
         axiosError.response?.data?.message ??
-        "Failed to resend OTP. Please try again.";
+        t("auth.verifyOtp.failedToResendOtp");
       toast.error(apiMessage);
     } finally {
       setIsResending(false);
@@ -161,28 +182,75 @@ export default function VerifyOtpPage() {
 
   if (isVerified) {
     return (
-      <div className="relative min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-50">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-slate-200/30 blur-3xl" />
-          <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-slate-300/20 blur-3xl" />
+      <div className="flex min-h-screen bg-background">
+        {/* Left Panel - Branding */}
+        <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:bg-gradient-to-br from-accent/50 to-muted/50 lg:p-12 xl:p-16 border-r border-border">
+          <div className="flex flex-col h-full justify-center">
+            <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                  <Mountain className="h-6 w-6" />
+                </div>
+                <span className="text-xl font-bold text-foreground">
+                  Orchard Admin
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight">
+                  {t("auth.verifyOtp.otpVerified").split(" ")[0]}{" "}
+                  <span className="block text-muted-foreground">
+                    {t("auth.verifyOtp.otpVerified")
+                      .split(" ")
+                      .slice(1)
+                      .join(" ")}
+                  </span>
+                </h1>
+                <p className="text-lg text-muted-foreground max-w-md">
+                  {t("auth.verifyOtp.yourOtpHasBeenVerified")}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-          <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-            <CardHeader className="space-y-4 pb-6">
-              <ProgressSteps currentStep={3} />
-              <div className="space-y-2 pt-4 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-                  <CheckCircle2 className="h-8 w-8 text-indigo-600" />
-                </div>
-                <CardTitle className="text-2xl">OTP Verified</CardTitle>
-                <CardDescription>
-                  Your OTP has been verified successfully. Redirecting to reset
-                  password...
-                </CardDescription>
+        {/* Right Panel - Success Message */}
+        <div className="flex-1 flex items-center justify-center bg-background p-4 sm:p-6 lg:p-12">
+          <div className="w-full max-w-md space-y-8">
+            {/* Mobile Logo */}
+            <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                <Mountain className="h-6 w-6" />
               </div>
-            </CardHeader>
-          </Card>
+              <span className="text-xl font-bold text-foreground">
+                Orchard Admin
+              </span>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-4 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <CheckCircle2 className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-foreground">
+                    {t("auth.verifyOtp.otpVerified")}
+                  </h2>
+                  <p className="mt-2 text-muted-foreground">
+                    {t("auth.verifyOtp.yourOtpHasBeenVerified")}
+                  </p>
+                  {isRedirecting && (
+                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>
+                        {t("auth.verifyOtp.redirectingToResetPassword")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -191,19 +259,9 @@ export default function VerifyOtpPage() {
   // Show loading while checking auth
   if (!isInitialized) {
     return (
-      <div className="relative min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-50">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-slate-200/30 blur-3xl" />
-          <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-slate-300/20 blur-3xl" />
-        </div>
-
-        <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-          <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-              <p className="mt-4 text-sm text-slate-600">Loading...</p>
-            </CardContent>
-          </Card>
+      <div className="flex min-h-screen bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     );
@@ -214,32 +272,70 @@ export default function VerifyOtpPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-purple-500/10 blur-3xl" />
+    <div className="flex min-h-screen bg-background">
+      {/* Left Panel - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:bg-gradient-to-br from-accent/50 to-muted/50 lg:p-12 xl:p-16 border-r border-border">
+        <div className="flex flex-col h-full justify-center">
+          <div className="space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                <Mountain className="h-6 w-6" />
+              </div>
+              <span className="text-xl font-bold text-foreground">
+                Orchard Admin
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight">
+                {t("auth.verifyOtp.verifyYourIdentity").split(" ")[0]}{" "}
+                <span className="block text-muted-foreground">
+                  {t("auth.verifyOtp.verifyYourIdentity")
+                    .split(" ")
+                    .slice(1)
+                    .join(" ")}
+                </span>
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-md">
+                {t("auth.verifyOtp.enterSixDigitCodeToVerify")}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-        <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-          <CardHeader className="space-y-4 pb-6">
-            <ProgressSteps currentStep={2} />
-            <div className="space-y-1 pt-4">
-              <CardTitle className="text-2xl font-bold tracking-tight">
-                Verify OTP Code
-              </CardTitle>
-              <CardDescription>
-                Enter the 6-digit code sent to
-                <br />
-                <span className="font-semibold text-indigo-600">{email}</span>
-              </CardDescription>
+      {/* Right Panel - Verify OTP Form */}
+      <div className="flex-1 flex items-center justify-center bg-background p-4 sm:p-6 lg:p-12">
+        <div className="w-full max-w-md space-y-8">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+              <Mountain className="h-6 w-6" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+            <span className="text-xl font-bold text-foreground">
+              Orchard Admin
+            </span>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">
+                {t("auth.verifyOtp.verifyOtpCode")}
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                {t("auth.verifyOtp.enterSixDigitCodeSentTo")}{" "}
+                <span className="font-semibold text-foreground">{email}</span>
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <ProgressSteps currentStep={2} />
+            </div>
+
+            <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
               <div className="space-y-3">
-                <Label className="text-sm font-semibold text-slate-700">
-                  OTP Code
+                <Label className="text-sm font-medium text-foreground">
+                  {t("auth.verifyOtp.otpCode")}
                 </Label>
                 <div className="flex gap-2 justify-center">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -251,7 +347,12 @@ export default function VerifyOtpPage() {
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
-                      className="h-14 w-14 text-center text-2xl font-bold border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                      className="h-14 w-14 text-center text-2xl font-bold border-success/20 focus:border-success focus:ring-success otp-input text-foreground"
+                      style={{
+                        color: "#000000",
+                        WebkitTextFillColor: "#000000",
+                        caretColor: "#000000",
+                      }}
                       value={otpValue?.[index] || ""}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
@@ -267,8 +368,8 @@ export default function VerifyOtpPage() {
               </div>
 
               {errors.root?.message && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-                  <p className="text-sm font-medium text-red-800">
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+                  <p className="text-sm font-medium text-destructive">
                     {errors.root.message}
                   </p>
                 </div>
@@ -281,14 +382,7 @@ export default function VerifyOtpPage() {
                 isLoading={isSubmitting}
                 disabled={!otpValue || otpValue.length !== 6}
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  "Verify OTP"
-                )}
+                {t("auth.verifyOtp.verifyOtp")}
               </Button>
 
               <div className="text-center space-y-3">
@@ -296,17 +390,17 @@ export default function VerifyOtpPage() {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={isResending}
-                  className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  className="text-sm font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
                   {isResending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Resending...
+                      {t("auth.verifyOtp.resending")}
                     </>
                   ) : (
                     <>
                       <RefreshCw className="h-4 w-4" />
-                      Resend OTP
+                      {t("auth.verifyOtp.resendOtp")}
                     </>
                   )}
                 </button>
@@ -314,16 +408,16 @@ export default function VerifyOtpPage() {
                 <div>
                   <Link
                     href="/login"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                   >
                     <ArrowLeft className="h-4 w-4" />
-                    Back to login
+                    {t("auth.verifyOtp.backToLogin")}
                   </Link>
                 </div>
               </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

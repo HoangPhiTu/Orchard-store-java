@@ -12,6 +12,7 @@ import com.orchard.orchard_store_backend.modules.catalog.brand.mapper.BrandAdmin
 import com.orchard.orchard_store_backend.modules.catalog.brand.repository.BrandRepository;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
 import com.orchard.orchard_store_backend.modules.customer.service.RedisService;
+import com.orchard.orchard_store_backend.modules.customer.service.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,12 +20,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +39,8 @@ public class BrandAdminServiceImpl implements BrandAdminService {
     private final BrandAdminMapper brandAdminMapper;
     private final ImageUploadService imageUploadService;
     private final RedisService redisService;
+    private final CacheService cacheService;
+    private final SimpMessagingTemplate messagingTemplate;
     
     private static final String BRAND_LIST_CACHE_KEY_PREFIX = "brand:list:";
     private static final String BRAND_DETAIL_CACHE_KEY_PREFIX = "brand:detail:";
@@ -52,6 +57,27 @@ public class BrandAdminServiceImpl implements BrandAdminService {
     @Override
     @Transactional(readOnly = true)
     public Page<BrandDTO> getBrands(String keyword, String status, Pageable pageable) {
+        // Build cache key from filters
+        String cacheKey = BRAND_LIST_CACHE_KEY_PREFIX + 
+            (keyword != null && !keyword.trim().isEmpty() ? keyword.trim() : "") + ":" + 
+            (status != null && !status.equalsIgnoreCase("ALL") ? status : "ALL") + ":" +
+            pageable.getPageNumber() + ":" + pageable.getPageSize();
+        
+        // Try to get from cache (only for first page without filters)
+        if ((keyword == null || keyword.trim().isEmpty()) && 
+            (status == null || status.equalsIgnoreCase("ALL")) && 
+            pageable.getPageNumber() == 0) {
+            Optional<Page<BrandDTO>> cached = cacheService.getCachedPage(
+                cacheKey, 
+                pageable, 
+                BrandDTO.class
+            );
+            if (cached.isPresent()) {
+                log.debug("Brand list cache hit for key: {}", cacheKey);
+                return cached.get();
+            }
+        }
+        
         Specification<Brand> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -77,8 +103,17 @@ public class BrandAdminServiceImpl implements BrandAdminService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return brandRepository.findAll(spec, pageable)
+        Page<BrandDTO> result = brandRepository.findAll(spec, pageable)
                 .map(brandAdminMapper::toDTO);
+        
+        // Cache first page without filters
+        if ((keyword == null || keyword.trim().isEmpty()) && 
+            (status == null || status.equalsIgnoreCase("ALL")) && 
+            pageable.getPageNumber() == 0) {
+            cacheService.cachePage(cacheKey, result, CACHE_TTL_SECONDS);
+        }
+        
+        return result;
     }
 
     @Override
@@ -87,16 +122,10 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         String cacheKey = BRAND_DETAIL_CACHE_KEY_PREFIX + id;
         
         // Try to get from cache
-        try {
-            String cached = redisService.getValue(cacheKey);
-            if (cached != null) {
-                log.debug("Brand detail cache hit for ID: {}", id);
-                // Note: Full caching would require JSON deserialization of BrandDTO
-                // For now, we'll just use cache as a marker and still query DB
-                // TODO: Implement full BrandDTO serialization if needed
-            }
-        } catch (Exception e) {
-            log.warn("Failed to check brand detail cache: {}", e.getMessage());
+        Optional<BrandDTO> cached = cacheService.getCached(cacheKey, BrandDTO.class);
+        if (cached.isPresent()) {
+            log.debug("Brand detail cache hit for ID: {}", id);
+            return cached.get();
         }
         
         Brand brand = brandRepository.findById(id)
@@ -105,12 +134,7 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         BrandDTO result = brandAdminMapper.toDTO(brand);
         
         // Cache the result
-        try {
-            redisService.setValue(cacheKey, "1", CACHE_TTL_SECONDS);
-            log.debug("Brand detail cached for ID: {}", id);
-        } catch (Exception e) {
-            log.warn("Failed to cache brand detail: {}", e.getMessage());
-        }
+        cacheService.cache(cacheKey, result, CACHE_TTL_SECONDS);
         
         return result;
     }
@@ -143,6 +167,14 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         
         // Evict brand list cache
         evictBrandListCache();
+        
+        // ✅ Gửi WebSocket message để thông báo realtime cho clients
+        try {
+            messagingTemplate.convertAndSend("/topic/brands", "UPDATE");
+            log.debug("Sent WebSocket notification for brand creation");
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification for brand creation: {}", e.getMessage());
+        }
         
         return brandAdminMapper.toDTO(saved);
     }
@@ -193,9 +225,21 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         if (request.getDescription() != null) {
             brand.setDescription(request.getDescription());
         }
-        if (request.getLogoUrl() != null) {
-            brand.setLogoUrl(request.getLogoUrl());
+        // ✅ Xử lý logoUrl: 
+        // Frontend chỉ gửi logoUrl khi data.logoUrl !== undefined,
+        // nên nếu có logoUrl trong request (kể cả null), nghĩa là user muốn cập nhật/xóa
+        // - Nếu newLogoUrl != null: user muốn cập nhật logo mới
+        // - Nếu newLogoUrl == null: user muốn xóa logo (gửi null)
+        // Logic: Vì frontend luôn gửi logoUrl khi muốn thay đổi (kể cả null),
+        // nên nếu newLogoUrl == null && oldLogoUrl != null, nghĩa là user muốn xóa
+        if (newLogoUrl != null) {
+            // User muốn cập nhật logo mới
+            brand.setLogoUrl(newLogoUrl);
+        } else if (oldLogoUrl != null) {
+            // User gửi logoUrl: null để xóa logo (chỉ xóa nếu có logo cũ)
+            brand.setLogoUrl(null);
         }
+        // Nếu newLogoUrl == null && oldLogoUrl == null: không thay đổi (không set)
         if (request.getCountry() != null) {
             brand.setCountry(request.getCountry());
         }
@@ -227,6 +271,14 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         evictBrandDetailCache(id);
         evictBrandListCache();
         
+        // ✅ Gửi WebSocket message để thông báo realtime cho clients
+        try {
+            messagingTemplate.convertAndSend("/topic/brands", "UPDATE");
+            log.debug("Sent WebSocket notification for brand update");
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification for brand update: {}", e.getMessage());
+        }
+        
         return brandAdminMapper.toDTO(updated);
     }
 
@@ -245,6 +297,14 @@ public class BrandAdminServiceImpl implements BrandAdminService {
         // Evict caches
         evictBrandDetailCache(brandId);
         evictBrandListCache();
+        
+        // ✅ Gửi WebSocket message để thông báo realtime cho clients
+        try {
+            messagingTemplate.convertAndSend("/topic/brands", "UPDATE");
+            log.debug("Sent WebSocket notification for brand deletion");
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification for brand deletion: {}", e.getMessage());
+        }
 
         // Xóa logo trên MinIO nếu có
         if (logoUrl != null && !logoUrl.trim().isEmpty()) {

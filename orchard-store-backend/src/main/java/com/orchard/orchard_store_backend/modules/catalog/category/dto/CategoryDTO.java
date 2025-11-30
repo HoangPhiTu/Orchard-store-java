@@ -1,12 +1,12 @@
 package com.orchard.orchard_store_backend.modules.catalog.category.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -38,8 +38,14 @@ public class CategoryDTO {
 
     private String path;
 
-    @Builder.Default
-    private List<CategoryDTO> children = new ArrayList<>();
+    /**
+     * Children categories (for tree structure).
+     * Ignored in JSON serialization to avoid circular reference issues.
+     * Only populated when building tree structure, not in detail responses.
+     * Note: Should always be null in detail responses, only populated for tree structure.
+     */
+    @JsonIgnore
+    private List<CategoryDTO> children;
 
     private LocalDateTime createdAt;
 

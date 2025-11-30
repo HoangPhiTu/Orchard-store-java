@@ -86,11 +86,14 @@ export const useCategories = (filters?: CategoryFilter) => {
 
   return useQuery<Page<Category>, Error>({
     queryKey,
-    queryFn: () => categoryService.getCategories(normalizedFilters),
+    queryFn: async () => {
+      const result = await categoryService.getCategories(normalizedFilters);
+      return result as Page<Category>;
+    },
     placeholderData: keepPreviousData,
     // Tối ưu: Categories ít thay đổi, cache lâu hơn
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes - increased for better performance
+    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache longer
     refetchOnMount: false,
     refetchOnReconnect: false,
   });
@@ -104,8 +107,8 @@ export const useCategoriesTree = () => {
     queryKey: [...CATEGORIES_QUERY_KEY, "tree"] as const,
     queryFn: () => categoryService.getCategoriesTree(),
     // Categories tree ít thay đổi, cache rất lâu
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 15 * 60 * 1000, // 15 minutes - increased for better performance
+    gcTime: 60 * 60 * 1000, // 60 minutes - keep in cache longer
     refetchOnMount: false,
     refetchOnReconnect: false,
   });
@@ -114,6 +117,10 @@ export const useCategoriesTree = () => {
 /**
  * Hook để lấy chi tiết một category theo ID
  * Chỉ query khi có ID
+ */
+/**
+ * Hook để lấy chi tiết một category theo ID
+ * Có caching để tránh refetch không cần thiết
  */
 export const useCategory = (id: number | null) => {
   return useQuery<Category, Error>({
@@ -125,6 +132,10 @@ export const useCategory = (id: number | null) => {
       return categoryService.getCategory(id);
     },
     enabled: !!id, // Chỉ query khi có ID
+    staleTime: 10 * 60 * 1000, // 10 minutes - category data ít thay đổi
+    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache longer
+    refetchOnMount: false, // Không refetch khi component mount lại
+    refetchOnWindowFocus: false, // Không refetch khi window focus
   });
 };
 

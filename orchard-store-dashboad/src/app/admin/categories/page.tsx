@@ -8,16 +8,36 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useCategories } from "@/hooks/use-categories";
 import { usePrefetchNextPage } from "@/hooks/use-realtime-updates";
+import { useCancelQueriesOnUnmount } from "@/hooks/use-request-cancellation";
 import { categoryService } from "@/services/category.service";
-import type { Category, CatalogStatus, Page } from "@/types/catalog.types";
+import type {
+  Category,
+  CatalogStatus,
+  CategoryFilter,
+} from "@/types/catalog.types";
+import type { Page } from "@/types/user.types";
 import { STATUS_OPTIONS } from "@/config/options";
 import { CategoryTable } from "@/components/features/catalog/category-table";
 import { DeleteCategoryDialog } from "@/components/features/catalog/delete-category-dialog";
-import { CategoryFormSheet } from "@/components/features/catalog/category-form-sheet";
+import dynamic from "next/dynamic";
+
+// Lazy load form component để giảm initial bundle size
+const CategoryFormSheet = dynamic(
+  () =>
+    import("@/components/features/catalog/category-form-sheet").then(
+      (mod) => mod.CategoryFormSheet
+    ),
+  {
+    ssr: false,
+    loading: () => null, // Form sẽ tự quản lý loading state
+  }
+);
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
 import { TableToolbar } from "@/components/shared/table-toolbar";
+import { useI18n } from "@/hooks/use-i18n";
 
 export default function CategoryManagementPage() {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CatalogStatus | "ALL">(
     "ALL"
@@ -64,6 +84,9 @@ export default function CategoryManagementPage() {
 
   const queryClient = useQueryClient();
 
+  // Cancel queries when component unmounts to prevent memory leaks
+  useCancelQueriesOnUnmount(queryClient, ["admin", "categories"]);
+
   // Prefetch next page để tải nhanh hơn khi user navigate
   usePrefetchNextPage(
     ["admin", "categories", "list"],
@@ -79,7 +102,7 @@ export default function CategoryManagementPage() {
     queryClient.prefetchQuery({
       queryKey: ["admin", "categories", "tree"],
       queryFn: () => categoryService.getCategoriesTree(),
-      staleTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: 15 * 60 * 1000, // 15 minutes - match useCategoriesTree hook
     });
   }, [queryClient]);
 
@@ -121,21 +144,21 @@ export default function CategoryManagementPage() {
         <div className="flex flex-col gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-card-foreground">
-              Category Management
+              {t("admin.categories.categoryManagement")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage all product categories with hierarchical structure.
+              {t("admin.categories.manageCategories")}
             </p>
           </div>
           <TableToolbar
             searchValue={search}
-            searchPlaceholder="Tìm kiếm danh mục..."
+            searchPlaceholder={t("admin.categories.searchCategories")}
             onSearchChange={handleSearchChange}
-            filterTitle="Status"
+            filterTitle={t("admin.users.status")}
             filterValue={statusFilter !== "ALL" ? statusFilter : null}
             filterOptions={statusOptions}
             onFilterChange={handleStatusChange}
-            addLabel="Add Category"
+            addLabel={t("admin.categories.addCategory")}
             onAdd={handleAddCategory}
             pageSize={pageSize}
             pageSizeOptions={pageSizeOptions}

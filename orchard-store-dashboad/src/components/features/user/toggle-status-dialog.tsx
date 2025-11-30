@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { User } from "@/types/user.types";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface ToggleStatusDialogProps {
   user: User;
@@ -26,17 +27,16 @@ export function ToggleStatusDialog({
   isOpen,
   onClose,
 }: ToggleStatusDialogProps) {
+  const { t } = useI18n();
   const isLocking = user.status === "ACTIVE";
-  const actionText = isLocking ? "khóa" : "mở khóa";
-  const actionTextCapitalized = isLocking ? "Khóa" : "Mở khóa";
 
   const toggleStatusMutation = useAppMutation({
     mutationFn: () => userService.toggleUserStatus(user.id),
     queryKey: ["admin", "users"], // Invalidate users list after toggle
     onClose: onClose, // Close dialog on success
     successMessage: isLocking
-      ? `Đã khóa tài khoản "${user.fullName}" thành công`
-      : `Đã mở khóa tài khoản "${user.fullName}" thành công`,
+      ? t("admin.common.success")
+      : t("admin.common.success"),
     showErrorToast: true, // Show toast for errors
   });
 
@@ -57,23 +57,22 @@ export function ToggleStatusDialog({
               {isLocking ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
             </div>
             <AlertDialogTitle className="text-xl font-semibold text-card-foreground">
-              {actionTextCapitalized} tài khoản
+              {isLocking ? t("admin.dialogs.lockAccount") : t("admin.dialogs.unlockAccount")}
             </AlertDialogTitle>
           </div>
           <AlertDialogDescription className="pt-4 text-muted-foreground">
-            Bạn có chắc chắn muốn {actionText} tài khoản{" "}
+            {isLocking ? t("admin.dialogs.lockAccountConfirm") : t("admin.dialogs.unlockAccountConfirm")}{" "}
             <span className="font-semibold text-card-foreground">
               {user.fullName}
-            </span>{" "}
-            không?
+            </span>?
             {isLocking && (
               <span className="mt-2 block text-sm text-warning">
-                ⚠️ Tài khoản bị khóa sẽ không thể đăng nhập vào hệ thống.
+                ⚠️ {t("admin.dialogs.accountLockedWarning")}
               </span>
             )}
             {!isLocking && (
               <span className="mt-2 block text-sm text-success">
-                ✓ Tài khoản sẽ được kích hoạt lại và có thể đăng nhập.
+                ✓ {t("admin.dialogs.accountUnlockedInfo")}
               </span>
             )}
           </AlertDialogDescription>
@@ -84,7 +83,7 @@ export function ToggleStatusDialog({
             disabled={toggleStatusMutation.isPending}
             className="rounded-lg border-border bg-card text-card-foreground font-semibold transition hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
           >
-            Hủy
+            {t("admin.dialogs.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
@@ -98,19 +97,19 @@ export function ToggleStatusDialog({
             {toggleStatusMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Đang xử lý...
+                {t("admin.common.loading")}
               </>
             ) : (
               <>
                 {isLocking ? (
                   <>
                     <Lock className="mr-2 h-4 w-4" />
-                    Khóa tài khoản
+                    {t("admin.dialogs.lockAccount")}
                   </>
                 ) : (
                   <>
                     <Unlock className="mr-2 h-4 w-4" />
-                    Mở khóa tài khoản
+                    {t("admin.dialogs.unlockAccount")}
                   </>
                 )}
               </>

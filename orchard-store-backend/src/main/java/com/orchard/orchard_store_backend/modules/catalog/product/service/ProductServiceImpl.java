@@ -1,7 +1,5 @@
 package com.orchard.orchard_store_backend.modules.catalog.product.service;
 
-import com.orchard.orchard_store_backend.modules.catalog.attribute.dto.ProductAttributeValueDTO;
-import com.orchard.orchard_store_backend.modules.catalog.attribute.service.ProductAttributeValueService;
 import com.orchard.orchard_store_backend.modules.catalog.brand.entity.Brand;
 import com.orchard.orchard_store_backend.modules.catalog.brand.repository.BrandRepository;
 import com.orchard.orchard_store_backend.modules.catalog.category.entity.Category;
@@ -29,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +42,6 @@ public class ProductServiceImpl implements ProductService {
     private final ProductMapper productMapper;
     private final ProductVariantMapper productVariantMapper;
     private final ProductImageMapper productImageMapper;
-    private final ProductAttributeValueService productAttributeValueService;
 
     @Override
     public Page<ProductDTO> getAllProducts(Pageable pageable) {

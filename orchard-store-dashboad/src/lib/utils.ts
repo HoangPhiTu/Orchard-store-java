@@ -29,3 +29,31 @@ export function slugify(input: string) {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 }
+
+/**
+ * Thêm timestamp vào URL ảnh để tránh browser caching
+ * 
+ * @param url URL gốc của ảnh
+ * @returns URL đã thêm query param ?t=...
+ * 
+ * @example
+ * getImageUrlWithTimestamp("https://example.com/image.jpg")
+ * // Returns: "https://example.com/image.jpg?t=1234567890"
+ * 
+ * getImageUrlWithTimestamp(null)
+ * // Returns: null
+ */
+export function getImageUrlWithTimestamp(url: string | null | undefined): string | null {
+  if (!url || typeof url !== "string" || url.trim() === "") {
+    return null;
+  }
+
+  // Nếu là data:image (base64) hoặc blob: thì không cần thêm timestamp
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+
+  // Nếu URL đã có tham số query thì dùng &, ngược lại dùng ?
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}t=${new Date().getTime()}`;
+}

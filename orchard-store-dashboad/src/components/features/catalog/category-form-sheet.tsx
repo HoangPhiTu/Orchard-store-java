@@ -12,6 +12,7 @@ import {
 import {
   useForm,
   useWatch,
+  Controller,
   type FieldValues,
   type UseFormReturn,
 } from "react-hook-form";
@@ -32,23 +33,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ImageUpload } from "@/components/shared/image-upload";
-import { uploadService } from "@/services/upload.service";
-import {
-  useCategory,
-  useCategories,
-  useCategoriesTree,
-} from "@/hooks/use-categories";
+import { useCategory, useCategoriesTree } from "@/hooks/use-categories";
+import { useQueryClient } from "@tanstack/react-query";
 import { categoryService } from "@/services/category.service";
 import type { Category, CategoryFormData } from "@/types/catalog.types";
-import type { Page } from "@/types/user.types";
 import { createCategoryFormSchema } from "@/types/catalog.types";
 import { slugify } from "@/lib/utils";
+import { useImageManagement } from "@/hooks/use-image-management";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface CategoryFormSheetProps {
   open: boolean;
@@ -103,22 +101,49 @@ const findDescendantIds = (
   return descendants;
 };
 
+// Helper function to check if value is a File object
+const isFile = (value: unknown): value is File => {
+  return value instanceof File;
+};
+
 export function CategoryFormSheet({
   open,
   onOpenChange,
   category,
 }: CategoryFormSheetProps) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
   const isEditing = Boolean(category);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isParentSelectOpen, setIsParentSelectOpen] = useState(false);
   const [parentSearch, setParentSearch] = useState("");
   // Use state instead of ref for better React integration and to avoid race conditions
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
+  
+  // Image management hook (reusable, implements best practices)
+  const imageManagement = useImageManagement("categories");
 
   // Fetch category details if editing
-  const { data: categoryData, isLoading: isLoadingCategory } = useCategory(
-    category?.id ?? null
+  const {
+    data: categoryDataFromQuery,
+    isLoading: isLoadingCategory,
+    refetch: refetchCategory,
+  } = useCategory(category?.id ?? null);
+
+  // Local state để track category data - update trực tiếp trong onSuccess
+  const [categoryData, setCategoryData] = useState<Category | null>(
+    categoryDataFromQuery ?? null
   );
+  // ✅ State để hiển thị image ngay lập tức sau khi update/create
+  const [latestImageUrl, setLatestImageUrl] = useState<string | null | undefined>(undefined);
+
+  // Update local state khi categoryDataFromQuery thay đổi
+  useEffect(() => {
+    if (categoryDataFromQuery) {
+      setCategoryData(categoryDataFromQuery);
+          // ✅ Clear latestImageUrl khi categoryData được load
+          setLatestImageUrl(undefined);
+    }
+  }, [categoryDataFromQuery]);
 
   // Sử dụng categories tree thay vì fetch all với size 1000
   // Tree API nhanh hơn vì đã có cache ở backend và trả về flat list
@@ -168,14 +193,20 @@ export function CategoryFormSheet({
   useEffect(() => {
     if (!open) {
       form.reset(DEFAULT_VALUES);
+      setCategoryData(null); // Clear local state when closing
       return;
     }
     if (isEditing && categoryData) {
+      // Reset form khi categoryData thay đổi (bao gồm sau khi update)
       form.reset({
         name: categoryData.name,
         slug: categoryData.slug ?? undefined,
         description: categoryData.description ?? undefined,
-        imageUrl: categoryData.imageUrl ?? undefined,
+        // Convert null thành undefined cho form (form không chấp nhận null)
+        imageUrl:
+          categoryData.imageUrl === null
+            ? undefined
+            : categoryData.imageUrl ?? undefined,
         parentId: categoryData.parentId ?? null,
         displayOrder: categoryData.displayOrder ?? undefined,
         status: categoryData.status,
@@ -184,8 +215,9 @@ export function CategoryFormSheet({
     }
     if (!isEditing) {
       form.reset(DEFAULT_VALUES);
+      setCategoryData(null);
     }
-  }, [categoryData, isEditing, open, form]);
+  }, [categoryData?.id, categoryData?.imageUrl, isEditing, open, form]);
 
   useEffect(() => {
     resetParentSearch();
@@ -238,10 +270,6 @@ export function CategoryFormSheet({
     control: form.control,
     name: "parentId",
   });
-  const watchedImageUrl = useWatch({
-    control: form.control,
-    name: "imageUrl",
-  });
   const watchedStatus = useWatch({
     control: form.control,
     name: "status",
@@ -250,20 +278,6 @@ export function CategoryFormSheet({
     control: form.control,
     name: "slug",
   });
-
-  const resolveUploadFolder = useCallback(
-    (parentId: number | null | undefined) => {
-      if (!parentId) {
-        return "categories";
-      }
-      const parentCat = allCategories.find((cat) => cat.id === parentId);
-      if (!parentCat?.slug) {
-        return "categories";
-      }
-      return `categories/${parentCat.slug}`;
-    },
-    [allCategories]
-  );
 
   const filteredParentCategories = useMemo(() => {
     if (!parentSearch.trim()) {
@@ -277,9 +291,10 @@ export function CategoryFormSheet({
     });
   }, [availableParentCategories, parentSearch]);
 
+  // Get upload folder with date partitioning (flat structure, no slug-based hierarchy)
   const uploadFolder = useMemo(
-    () => resolveUploadFolder(watchedParentId),
-    [resolveUploadFolder, watchedParentId]
+    () => imageManagement.getImageFolder(),
+    [imageManagement]
   );
 
   const selectedParent = useMemo(() => {
@@ -319,16 +334,15 @@ export function CategoryFormSheet({
   const createMutation = useAppMutation<Category, Error, CategoryFormData>({
     mutationFn: async (data) => {
       // Upload image if there's a new File
+      // Note: data.imageUrl can be File | string | null | undefined from form field
       let imageUrl: string | undefined = undefined;
-      if (imageFile) {
-        // Upload new file
-        imageUrl = await uploadService.uploadImage(
-          imageFile,
-          resolveUploadFolder(data.parentId ?? null)
-        );
-      } else if (data.imageUrl && typeof data.imageUrl === "string") {
+      const imageValue = data.imageUrl as File | string | null | undefined;
+      if (isFile(imageValue)) {
+        // Upload new file with date partitioning (flat structure)
+        imageUrl = await imageManagement.uploadImage(imageValue);
+      } else if (imageValue && typeof imageValue === "string") {
         // Keep existing URL if no new file
-        imageUrl = data.imageUrl;
+        imageUrl = imageValue;
       }
 
       const payload: CategoryFormData = {
@@ -342,12 +356,18 @@ export function CategoryFormSheet({
     },
     queryKey: ["admin", "categories"],
     form: mutationForm,
+    onSuccess: (createdCategory) => {
+      // ✅ Cập nhật latestImageUrl để hiển thị ngay lập tức (nếu form vẫn mở)
+      if (createdCategory) {
+        setLatestImageUrl(createdCategory.imageUrl ?? undefined);
+      }
+    },
     onClose: () => {
       onOpenChange(false);
       form.reset(DEFAULT_VALUES);
-      setImageFile(null);
+      setLatestImageUrl(undefined);
     },
-    successMessage: "Tạo danh mục thành công!",
+    successMessage: t("admin.forms.category.createCategorySuccess"),
   });
 
   // Update mutation
@@ -358,37 +378,93 @@ export function CategoryFormSheet({
   >({
     mutationFn: async ({ id, data }) => {
       // Upload image if there's a new File
-      let imageUrl: string | undefined = undefined;
-      if (imageFile) {
-        // Upload new file
-        const parentContextId = data.parentId ?? category?.parentId ?? null;
-        imageUrl = await uploadService.uploadImage(
-          imageFile,
-          resolveUploadFolder(parentContextId)
-        );
-      } else if (data.imageUrl && typeof data.imageUrl === "string") {
-        // Keep existing URL if no new file
-        imageUrl = data.imageUrl;
-      }
-      // If imageFile is null and no existing imageUrl, imageUrl will be undefined (remove image)
+      // Note: data.imageUrl can be File | string | null | undefined from form field
+      let imageUrl: string | undefined | null = undefined;
+      const imageValue = data.imageUrl as File | string | null | undefined;
+      const previousImageUrl = category?.imageUrl || null;
 
-      const payload: Partial<CategoryFormData> = {
+      if (isFile(imageValue)) {
+        // Upload new file with date partitioning (flat structure)
+        imageUrl = await imageManagement.uploadImage(imageValue);
+      } else if (imageValue === null) {
+        // User explicitly wants to remove image
+        imageUrl = null;
+      } else if (imageValue && typeof imageValue === "string") {
+        // Keep existing URL if no new file and not explicitly removed
+        imageUrl = imageValue;
+      }
+      // If data.imageUrl is undefined, imageUrl will be undefined (keep existing)
+
+      // Tạo payload với imageUrl có thể là null để xóa ảnh
+      const payload = {
         ...data,
-        imageUrl: imageUrl,
+        // Giữ nguyên null nếu muốn xóa ảnh để service gửi null lên backend
+        // undefined nếu không thay đổi (service sẽ không gửi field này)
+        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
         // Ensure parentId is null if not selected
         parentId: data.parentId ?? null,
-      };
+      } as Partial<CategoryFormData>;
 
       return categoryService.updateCategory(id, payload);
     },
     queryKey: ["admin", "categories"],
     form: mutationForm,
+    onSuccess: (updatedCategory) => {
+      // ✅ Cập nhật latestImageUrl để hiển thị ngay lập tức
+      if (updatedCategory) {
+        setLatestImageUrl(updatedCategory.imageUrl ?? undefined);
+      }
+
+      // Update cache immediately với data mới để UI update ngay lập tức (realtime)
+      if (updatedCategory && category?.id) {
+        // Update detail cache trước - điều này sẽ trigger re-render của useCategory hook
+        queryClient.setQueryData(
+          ["admin", "categories", "detail", category.id],
+          updatedCategory
+        );
+
+        // Update local state ngay lập tức - điều này sẽ trigger re-render và reset form trong useEffect
+        setCategoryData(updatedCategory);
+
+        // Mark old image for deletion (soft delete) AFTER DB update success
+        const previousImageUrl = category?.imageUrl || null;
+        if (previousImageUrl && updatedCategory.imageUrl !== previousImageUrl) {
+          imageManagement.markImageForDeletion(previousImageUrl, {
+            entityId: category.id,
+            reason: "replaced",
+          });
+        }
+        
+        // Mark for deletion if image removed
+        if (previousImageUrl && !updatedCategory.imageUrl) {
+          imageManagement.markImageForDeletion(previousImageUrl, {
+            entityId: category.id,
+            reason: "removed",
+        });
+        }
+      }
+
+      // Invalidate và refetch để đảm bảo tất cả queries liên quan được refresh
+      // refetchType: "active" sẽ refetch các queries đang active (đang được sử dụng)
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "categories", "detail", category?.id],
+        refetchType: "active", // Chỉ refetch queries đang active
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "categories"],
+      });
+
+      // Refetch category detail để đảm bảo useCategory hook có data mới nhất
+      if (category?.id) {
+        refetchCategory();
+      }
+    },
     onClose: () => {
       onOpenChange(false);
       form.reset(DEFAULT_VALUES);
-      setImageFile(null);
+      setLatestImageUrl(undefined);
     },
-    successMessage: "Cập nhật danh mục thành công!",
+    successMessage: t("admin.forms.category.updateCategorySuccess"),
   });
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
@@ -399,17 +475,6 @@ export function CategoryFormSheet({
     } else {
       createMutation.mutate(data);
     }
-  };
-
-  const handleImageChange = (file: File | null) => {
-    setImageFile(file);
-    // Không set File vào imageUrl - chỉ lưu vào state riêng
-    // imageUrl sẽ được set sau khi upload File thành công
-    if (!file) {
-      // Nếu xóa file, clear imageUrl
-      form.setValue("imageUrl", undefined);
-    }
-    // Nếu có file mới, giữ nguyên imageUrl cũ (hoặc undefined) cho đến khi upload xong
   };
 
   const handleSlugInputChange = (value: string) => {
@@ -437,12 +502,14 @@ export function CategoryFormSheet({
           >
             <SheetHeader>
               <SheetTitle className="text-xl font-semibold text-foreground">
-                {isEditing ? "Chỉnh sửa danh mục" : "Thêm danh mục mới"}
+                {isEditing
+                  ? t("admin.forms.category.editCategory")
+                  : t("admin.forms.category.addNewCategory")}
               </SheetTitle>
               <SheetDescription className="text-sm text-muted-foreground">
                 {isEditing
-                  ? "Cập nhật thông tin danh mục. Slug sẽ tự động tạo từ tên."
-                  : "Thêm danh mục mới vào hệ thống. Slug sẽ tự động tạo từ tên nếu bạn không nhập."}
+                  ? t("admin.forms.category.updateCategoryInfo")
+                  : t("admin.forms.category.createNewCategory")}
               </SheetDescription>
             </SheetHeader>
 
@@ -450,37 +517,81 @@ export function CategoryFormSheet({
               <div className="space-y-6 py-4">
                 {/* Image - Đặt lên đầu */}
                 <FormField
-                  label="Hình ảnh danh mục"
+                  label={t("admin.forms.category.categoryImage")}
                   htmlFor="category-image"
                   error={form.formState.errors.imageUrl}
-                  description={`Upload hình ảnh danh mục (khuyến nghị 300x300px). Thư mục: ${uploadFolder}`}
+                  description={`${t(
+                    "admin.forms.category.uploadCategoryImage"
+                  )}: ${uploadFolder}`}
                 >
-                  <ImageUpload
-                    variant="rectangle"
-                    folder={uploadFolder}
-                    size="lg"
-                    value={
-                      imageFile ||
-                      (categoryData?.imageUrl &&
-                      typeof categoryData.imageUrl === "string"
-                        ? categoryData.imageUrl
-                        : null) ||
-                      (watchedImageUrl && typeof watchedImageUrl === "string"
-                        ? watchedImageUrl
-                        : null) ||
-                      null
-                    }
-                    onChange={handleImageChange}
-                    disabled={isSubmitting || (isEditing && isLoadingCategory)}
+                  <Controller
+                    name="imageUrl"
+                    control={form.control}
+                    render={({ field }) => {
+                      // ✅ Ưu tiên latestImageUrl để hiển thị ngay sau khi update/create
+                      const effectiveValue = (() => {
+                        if (field.value !== undefined) {
+                          return field.value; // File hoặc null
+                        }
+                        if (latestImageUrl !== undefined) {
+                          return typeof latestImageUrl === "string" ? latestImageUrl : null;
+                        }
+                        return field.value;
+                      })();
+
+                      return (
+                      <ImageUpload
+                          key={(() => {
+                            // ✅ Key thay đổi khi image URL thay đổi để force re-render
+                            const currentValue = (() => {
+                              if (field.value !== undefined) {
+                                return field.value instanceof File 
+                                  ? `file-${field.value.name}-${field.value.size}` 
+                                  : field.value === null ? "null" : String(field.value);
+                              }
+                              if (latestImageUrl !== undefined) {
+                                return typeof latestImageUrl === "string" ? latestImageUrl : "null";
+                              }
+                              return categoryData?.imageUrl || category?.imageUrl || "no-image";
+                            })();
+                            return `image-upload-${categoryData?.id || category?.id || "new"}-${currentValue}`;
+                          })()}
+                        variant="rectangle"
+                        folder={uploadFolder}
+                        size="lg"
+                          value={effectiveValue}
+                        previewUrl={
+                            // Chỉ dùng previewUrl khi field.value là undefined và không có latestImageUrl
+                            // Nếu field.value === null (user đã xóa), không dùng previewUrl
+                            field.value === undefined && latestImageUrl === undefined
+                              ? (categoryData?.imageUrl &&
+                            typeof categoryData.imageUrl === "string"
+                            ? categoryData.imageUrl
+                            : category?.imageUrl &&
+                              typeof category.imageUrl === "string"
+                            ? category.imageUrl
+                                  : null)
+                            : null
+                        }
+                        onChange={(file) => {
+                            field.onChange(file || null);
+                            form.trigger("imageUrl");
+                        }}
+                        disabled={
+                          isSubmitting || (isEditing && isLoadingCategory)
+                        }
+                      />
+                      );
+                    }}
                   />
                 </FormField>
 
                 {/* Parent Category */}
                 <FormField
-                  label="Danh mục cha"
+                  label={t("admin.forms.category.parentCategory")}
                   htmlFor="category-parent"
                   error={form.formState.errors.parentId}
-                  description="Chọn danh mục cha (để trống nếu là danh mục gốc)"
+                  description={t("admin.forms.category.selectParentCategory")}
                 >
                   <Popover
                     open={isParentSelectOpen}
@@ -499,7 +610,7 @@ export function CategoryFormSheet({
                         <span className="truncate font-medium text-slate-900">
                           {selectedParent
                             ? selectedParent.name
-                            : "Chọn danh mục cha"}
+                            : t("admin.forms.category.selectParentCategory")}
                         </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-600" />
                       </Button>
@@ -515,7 +626,9 @@ export function CategoryFormSheet({
                       <div className="flex flex-col">
                         <div className="border-b border-border/60 bg-card px-3 py-2">
                           <Input
-                            placeholder="Tìm kiếm danh mục..."
+                            placeholder={t(
+                              "admin.forms.category.searchParentCategory"
+                            )}
                             value={parentSearch}
                             onChange={(e) => setParentSearch(e.target.value)}
                             className="h-9 bg-transparent px-0 text-sm font-semibold text-foreground placeholder:text-muted-foreground shadow-none outline-none ring-0 focus-visible:ring-0"
@@ -530,7 +643,7 @@ export function CategoryFormSheet({
                             onClick={() => handleParentSelect(null)}
                             className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-foreground hover:bg-accent hover:text-accent-foreground"
                           >
-                            <span>Không có (Danh mục gốc)</span>
+                            <span>{t("admin.forms.category.noParent")}</span>
                             {watchedParentId == null && (
                               <Check className="ml-auto h-4 w-4 text-indigo-600" />
                             )}
@@ -569,24 +682,28 @@ export function CategoryFormSheet({
 
                 {/* Name */}
                 <FormField
-                  label="Tên danh mục"
+                  label={t("admin.forms.category.categoryName")}
                   htmlFor="category-name"
                   required
                   error={form.formState.errors.name}
                 >
                   <Input
-                    placeholder="Ví dụ: Nước hoa"
+                    placeholder={t("admin.forms.category.enterCategoryName")}
                     {...form.register("name")}
                   />
                 </FormField>
 
                 {/* Slug */}
                 <FormField
-                  label="Slug"
+                  label={t("admin.forms.category.slug")}
                   htmlFor="category-slug"
                   required
                   error={form.formState.errors.slug}
-                  description="Slug dùng trong URL, chỉ bao gồm chữ thường, số và dấu gạch ngang."
+                  description={
+                    isSlugManuallyEdited
+                      ? t("admin.forms.category.slugManuallyEdited")
+                      : t("admin.forms.category.slugAutoGenerated")
+                  }
                 >
                   <div className="flex items-center gap-2">
                     <Input
@@ -604,7 +721,7 @@ export function CategoryFormSheet({
                       className="shrink-0"
                       onClick={handleRegenerateSlug}
                       disabled={!watchedName}
-                      title="Tạo lại slug từ tên"
+                      title={t("admin.forms.category.regenerateSlug")}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </Button>
@@ -613,12 +730,12 @@ export function CategoryFormSheet({
 
                 {/* Description */}
                 <FormField
-                  label="Mô tả"
+                  label={t("admin.forms.category.description")}
                   htmlFor="category-description"
                   error={form.formState.errors.description}
                 >
                   <textarea
-                    placeholder="Mô tả về danh mục..."
+                    placeholder={t("admin.forms.category.enterDescription")}
                     rows={4}
                     className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm transition-all duration-200 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/50"
                     {...form.register("description")}
@@ -628,10 +745,10 @@ export function CategoryFormSheet({
                 {/* Display Order & Status */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
-                    label="Thứ tự hiển thị"
+                    label={t("admin.forms.category.displayOrder")}
                     htmlFor="category-display-order"
                     error={form.formState.errors.displayOrder}
-                    description="Số càng nhỏ, hiển thị càng trước"
+                    description={t("admin.forms.category.enterDisplayOrder")}
                   >
                     <Input
                       type="number"
@@ -644,10 +761,10 @@ export function CategoryFormSheet({
                   </FormField>
 
                   <FormField
-                    label="Trạng thái"
+                    label={t("admin.forms.category.status")}
                     htmlFor="category-status"
                     error={form.formState.errors.status}
-                    description="Bật/tắt để hiển thị danh mục"
+                    description={t("admin.forms.category.status")}
                   >
                     <div className="flex items-center gap-3">
                       <Switch
@@ -660,7 +777,9 @@ export function CategoryFormSheet({
                         }}
                       />
                       <span className="text-sm text-muted-foreground">
-                        {watchedStatus === "ACTIVE" ? "Active" : "Inactive"}
+                        {watchedStatus === "ACTIVE"
+                          ? t("admin.forms.category.active")
+                          : t("admin.forms.category.inactive")}
                       </span>
                     </div>
                   </FormField>
@@ -677,7 +796,7 @@ export function CategoryFormSheet({
                   disabled={isSubmitting}
                   className="w-32 rounded-lg font-semibold shadow-sm"
                 >
-                  Hủy
+                  {t("admin.forms.common.cancel")}
                 </Button>
                 <Button
                   type="submit"
@@ -687,12 +806,12 @@ export function CategoryFormSheet({
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Đang xử lý...
+                      {t("admin.forms.common.loading")}
                     </>
                   ) : isEditing ? (
-                    "Cập nhật"
+                    t("admin.common.save")
                   ) : (
-                    "Tạo mới"
+                    t("admin.common.addNew")
                   )}
                 </Button>
               </div>

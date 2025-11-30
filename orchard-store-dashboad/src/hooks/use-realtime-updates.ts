@@ -56,7 +56,7 @@ export function usePrefetchNextPage<T>(
       queryClient.prefetchQuery({
         queryKey: [...baseQueryKey, nextPageFilters] as const,
         queryFn: () => queryFn(nextPageFilters),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 10 * 60 * 1000, // 10 minutes - increased for better performance
       });
     }
   }, [

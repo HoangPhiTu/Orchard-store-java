@@ -115,6 +115,37 @@ export const brandFormSchema = z.object({
 
 export type BrandFormData = z.infer<typeof brandFormSchema>;
 
+/**
+ * Schema cho Image URL (Optional)
+ * - URL ảnh của category hoặc File object (trong form)
+ * - Tối đa 500 ký tự
+ * - Cho phép null, undefined, hoặc empty string
+ * - Nếu có giá trị thì phải là URL hợp lệ hoặc File object
+ * - File object sẽ được convert sang URL khi submit
+ */
+const imageUrlSchema = z.preprocess(
+  (val) => {
+    // Chuyển empty string thành null
+    if (typeof val === "string" && val.trim() === "") return null;
+    // Nếu là File object, giữ nguyên (sẽ được xử lý trong onSubmit)
+    if (val instanceof File) return val;
+    return val;
+  },
+  z
+    .union([
+      // Cho phép File object (trong form, trước khi upload)
+      z.instanceof(File),
+      // Hoặc URL string hợp lệ
+      z
+        .string()
+        .url("URL ảnh không hợp lệ")
+        .max(500, "URL ảnh không được vượt quá 500 ký tự"),
+      z.null(),
+    ])
+    .optional()
+    .nullable()
+);
+
 const categoryFormSchemaBase = z.object({
   name: z
     .string()
@@ -125,9 +156,7 @@ const categoryFormSchemaBase = z.object({
   description: emptyToUndefined(
     z.string().max(5000, "Mô tả không được vượt quá 5000 ký tự")
   ),
-  imageUrl: emptyToUndefined(
-    z.string().max(500, "URL hình ảnh không được vượt quá 500 ký tự")
-  ),
+  imageUrl: imageUrlSchema,
   parentId: z
     .preprocess(
       (value) => {

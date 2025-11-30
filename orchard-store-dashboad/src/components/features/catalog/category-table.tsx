@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { getImageUrlWithTimestamp } from "@/lib/utils";
 import type { Category } from "@/types/catalog.types";
 import {
   DropdownMenu,
@@ -30,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface CategoryTableProps {
   categories: Category[];
@@ -73,6 +75,7 @@ export function CategoryTable({
   onDelete,
   isLoading,
 }: CategoryTableProps) {
+  const { t } = useI18n();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const sortedCategories = useMemo(
     () => sortCategoriesByHierarchy(categories ?? []),
@@ -95,12 +98,16 @@ export function CategoryTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px]">Name</TableHead>
+                <TableHead className="w-[300px]">
+                  {t("admin.categories.categoryName")}
+                </TableHead>
                 <TableHead>Slug</TableHead>
                 <TableHead>Image</TableHead>
-                <TableHead>Parent</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("admin.categories.parentCategory")}</TableHead>
+                <TableHead>{t("admin.users.status")}</TableHead>
+                <TableHead className="text-right">
+                  {t("admin.users.actions")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -109,7 +116,7 @@ export function CategoryTable({
                   colSpan={6}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  Đang tải dữ liệu...
+                  {t("admin.categories.loadingCategories")}
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -124,12 +131,16 @@ export function CategoryTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px]">Name</TableHead>
+                <TableHead className="w-[300px]">
+                  {t("admin.categories.categoryName")}
+                </TableHead>
                 <TableHead>Slug</TableHead>
                 <TableHead>Image</TableHead>
-                <TableHead>Parent</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("admin.categories.parentCategory")}</TableHead>
+                <TableHead>{t("admin.users.status")}</TableHead>
+                <TableHead className="text-right">
+                  {t("admin.users.actions")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -138,7 +149,7 @@ export function CategoryTable({
                   colSpan={6}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  Không có danh mục nào
+                  {t("admin.categories.noCategoriesFound")}
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -152,12 +163,16 @@ export function CategoryTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
-              <TableHead className="w-[300px]">Name</TableHead>
+              <TableHead className="w-[300px]">
+                {t("admin.categories.categoryName")}
+              </TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Image</TableHead>
-              <TableHead>Parent</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("admin.categories.parentCategory")}</TableHead>
+              <TableHead>{t("admin.users.status")}</TableHead>
+              <TableHead className="text-right">
+                {t("admin.users.actions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -211,7 +226,7 @@ export function CategoryTable({
                     <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
                       {shouldShowImage ? (
                         <Image
-                          src={imageUrl!}
+                          src={getImageUrlWithTimestamp(imageUrl!) || imageUrl!}
                           alt={displayName}
                           fill
                           className="object-cover"

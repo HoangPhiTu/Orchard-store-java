@@ -13,15 +13,9 @@ import {
   EyeOff,
   Loader2,
   Lock,
+  Mountain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -32,6 +26,7 @@ import { authService } from "@/services/auth.service";
 import { toast } from "sonner";
 import { ProgressSteps } from "@/components/shared/progress-steps";
 import { useAuthStore } from "@/stores/auth-store";
+import { useI18n } from "@/hooks/use-i18n";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -41,9 +36,11 @@ export default function ResetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [isTokenValid, setIsTokenValid] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const email = searchParams.get("email");
   const otp = searchParams.get("otp");
   const { isAuthenticated, isInitialized } = useAuthStore();
+  const { t } = useI18n();
 
   const {
     register,
@@ -60,37 +57,33 @@ export default function ResetPasswordPage() {
     },
   });
 
-  // Redirect if user is already authenticated (unless they're in the middle of reset flow)
+  // Redirect if user is already authenticated
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
-      // If user is already authenticated, they shouldn't be on reset password page
-      // Redirect immediately to dashboard (use replace to prevent back navigation)
       router.replace("/admin/dashboard");
     }
   }, [isAuthenticated, isInitialized, router]);
 
   // Validate OTP/reset token when page loads
   useEffect(() => {
-    // Don't validate if user is already authenticated
     if (!isInitialized || isAuthenticated) return;
 
     const validateToken = async () => {
       if (!email || !otp) {
-        toast.error("Invalid or missing email/OTP");
+        toast.error(t("auth.resetPassword.invalidOrMissingEmailOtp"));
         router.replace("/forgot-password");
         return;
       }
 
       setIsValidating(true);
       try {
-        // Verify OTP to check if it's still valid
         await authService.verifyOtp({ email, otp });
         setIsTokenValid(true);
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         const apiMessage =
           axiosError.response?.data?.message ??
-          "OTP code is invalid or expired. Please request a new one.";
+          t("auth.resetPassword.yourOtpExpiredOrInvalid");
         setIsTokenValid(false);
         setError("root", { type: "server", message: apiMessage });
         toast.error(apiMessage);
@@ -106,7 +99,7 @@ export default function ResetPasswordPage() {
     if (!email || !otp) {
       setError("root", {
         type: "server",
-        message: "Invalid or missing email/OTP",
+        message: t("auth.resetPassword.invalidOrMissingEmailOtp"),
       });
       return;
     }
@@ -119,24 +112,24 @@ export default function ResetPasswordPage() {
         confirmPassword: values.confirmPassword,
       });
       setIsSuccess(true);
-      toast.success(response.message || "Password reset successfully");
+      toast.success(
+        response.message || t("auth.resetPassword.passwordResetSuccessfully")
+      );
 
-      // Auto-redirect to login after 2 seconds
-      // Use replace to prevent back navigation to this page
+      // Prefetch login page for faster navigation
+      router.prefetch("/login");
+
+      // Auto-redirect immediately after showing success message
+      setIsRedirecting(true);
       setTimeout(() => {
-        router.replace("/login");
-        // Clear browser history to prevent back navigation to reset-password
-        if (typeof window !== "undefined") {
-          window.history.replaceState(null, "", "/login");
-        }
-      }, 2000);
+        router.push("/login");
+      }, 800);
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const apiMessage =
         axiosError.response?.data?.message ??
-        "Failed to reset password. Please try again.";
+        t("auth.resetPassword.failedToResetPassword");
 
-      // If OTP expired, redirect to verify OTP page
       if (
         apiMessage.toLowerCase().includes("expired") ||
         apiMessage.toLowerCase().includes("invalid") ||
@@ -144,10 +137,8 @@ export default function ResetPasswordPage() {
       ) {
         toast.error(apiMessage);
         setTimeout(() => {
-          router.replace(
-            `/verify-otp?email=${encodeURIComponent(email || "")}`
-          );
-        }, 2000);
+          router.push(`/verify-otp?email=${encodeURIComponent(email || "")}`);
+        }, 1000);
       } else {
         setError("root", { type: "server", message: apiMessage });
         toast.error(apiMessage);
@@ -157,40 +148,86 @@ export default function ResetPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className="relative min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-50">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-slate-200/30 blur-3xl" />
-          <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-slate-300/20 blur-3xl" />
+      <div className="flex min-h-screen bg-background">
+        {/* Left Panel - Branding */}
+        <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:bg-gradient-to-br from-accent/50 to-muted/50 lg:p-12 xl:p-16 border-r border-border">
+          <div className="flex flex-col h-full justify-center">
+            <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                  <Mountain className="h-6 w-6" />
+                </div>
+                <span className="text-xl font-bold text-foreground">
+                  Orchard Admin
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight">
+                  {
+                    t("auth.resetPassword.passwordResetSuccessfully").split(
+                      " "
+                    )[0]
+                  }{" "}
+                  <span className="block text-muted-foreground">
+                    {t("auth.resetPassword.passwordResetSuccessfully")
+                      .split(" ")
+                      .slice(1)
+                      .join(" ")}
+                  </span>
+                </h1>
+                <p className="text-lg text-muted-foreground max-w-md">
+                  {t("auth.resetPassword.passwordResetSuccessfully")}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-          <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-            <CardHeader className="space-y-4 pb-6">
-              <ProgressSteps currentStep={3} />
-              <div className="space-y-2 pt-4 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-                  <CheckCircle2 className="h-8 w-8 text-indigo-600" />
-                </div>
-                <CardTitle className="text-2xl">
-                  Password reset successful
-                </CardTitle>
-                <CardDescription>
-                  Your password has been reset successfully. Redirecting to
-                  login...
-                </CardDescription>
+        {/* Right Panel - Success Message */}
+        <div className="flex-1 flex items-center justify-center bg-background p-4 sm:p-6 lg:p-12">
+          <div className="w-full max-w-md space-y-8">
+            {/* Mobile Logo */}
+            <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                <Mountain className="h-6 w-6" />
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Link href="/login" className="block w-full">
-                <Button variant="default" className="w-full">
-                  Go to login
-                </Button>
-              </Link>
-              <p className="text-center text-sm text-slate-500">
-                Redirecting to login page in 2 seconds...
-              </p>
-            </CardContent>
-          </Card>
+              <span className="text-xl font-bold text-foreground">
+                Orchard Admin
+              </span>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-4 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <CheckCircle2 className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-foreground">
+                    Password reset successful
+                  </h2>
+                  <p className="mt-2 text-muted-foreground">
+                    Your password has been reset successfully. Redirecting to
+                    login...
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Link href="/login" className="block w-full">
+                  <Button
+                    variant="default"
+                    className="h-11 w-full rounded-lg shadow-sm"
+                  >
+                    Go to login
+                  </Button>
+                </Link>
+                <p className="text-center text-sm text-muted-foreground">
+                  Redirecting to login page in 2 seconds...
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -199,44 +236,24 @@ export default function ResetPasswordPage() {
   // Show loading while checking auth
   if (!isInitialized) {
     return (
-      <div className="relative min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-50">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-slate-200/30 blur-3xl" />
-          <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-slate-300/20 blur-3xl" />
-        </div>
-
-        <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-          <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-              <p className="mt-4 text-sm text-slate-600">Loading...</p>
-            </CardContent>
-          </Card>
+      <div className="flex min-h-screen bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     );
   }
 
   if (!email || !otp) {
-    return null; // Will redirect in useEffect
+    return null;
   }
 
   // Show loading state while validating token
   if (isValidating) {
     return (
-      <div className="relative min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-50">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-slate-200/30 blur-3xl" />
-          <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-slate-300/20 blur-3xl" />
-        </div>
-
-        <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-          <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-              <p className="mt-4 text-sm text-slate-600">Validating OTP...</p>
-            </CardContent>
-          </Card>
+      <div className="flex min-h-screen bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     );
@@ -245,106 +262,188 @@ export default function ResetPasswordPage() {
   // Show error state if token is invalid
   if (!isTokenValid) {
     return (
-      <div className="relative min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-50">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-slate-200/30 blur-3xl" />
-          <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-slate-300/20 blur-3xl" />
+      <div className="flex min-h-screen bg-background">
+        {/* Left Panel - Branding */}
+        <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:bg-gradient-to-br from-accent/50 to-muted/50 lg:p-12 xl:p-16 border-r border-border">
+          <div className="flex flex-col h-full justify-center">
+            <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                  <Mountain className="h-6 w-6" />
+                </div>
+                <span className="text-xl font-bold text-foreground">
+                  Orchard Admin
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight">
+                  {t("auth.resetPassword.otpExpired").split(" ")[0]}{" "}
+                  <span className="block text-muted-foreground">
+                    {t("auth.resetPassword.otpExpired")
+                      .split(" ")
+                      .slice(1)
+                      .join(" ")}
+                  </span>
+                </h1>
+                <p className="text-lg text-muted-foreground max-w-md">
+                  {t("auth.resetPassword.yourOtpExpiredOrInvalid")}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-          <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-            <CardHeader className="space-y-4 pb-6">
-              <ProgressSteps currentStep={2} />
-              <div className="space-y-2 pt-4 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-                  <Lock className="h-8 w-8 text-red-600" />
-                </div>
-                <CardTitle className="text-2xl">OTP Expired</CardTitle>
-                <CardDescription>
-                  Your OTP code has expired or is invalid. Please request a new
-                  one to continue.
-                </CardDescription>
+        {/* Right Panel - Error Message */}
+        <div className="flex-1 flex items-center justify-center bg-background p-4 sm:p-6 lg:p-12">
+          <div className="w-full max-w-md space-y-8">
+            {/* Mobile Logo */}
+            <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                <Mountain className="h-6 w-6" />
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              <span className="text-xl font-bold text-foreground">
+                Orchard Admin
+              </span>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-4 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                  <Lock className="h-8 w-8 text-destructive" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-foreground">
+                    {t("auth.resetPassword.otpExpired")}
+                  </h2>
+                  <p className="mt-2 text-muted-foreground">
+                    {t("auth.resetPassword.yourOtpExpiredOrInvalid")}
+                  </p>
+                </div>
+              </div>
+
               {errors.root?.message && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-                  <p className="text-sm font-medium text-red-800">
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+                  <p className="text-sm font-medium text-destructive">
                     {errors.root.message}
                   </p>
                 </div>
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Button
                   variant="default"
-                  className="w-full"
+                  className="h-11 w-full rounded-lg shadow-sm"
                   onClick={() => {
                     router.push(
                       `/verify-otp?email=${encodeURIComponent(email)}`
                     );
                   }}
                 >
-                  Request New OTP
+                  {t("auth.resetPassword.requestNewOtp")}
                 </Button>
-                <Link href="/forgot-password" className="w-full">
-                  <Button variant="outline" className="w-full">
+                <Link href="/forgot-password" className="block w-full">
+                  <Button variant="outline" className="h-11 w-full">
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to forgot password
+                    {t("auth.forgotPassword.backToLogin")}
                   </Button>
                 </Link>
-                <Link href="/login" className="w-full">
-                  <Button variant="ghost" className="w-full">
-                    Back to login
+                <Link href="/login" className="block w-full">
+                  <Button variant="ghost" className="h-11 w-full">
+                    {t("auth.verifyOtp.backToLogin")}
                   </Button>
                 </Link>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-purple-500/10 blur-3xl" />
+    <div className="flex min-h-screen bg-background">
+      {/* Left Panel - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:bg-gradient-to-br from-accent/50 to-muted/50 lg:p-12 xl:p-16 border-r border-border">
+        <div className="flex flex-col h-full justify-center">
+          <div className="space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                <Mountain className="h-6 w-6" />
+              </div>
+              <span className="text-xl font-bold text-foreground">
+                Orchard Admin
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight">
+                {t("auth.resetPassword.createYourNewPassword").split(" ")[0]}{" "}
+                {t("auth.resetPassword.createYourNewPassword").split(" ")[1]}{" "}
+                <span className="block text-muted-foreground">
+                  {t("auth.resetPassword.createYourNewPassword")
+                    .split(" ")
+                    .slice(2)
+                    .join(" ")}
+                </span>
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-md">
+                {t("auth.resetPassword.enterNewPasswordBelow")}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-12">
-        <Card className="w-full border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-          <CardHeader className="space-y-4 pb-6">
-            <ProgressSteps currentStep={3} />
-            <div className="space-y-1 pt-4">
-              <CardTitle className="text-2xl font-bold tracking-tight">
-                Create new password
-              </CardTitle>
-              <CardDescription>
-                Enter your new password below. Make sure it&apos;s at least 6
-                characters long.
-              </CardDescription>
+      {/* Right Panel - Reset Password Form */}
+      <div className="flex-1 flex items-center justify-center bg-background p-4 sm:p-6 lg:p-12">
+        <div className="w-full max-w-md space-y-8">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+              <Mountain className="h-6 w-6" />
             </div>
-          </CardHeader>
-          <CardContent>
+            <span className="text-xl font-bold text-foreground">
+              Orchard Admin
+            </span>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">
+                {t("auth.resetPassword.createYourNewPassword")}
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                {t("auth.resetPassword.enterNewPasswordAtLeast")}
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <ProgressSteps currentStep={3} />
+            </div>
+
             <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
               <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
+                <Label
+                  htmlFor="newPassword"
+                  className="text-sm font-medium text-foreground"
+                >
+                  {t("auth.resetPassword.newPassword")}
+                </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="newPassword"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter new password"
                     autoComplete="new-password"
-                    className="pl-10 pr-10"
+                    className="h-11 pl-10 pr-10 border-border focus:border-primary focus:ring-primary"
                     {...register("newPassword")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -354,28 +453,33 @@ export default function ResetPasswordPage() {
                   </button>
                 </div>
                 {errors.newPassword && (
-                  <p className="text-sm text-red-500">
+                  <p className="text-sm text-red-600">
                     {errors.newPassword.message}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label
+                  htmlFor="confirmPassword"
+                  className="text-sm font-medium text-foreground"
+                >
+                  {t("auth.resetPassword.confirmPassword")}
+                </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm new password"
                     autoComplete="new-password"
-                    className="pl-10 pr-10"
+                    className="h-11 pl-10 pr-10 border-border focus:border-primary focus:ring-primary"
                     {...register("confirmPassword")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -385,15 +489,15 @@ export default function ResetPasswordPage() {
                   </button>
                 </div>
                 {errors.confirmPassword && (
-                  <p className="text-sm text-red-500">
+                  <p className="text-sm text-red-600">
                     {errors.confirmPassword.message}
                   </p>
                 )}
               </div>
 
               {errors.root?.message && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-                  <p className="text-sm font-medium text-red-800">
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+                  <p className="text-sm font-medium text-destructive">
                     {errors.root.message}
                   </p>
                 </div>
@@ -405,28 +509,21 @@ export default function ResetPasswordPage() {
                 className="h-11 w-full rounded-lg shadow-sm"
                 isLoading={isSubmitting}
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Resetting...
-                  </>
-                ) : (
-                  "Reset password"
-                )}
+                {t("auth.resetPassword.resetPassword")}
               </Button>
 
-              <div className="text-center space-y-3">
+              <div className="text-center">
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back to login
+                  {t("auth.verifyOtp.backToLogin")}
                 </Link>
               </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

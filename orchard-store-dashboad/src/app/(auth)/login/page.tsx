@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
 import dynamic from "next/dynamic";
 import {
   Clock,
-  Loader2,
   LogIn,
   Trash2,
   X,
@@ -36,6 +35,7 @@ import {
 } from "@/lib/security/rate-limit";
 import { hashPassword } from "@/lib/security/password-hash";
 import { logger } from "@/lib/logger";
+import { useI18n } from "@/hooks/use-i18n";
 
 type LoginApiError = {
   message?: string;
@@ -43,7 +43,8 @@ type LoginApiError = {
 
 type StoredAccount = {
   email: string;
-  password: string; // base64 encoded
+  // SECURITY: Password removed - never store passwords in localStorage
+  // Users must enter password manually for security
   lastUsed: number;
 };
 
@@ -55,11 +56,8 @@ const Turnstile = dynamic(
   () => import("react-turnstile").then((mod) => mod.default),
   {
     ssr: false, // Turnstile only works on client-side
-    loading: () => (
-      <div className="h-[65px] w-[300px] flex items-center justify-center border border-border rounded-lg bg-muted">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    ),
+    // Remove loading spinner - Turnstile loads fast enough and spinner causes layout shift
+    loading: () => null,
   }
 );
 
@@ -77,6 +75,7 @@ const getStoredAccounts = (): StoredAccount[] => {
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
+  const { t } = useI18n();
   const [recentAccounts, setRecentAccounts] =
     useState<StoredAccount[]>(getStoredAccounts);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -103,12 +102,18 @@ export default function LoginPage() {
     TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY.trim() !== ""
   );
 
-  // Show Turnstile if configured (works in both dev and production)
-  // In development, SSL errors will be handled gracefully
+  // Lazy load Turnstile after form is rendered to avoid blocking initial render
+  // This improves perceived performance and reduces lag
   useEffect(() => {
-    if (isTurnstileConfigured) {
+    if (!isTurnstileConfigured) return;
+
+    // Defer Turnstile loading to avoid blocking initial render
+    // Load after form is fully rendered and user might interact
+    const timer = setTimeout(() => {
       setShowTurnstile(true);
-    }
+    }, 500); // Increased delay to ensure form renders first and reduce initial lag
+
+    return () => clearTimeout(timer);
   }, [isTurnstileConfigured]);
 
   const {
@@ -127,17 +132,18 @@ export default function LoginPage() {
     },
   });
 
-  const [emailValue, passwordValue] = useWatch({
+  const [emailValue] = useWatch({
     control,
-    name: ["email", "password"],
+    name: ["email"],
   });
 
-  // Check if current form values match a saved account
-  const hasSavedAccount = recentAccounts.some(
-    (acc) =>
-      acc.email.toLowerCase() === emailValue?.toLowerCase() &&
-      passwordValue &&
-      passwordValue.length > 0
+  // Check if current email matches a saved account (memoized for performance)
+  const hasSavedAccount = useMemo(
+    () =>
+      recentAccounts.some(
+        (acc) => acc.email.toLowerCase() === emailValue?.toLowerCase()
+      ),
+    [recentAccounts, emailValue]
   );
 
   useEffect(() => {
@@ -194,19 +200,20 @@ export default function LoginPage() {
   //   };
   // }, [emailValue]);
 
-  const persistRecentAccount = (email: string, password: string) => {
-    if (typeof window === "undefined" || !email || !password) {
+  // SECURITY: Only store email, never store passwords
+  // Users must enter password manually for security
+  const persistRecentAccount = (email: string) => {
+    if (typeof window === "undefined" || !email) {
       return;
     }
 
     try {
-      const encoded = window.btoa(password);
       const filtered = recentAccounts.filter(
         (acc) => acc.email.toLowerCase() !== email.toLowerCase()
       );
       const timestamp = new Date().getTime();
       const nextList: StoredAccount[] = [
-        { email, password: encoded, lastUsed: timestamp },
+        { email, lastUsed: timestamp },
         ...filtered,
       ].slice(0, MAX_SAVED_ACCOUNTS);
       setRecentAccounts(nextList);
@@ -216,28 +223,30 @@ export default function LoginPage() {
     }
   };
 
-  const handleSelectAccount = (account: StoredAccount) => {
-    try {
-      const decoded = window.atob(account.password);
+  // SECURITY: Only fill email, user must enter password manually
+  const handleSelectAccount = useCallback(
+    (account: StoredAccount) => {
       setValue("email", account.email, { shouldValidate: false });
-      setValue("password", decoded, { shouldValidate: false });
+      // Password field is intentionally left empty for security
+      setValue("password", "", { shouldValidate: false });
       setShowSuggestions(false);
-      toast.success("Login credentials filled", {
+      toast.success(t("auth.login.emailFilled"), {
         duration: 2000,
       });
-    } catch (error) {
-      logger.warn("Failed to decode account", error);
-      toast.error("Failed to load saved credentials");
-    }
-  };
+    },
+    [setValue, t]
+  );
 
-  const handleRemoveAccount = (email: string) => {
-    const next = recentAccounts.filter(
-      (acc) => acc.email.toLowerCase() !== email.toLowerCase()
-    );
-    setRecentAccounts(next);
-    localStorage.setItem(RECENT_ACCOUNTS_KEY, JSON.stringify(next));
-  };
+  const handleRemoveAccount = useCallback(
+    (email: string) => {
+      const next = recentAccounts.filter(
+        (acc) => acc.email.toLowerCase() !== email.toLowerCase()
+      );
+      setRecentAccounts(next);
+      localStorage.setItem(RECENT_ACCOUNTS_KEY, JSON.stringify(next));
+    },
+    [recentAccounts]
+  );
 
   const onSubmit = async (values: LoginSchema) => {
     // Prevent double submission
@@ -264,17 +273,24 @@ export default function LoginPage() {
     ) {
       // Check if token exists (only in production)
       if (!turnstileToken) {
-        toast.error("Vui lòng hoàn thành xác minh bảo mật");
+        toast.error(t("auth.login.pleaseCompleteSecurityVerification"));
         return;
       }
 
       // Verify token with Cloudflare (only in production)
       try {
+        // Add timeout and abort controller to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
         const verifyResponse = await fetch("/api/auth/verify-turnstile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token: turnstileToken }),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!verifyResponse.ok) {
           throw new Error("Verification request failed");
@@ -282,7 +298,7 @@ export default function LoginPage() {
 
         const verifyData = await verifyResponse.json();
         if (!verifyData.success) {
-          toast.error("Xác minh bảo mật thất bại. Vui lòng thử lại.");
+          toast.error(t("auth.login.securityVerificationFailed"));
           setTurnstileToken(null);
           // Reset Turnstile widget by changing key
           turnstileKeyRef.current += 1;
@@ -290,7 +306,7 @@ export default function LoginPage() {
         }
       } catch (error) {
         logger.error("Turnstile verification error:", error);
-        toast.error("Không thể xác minh bảo mật. Vui lòng thử lại.");
+        toast.error(t("auth.login.cannotVerifySecurity"));
         setTurnstileToken(null);
         turnstileKeyRef.current += 1;
         return; // Block login in production
@@ -305,7 +321,6 @@ export default function LoginPage() {
     }
 
     setIsSubmittingDebounced(true);
-    logger.debug("After Turnstile check, proceeding to login...");
 
     try {
       // Security: Hash password if enabled (optional)
@@ -314,13 +329,11 @@ export default function LoginPage() {
         passwordToSend = await hashPassword(values.password);
       }
 
-      logger.debug("Calling login API...");
       // Login với password đã hash (nếu bật)
       await login({
         ...values,
         password: passwordToSend,
       });
-      logger.debug("Login API success!");
 
       // Security: Reset failed attempts on success
       resetFailedAttempts();
@@ -329,8 +342,9 @@ export default function LoginPage() {
       // Reset Turnstile widget for next login by changing key
       turnstileKeyRef.current += 1;
 
-      persistRecentAccount(values.email, values.password);
-      toast.success("Signed in successfully");
+      // SECURITY: Only store email, never store password
+      persistRecentAccount(values.email);
+      toast.success(t("auth.login.signedInSuccessfully"));
 
       // Redirect về trang đã định trước hoặc dashboard mặc định
       const searchParams = new URLSearchParams(window.location.search);
@@ -352,13 +366,13 @@ export default function LoginPage() {
         axiosError.code === "ECONNABORTED" ||
         axiosError.message?.includes("timeout")
       ) {
-        const timeoutMessage = "Kết nối quá hạn, vui lòng kiểm tra mạng";
+        const timeoutMessage = t("auth.login.connectionTimeout");
         setError("root", { type: "server", message: timeoutMessage });
         toast.error(timeoutMessage);
       } else {
         const apiMessage =
           axiosError.response?.data?.message ??
-          "Email hoặc mật khẩu không đúng";
+          t("auth.login.emailOrPasswordIncorrect");
         setError("root", { type: "server", message: apiMessage });
         toast.error(apiMessage);
 
@@ -395,12 +409,12 @@ export default function LoginPage() {
     };
   }, []);
 
-  const renderSavedAccounts = () => {
+  const renderSavedAccounts = useCallback(() => {
     if (recentAccounts.length === 0) {
       return (
         <div className="px-4 py-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No saved accounts yet. Your recent logins will appear here.
+            {t("auth.login.noSavedAccounts")}
           </p>
         </div>
       );
@@ -426,7 +440,7 @@ export default function LoginPage() {
             </p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
               <Clock size={12} />
-              Last login:{" "}
+              {t("auth.login.lastLogin")}{" "}
               {new Date(account.lastUsed).toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -446,7 +460,7 @@ export default function LoginPage() {
         </button>
       </div>
     ));
-  };
+  }, [recentAccounts, t, handleSelectAccount, handleRemoveAccount]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -486,7 +500,9 @@ export default function LoginPage() {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mb-1">Total Sales</p>
-              <p className="text-2xl font-bold text-card-foreground mb-1">$128,420</p>
+              <p className="text-2xl font-bold text-card-foreground mb-1">
+                $128,420
+              </p>
               <div className="flex items-center gap-1 text-sm text-primary">
                 <TrendingUp className="h-4 w-4" />
                 <span>+12.5% this month</span>
@@ -501,7 +517,9 @@ export default function LoginPage() {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mb-1">Active Users</p>
-              <p className="text-2xl font-bold text-card-foreground mb-1">24.5k</p>
+              <p className="text-2xl font-bold text-card-foreground mb-1">
+                24.5k
+              </p>
               <div className="flex items-center gap-1 text-sm text-primary">
                 <TrendingUp className="h-4 w-4" />
                 <span>+5.2% this week</span>
@@ -527,10 +545,10 @@ export default function LoginPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-3xl font-bold text-foreground">
-                Welcome back
+                {t("auth.login.welcomeBack")}
               </h2>
               <p className="mt-2 text-muted-foreground">
-                Please enter your details to sign in.
+                {t("auth.login.enterDetailsToSignIn")}
               </p>
             </div>
 
@@ -542,7 +560,7 @@ export default function LoginPage() {
                     htmlFor="email"
                     className="text-sm font-medium text-foreground"
                   >
-                    Email
+                    {t("auth.login.email")}
                   </Label>
                   <Input
                     id="email"
@@ -571,13 +589,13 @@ export default function LoginPage() {
                       htmlFor="password"
                       className="text-sm font-medium text-foreground"
                     >
-                      Password
+                      {t("auth.login.password")}
                     </Label>
                     <Link
                       href="/forgot-password"
                       className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
-                      Forgot password?
+                      {t("auth.login.forgotPassword")}
                     </Link>
                   </div>
                   <div className="relative">
@@ -596,7 +614,7 @@ export default function LoginPage() {
                     />
                     {hasSavedAccount && (
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary border border-primary/20">
-                        Saved
+                        {t("auth.login.saved")}
                       </span>
                     )}
                   </div>
@@ -613,7 +631,7 @@ export default function LoginPage() {
                     <div className="flex items-center justify-between border-b border-border px-4 py-3">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         <LogIn size={14} />
-                        Quick login
+                        {t("auth.login.quickLogin")}
                       </div>
                       <button
                         type="button"
@@ -643,7 +661,7 @@ export default function LoginPage() {
                         className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       />
                       <span className="text-sm text-foreground">
-                        Remember me for 7 days
+                        {t("auth.login.rememberMe")}
                       </span>
                     </label>
                   )}
@@ -681,10 +699,10 @@ export default function LoginPage() {
               {showTurnstile && isTurnstileConfigured && (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-foreground">
-                    Xác minh bảo mật
+                    {t("auth.login.securityVerification")}
                     {process.env.NODE_ENV === "development" && (
                       <span className="ml-2 text-xs font-normal text-muted-foreground">
-                        (Development Mode)
+                        {t("auth.login.developmentMode")}
                       </span>
                     )}
                   </Label>
@@ -735,8 +753,10 @@ export default function LoginPage() {
                   </div>
                   <p className="text-xs text-muted-foreground text-center">
                     {process.env.NODE_ENV === "development"
-                      ? "Xác minh bảo mật (không bắt buộc trong development)"
-                      : "Vui lòng hoàn thành xác minh bảo mật để đăng nhập"}
+                      ? t("auth.login.securityVerificationOptional")
+                      : t(
+                          "auth.login.pleaseCompleteSecurityVerificationToLogin"
+                        )}
                   </p>
                 </div>
               )}
@@ -758,34 +778,18 @@ export default function LoginPage() {
                 }
                 isLoading={isSubmitting || isSubmittingDebounced}
               >
-                {isSubmitting || isSubmittingDebounced ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  "Sign in"
-                )}
-                {/* DISABLED: Lock mechanism */}
-                {/* ) : isLockedState ? (
-                  <>
-                    <ShieldAlert className="mr-2 h-4 w-4" />
-                    Tài khoản bị khóa
-                  </>
-                ) : (
-                  "Sign in"
-                )} */}
+                {t("auth.login.signIn")}
               </Button>
             </form>
 
             {/* Footer Link */}
             <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
+              {t("auth.login.dontHaveAccount")}{" "}
               <Link
                 href="#"
                 className="font-semibold text-primary hover:text-primary/80 transition-colors"
               >
-                Contact Admin
+                {t("auth.login.contactAdmin")}
               </Link>
             </p>
           </div>

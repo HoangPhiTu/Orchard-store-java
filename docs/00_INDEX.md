@@ -85,6 +85,20 @@
 
 **Total:** 4 files, ~55 pages
 
+## 🖼️ Image Management
+
+| Document                                                                   | Description                                       | Pages | Status |
+| -------------------------------------------------------------------------- | ------------------------------------------------- | ----- | ------ |
+| **[IMAGE_MANAGEMENT_STRATEGY.md](./IMAGE_MANAGEMENT_STRATEGY.md)**         | Image organization, optimization & best practices | 30    | ✅     |
+| **[IMAGE_MANAGEMENT_IMPLEMENTATION.md](./IMAGE_MANAGEMENT_IMPLEMENTATION.md)** | Implementation status & progress tracking        | 8     | ✅     |
+| **[IMAGE_REFACTORING_SUMMARY.md](./IMAGE_REFACTORING_SUMMARY.md)**         | Frontend refactoring summary                      | 8     | ✅     |
+| **[IMAGE_FOLDER_STRUCTURE_AUDIT.md](./IMAGE_FOLDER_STRUCTURE_AUDIT.md)**   | Folder structure audit report                     | 6     | ✅     |
+| **[BACKEND_IMAGE_DELETION_IMPLEMENTATION.md](./BACKEND_IMAGE_DELETION_IMPLEMENTATION.md)** | Backend soft delete implementation                | 10    | ✅     |
+| **[IMAGE_MANAGEMENT_TESTING_GUIDE.md](./IMAGE_MANAGEMENT_TESTING_GUIDE.md)** | Comprehensive testing guide                       | 12    | ✅     |
+| **[IMAGE_MANAGEMENT_COMPLETION_SUMMARY.md](./IMAGE_MANAGEMENT_COMPLETION_SUMMARY.md)** | Implementation completion summary                 | 8     | ✅     |
+
+**Total:** 7 files, ~82 pages
+
 ---
 
 ## 📊 Documentation by Topic
@@ -153,6 +167,13 @@
 1. [API Reference](./backend/API_REFERENCE.md)
 2. [Frontend API Patterns](./frontend/CODING_RULES.md#api-calls)
 
+**Working with Images:**
+
+1. [Image Management Strategy](./IMAGE_MANAGEMENT_STRATEGY.md)
+2. [Image Management Implementation](./IMAGE_MANAGEMENT_IMPLEMENTATION.md)
+3. [Backend Image Deletion](./BACKEND_IMAGE_DELETION_IMPLEMENTATION.md)
+4. [MinIO Guide](./backend/MINIO_GUIDE.md)
+
 **Understanding RBAC:**
 
 1. [Hierarchy Levels](./backend/HIERARCHY_LEVELS.md)
@@ -191,13 +212,14 @@
 
 ### By Category
 
-| Category      | Files  | Pages    | Coverage |
-| ------------- | ------ | -------- | -------- |
-| **Core Docs** | 5      | ~47      | 100%     |
-| **Backend**   | 7      | ~108     | 100%     |
-| **Frontend**  | 3      | ~51      | 100%     |
-| **Guides**    | 4      | ~55      | 100%     |
-| **Total**     | **19** | **~261** | **100%** |
+| Category       | Files  | Pages    | Coverage |
+| -------------- | ------ | -------- | -------- |
+| **Core Docs**  | 5      | ~47      | 100%     |
+| **Backend**    | 7      | ~108     | 100%     |
+| **Frontend**   | 3      | ~51      | 100%     |
+| **Guides**     | 4      | ~55      | 100%     |
+| **Image Mgmt** | 7      | ~82      | 100%     |
+| **Total**      | **26** | **~343** | **100%** |
 
 ### Quality Metrics
 

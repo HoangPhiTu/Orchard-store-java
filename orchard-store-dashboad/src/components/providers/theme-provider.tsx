@@ -1,7 +1,7 @@
- "use client";
+"use client";
 
- import * as React from "react";
- import { ThemeProvider as NextThemesProvider } from "next-themes";
+import * as React from "react";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -14,18 +14,18 @@ interface ThemeProviderProps {
   disableTransitionOnChange?: boolean;
 }
 
- /**
-  * ThemeProvider
-  *
-  * Wrapper cho NextThemesProvider từ thư viện next-themes.
-  * - Sử dụng attribute="class" để phù hợp với Tailwind CSS dark mode.
-  * - Hỗ trợ defaultTheme = "system" để tự động theo OS.
-  *
-  * Sử dụng:
-  * <ThemeProvider>
-  *   {children}
-  * </ThemeProvider>
-  */
+/**
+ * ThemeProvider
+ *
+ * Wrapper cho NextThemesProvider từ thư viện next-themes.
+ * - Sử dụng attribute="class" để phù hợp với Tailwind CSS dark mode.
+ * - Hỗ trợ defaultTheme = "system" để tự động theo OS.
+ *
+ * Sử dụng:
+ * <ThemeProvider>
+ *   {children}
+ * </ThemeProvider>
+ */
 export function ThemeProvider({
   children,
   defaultTheme = "light",
@@ -37,11 +37,9 @@ export function ThemeProvider({
       attribute={attribute}
       defaultTheme={defaultTheme}
       enableSystem={false}
-      disableTransitionOnChange={false}
+      disableTransitionOnChange={disableTransitionOnChange}
     >
       {children}
     </NextThemesProvider>
   );
 }
-
-

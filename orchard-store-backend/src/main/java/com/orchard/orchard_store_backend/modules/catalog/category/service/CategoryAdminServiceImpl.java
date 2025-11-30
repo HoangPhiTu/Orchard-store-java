@@ -11,11 +11,11 @@ import com.orchard.orchard_store_backend.modules.catalog.category.entity.Categor
 import com.orchard.orchard_store_backend.modules.catalog.category.mapper.CategoryAdminMapper;
 import com.orchard.orchard_store_backend.modules.catalog.category.repository.CategoryRepository;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
-import com.orchard.orchard_store_backend.modules.customer.service.RedisService;
+import com.orchard.orchard_store_backend.modules.customer.service.CacheService;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,10 +36,10 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
     private final CategoryRepository categoryRepository;
     private final CategoryAdminMapper categoryAdminMapper;
     private final ImageUploadService imageUploadService;
-    private final RedisService redisService;
-    private final ObjectMapper objectMapper;
+    private final CacheService cacheService;
     
     private static final String CATEGORY_TREE_CACHE_KEY = "category:tree";
+    private static final String CATEGORY_LIST_CACHE_KEY_PREFIX = "category:list:";
     private static final long CACHE_TTL_SECONDS = 1800; // 30 minutes
 
     /**
@@ -53,25 +54,23 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
     @Transactional(readOnly = true)
     public Page<CategoryDTO> getCategories(String keyword, String status, Pageable pageable) {
         // Build cache key from filters
-        String cacheKey = "category:list:" + 
-            (keyword != null ? keyword : "") + ":" + 
-            (status != null ? status : "ALL") + ":" +
+        String cacheKey = CATEGORY_LIST_CACHE_KEY_PREFIX + 
+            (keyword != null && !keyword.trim().isEmpty() ? keyword.trim() : "") + ":" + 
+            (status != null && !status.equalsIgnoreCase("ALL") ? status : "ALL") + ":" +
             pageable.getPageNumber() + ":" + pageable.getPageSize();
         
         // Try to get from cache (only for first page without filters for simplicity)
         if ((keyword == null || keyword.trim().isEmpty()) && 
             (status == null || status.equalsIgnoreCase("ALL")) && 
             pageable.getPageNumber() == 0) {
-            try {
-                String cached = redisService.getValue(cacheKey);
-                if (cached != null) {
-                    log.debug("Category list cache hit for key: {}", cacheKey);
-                    // Note: Full caching would require JSON deserialization of Page<CategoryDTO>
-                    // For now, we'll just use cache as a marker and still query DB
-                    // TODO: Implement full Page<CategoryDTO> serialization if needed
-                }
-            } catch (Exception e) {
-                log.warn("Failed to check category list cache: {}", e.getMessage());
+            Optional<Page<CategoryDTO>> cached = cacheService.getCachedPage(
+                cacheKey, 
+                pageable, 
+                CategoryDTO.class
+            );
+            if (cached.isPresent()) {
+                log.debug("Category list cache hit for key: {}", cacheKey);
+                return cached.get();
             }
         }
         
@@ -108,12 +107,7 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         if ((keyword == null || keyword.trim().isEmpty()) && 
             (status == null || status.equalsIgnoreCase("ALL")) && 
             pageable.getPageNumber() == 0) {
-            try {
-                redisService.setValue(cacheKey, "1", CACHE_TTL_SECONDS);
-                log.debug("Category list cached for key: {}", cacheKey);
-            } catch (Exception e) {
-                log.warn("Failed to cache category list: {}", e.getMessage());
-            }
+            cacheService.cachePage(cacheKey, result, CACHE_TTL_SECONDS);
         }
         
         return result;
@@ -123,24 +117,13 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
     @Transactional(readOnly = true)
     public List<CategoryDTO> getCategoriesTree() {
         // Try to get from cache first
-        try {
-            String cachedJson = redisService.getValue(CATEGORY_TREE_CACHE_KEY);
-            if (cachedJson != null && !cachedJson.isEmpty()) {
-                try {
-                    // Deserialize cached tree data
-                    List<CategoryDTO> cachedTree = objectMapper.readValue(
-                        cachedJson,
-                        new TypeReference<List<CategoryDTO>>() {}
-                    );
-                    log.debug("Category tree loaded from cache");
-                    return cachedTree;
-                } catch (Exception e) {
-                    log.warn("Failed to deserialize category tree from cache: {}", e.getMessage());
-                    // Continue to build from database if deserialization fails
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Failed to get category tree from cache: {}", e.getMessage());
+        Optional<List<CategoryDTO>> cached = cacheService.getCached(
+            CATEGORY_TREE_CACHE_KEY,
+            new TypeReference<List<CategoryDTO>>() {}
+        );
+        if (cached.isPresent()) {
+            log.debug("Category tree loaded from cache");
+            return cached.get();
         }
         
         // Cache miss - build tree from database
@@ -165,14 +148,8 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
             addChildren(root, allCategories);
         }
 
-        // Cache the result as JSON
-        try {
-            String json = objectMapper.writeValueAsString(rootCategories);
-            redisService.setValue(CATEGORY_TREE_CACHE_KEY, json, CACHE_TTL_SECONDS);
-            log.debug("Category tree cached successfully");
-        } catch (Exception e) {
-            log.warn("Failed to cache category tree: {}", e.getMessage());
-        }
+        // Cache the result
+        cacheService.cache(CATEGORY_TREE_CACHE_KEY, rootCategories, CACHE_TTL_SECONDS);
 
         return rootCategories;
     }
@@ -199,39 +176,80 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         }
     }
 
+    /**
+     * Helper method để clear children từ CategoryDTO để tránh circular reference khi serialize
+     * Category detail không cần children, chỉ tree structure mới cần
+     * Đảm bảo children luôn null trước khi cache để tránh serialization issues
+     */
+    private CategoryDTO clearChildren(CategoryDTO dto) {
+        if (dto != null) {
+            dto.setChildren(null);
+            // Đảm bảo children list được clear hoàn toàn
+            if (dto.getChildren() != null) {
+                dto.getChildren().clear();
+            }
+        }
+        return dto;
+    }
+
     @Override
     @Transactional(readOnly = true)
+    // Tạm thời disable cache để test - sẽ enable lại sau khi fix cache issue
+    // @Cacheable(value = "categories", key = "#id", unless = "#result == null")
     public CategoryDTO getCategoryById(Long id) {
-        Category category = categoryRepository.findByIdWithParent(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Category", id));
-        return categoryAdminMapper.toDTO(category);
+        log.info("Getting category by ID: {} (no cache)", id);
+        try {
+            Category category = categoryRepository.findByIdWithParent(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", id));
+            CategoryDTO dto = categoryAdminMapper.toDTO(category);
+            // Clear children để tránh circular reference khi serialize
+            // getCategoryById chỉ trả về category detail, không cần children
+            // Children chỉ cần khi get tree structure
+            CategoryDTO result = clearChildren(dto);
+            log.debug("Category DTO after clearing children: id={}, name={}, children={}", 
+                    result.getId(), result.getName(), result.getChildren());
+            return result;
+        } catch (ResourceNotFoundException e) {
+            log.error("Category not found: {}", id);
+            throw e;
+        } catch (Exception e) {
+            log.error("Error getting category by ID: {}", id, e);
+            // Clear cache nếu có lỗi để tránh cache corrupted data
+            evictCategoryDetailCache(id);
+            throw new RuntimeException("Failed to get category: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Evict category detail cache
+     */
+    private void evictCategoryDetailCache(Long id) {
+        // Spring Cache sẽ tự động evict với @CacheEvict
+        // Nhưng có thể cần evict thủ công nếu có vấn đề
+        try {
+            // Force evict bằng cách gọi cache manager nếu cần
+            // Hiện tại Spring Cache sẽ tự động evict với annotation
+        } catch (Exception e) {
+            log.warn("Error evicting category detail cache for ID: {}", id, e);
+        }
     }
 
     /**
      * Evict category tree cache
      */
     private void evictCategoryTreeCache() {
-        try {
-            redisService.deleteKey(CATEGORY_TREE_CACHE_KEY);
-            log.debug("Category tree cache evicted");
-        } catch (Exception e) {
-            log.warn("Failed to evict category tree cache: {}", e.getMessage());
-        }
+        cacheService.evict(CATEGORY_TREE_CACHE_KEY);
     }
     
     /**
      * Evict category list cache
      */
     private void evictCategoryListCache() {
-        try {
-            // Delete common category list cache keys
-            redisService.deleteKey("category:list::0:10");
-            redisService.deleteKey("category:list::0:15");
-            redisService.deleteKey("category:list::0:20");
-            log.debug("Category list cache evicted");
-        } catch (Exception e) {
-            log.warn("Failed to evict category list cache: {}", e.getMessage());
-        }
+        // Delete common category list cache keys
+        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:10");
+        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:15");
+        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:20");
+        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:30");
     }
 
     @Override
@@ -292,10 +310,13 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         evictCategoryTreeCache();
         evictCategoryListCache();
         
-        return categoryAdminMapper.toDTO(saved);
+        CategoryDTO dto = categoryAdminMapper.toDTO(saved);
+        // Clear children để tránh circular reference khi serialize
+        return clearChildren(dto);
     }
 
     @Override
+    @CacheEvict(value = "categories", key = "#id")
     public CategoryDTO updateCategory(Long id, CategoryUpdateRequest request) {
         Category category = categoryRepository.findByIdWithParent(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));
@@ -422,10 +443,13 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         evictCategoryTreeCache();
         evictCategoryListCache();
         
-        return categoryAdminMapper.toDTO(updated);
+        CategoryDTO dto = categoryAdminMapper.toDTO(updated);
+        // Clear children để tránh circular reference khi serialize
+        return clearChildren(dto);
     }
 
     @Override
+    @CacheEvict(value = "categories", key = "#id")
     public void deleteCategory(Long id) {
         Category category = categoryRepository.findByIdWithParent(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));

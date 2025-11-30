@@ -24,45 +24,9 @@ import {
 } from "recharts";
 import type { ColumnsType } from "antd/es/table";
 import { useCssVariableValue } from "@/hooks/use-css-variable-value";
+import { useI18n } from "@/hooks/use-i18n";
 
-const statCards = [
-  {
-    title: "Total Revenue",
-    value: "$248.4K",
-    change: "+18.4%",
-    trend: "up",
-    description: "vs last month",
-    icon: Wallet,
-    isAlert: false,
-  },
-  {
-    title: "Total Orders",
-    value: "3,482",
-    change: "+5.4%",
-    trend: "up",
-    description: "vs last month",
-    icon: ShoppingBag,
-    isAlert: false,
-  },
-  {
-    title: "New Customers",
-    value: "1,205",
-    change: "+2.1%",
-    trend: "up",
-    description: "vs last month",
-    icon: Users,
-    isAlert: false,
-  },
-  {
-    title: "Low Stock Alert",
-    value: "14 items",
-    change: "-3 items",
-    trend: "down",
-    description: "critical threshold",
-    icon: AlertTriangle,
-    isAlert: true,
-  },
-];
+// statCards moved inside component to use i18n
 
 const revenueSeries = [
   { label: "Mon", value: 3200 },
@@ -136,6 +100,7 @@ const recentOrders: RecentOrder[] = [
 ];
 
 export default function DashboardOverviewPage() {
+  const { t } = useI18n();
   const primaryColor = useCssVariableValue("--primary", "#4f46e5");
   const accentColor = useCssVariableValue("--accent", "#a78bfa");
   const gridColor = useCssVariableValue("--border", "#eef0f4");
@@ -145,6 +110,48 @@ export default function DashboardOverviewPage() {
   const infoColor = useCssVariableValue("--info", "#0ea5e9");
   const destructiveColor = useCssVariableValue("--destructive", "#ef4444");
 
+  const statCards = useMemo(
+    () => [
+      {
+        title: t("admin.dashboard.totalRevenue"),
+        value: "$248.4K",
+        change: "+18.4%",
+        trend: "up" as const,
+        description: t("admin.dashboard.vsLastMonth"),
+        icon: Wallet,
+        isAlert: false,
+      },
+      {
+        title: t("admin.dashboard.totalOrders"),
+        value: "3,482",
+        change: "+5.4%",
+        trend: "up" as const,
+        description: t("admin.dashboard.vsLastMonth"),
+        icon: ShoppingBag,
+        isAlert: false,
+      },
+      {
+        title: t("admin.dashboard.newCustomers"),
+        value: "1,205",
+        change: "+2.1%",
+        trend: "up" as const,
+        description: t("admin.dashboard.vsLastMonth"),
+        icon: Users,
+        isAlert: false,
+      },
+      {
+        title: t("admin.dashboard.lowStock"),
+        value: "14 items",
+        change: "-3 items",
+        trend: "down" as const,
+        description: "critical threshold",
+        icon: AlertTriangle,
+        isAlert: true,
+      },
+    ],
+    [t]
+  );
+
   const statusColorMap = useMemo<Record<OrderStatus, string>>(
     () => ({
       PENDING: warningColor,
@@ -153,19 +160,13 @@ export default function DashboardOverviewPage() {
       COMPLETED: successColor,
       CANCELLED: destructiveColor,
     }),
-    [
-      destructiveColor,
-      infoColor,
-      primaryColor,
-      successColor,
-      warningColor,
-    ]
+    [destructiveColor, infoColor, primaryColor, successColor, warningColor]
   );
 
   const columns: ColumnsType<RecentOrder> = useMemo(
     () => [
       {
-        title: "Order ID",
+        title: t("admin.dashboard.orderId"),
         dataIndex: "orderId",
         key: "orderId",
         render: (value: string) => (
@@ -173,12 +174,12 @@ export default function DashboardOverviewPage() {
         ),
       },
       {
-        title: "Customer",
+        title: t("admin.dashboard.customer"),
         dataIndex: "customerName",
         key: "customerName",
       },
       {
-        title: "Status",
+        title: t("admin.dashboard.status"),
         dataIndex: "status",
         key: "status",
         render: (status: OrderStatus) => (
@@ -186,12 +187,12 @@ export default function DashboardOverviewPage() {
         ),
       },
       {
-        title: "Total",
+        title: t("admin.dashboard.amount"),
         dataIndex: "total",
         key: "total",
       },
     ],
-    [statusColorMap]
+    [statusColorMap, t]
   );
 
   return (
@@ -230,7 +231,9 @@ export default function DashboardOverviewPage() {
                     <Icon size={24} />
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-muted-foreground">{card.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {card.title}
+                    </p>
                     <p className="text-2xl font-semibold text-foreground">
                       {card.value}
                     </p>
@@ -262,10 +265,12 @@ export default function DashboardOverviewPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
           <Card
-            title="Revenue Over Time"
+            title={t("admin.dashboard.revenueOverTime")}
             className="chart-card"
             extra={
-              <Typography.Text type="secondary">Last 7 days</Typography.Text>
+              <Typography.Text type="secondary">
+                {t("admin.dashboard.last7Days")}
+              </Typography.Text>
             }
           >
             <div className="chart-wrapper">
@@ -293,10 +298,12 @@ export default function DashboardOverviewPage() {
         </Col>
         <Col xs={24} lg={10}>
           <Card
-            title="Top Selling Products"
+            title={t("admin.dashboard.topSellingProducts")}
             className="chart-card"
             extra={
-              <Typography.Text type="secondary">This week</Typography.Text>
+              <Typography.Text type="secondary">
+                {t("admin.dashboard.thisWeek")}
+              </Typography.Text>
             }
           >
             <div className="chart-wrapper">
@@ -319,9 +326,13 @@ export default function DashboardOverviewPage() {
       </Row>
 
       <Card
-        title="Recent Orders"
+        title={t("admin.dashboard.recentOrders")}
         className="table-card activity-table"
-        extra={<Typography.Link href="/admin/orders">View all</Typography.Link>}
+        extra={
+          <Typography.Link href="/admin/orders">
+            {t("admin.dashboard.viewAll")}
+          </Typography.Link>
+        }
       >
         <div className="overflow-x-auto">
           <Table

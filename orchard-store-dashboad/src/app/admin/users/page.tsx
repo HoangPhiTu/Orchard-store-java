@@ -8,15 +8,29 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useUsers } from "@/hooks/use-users";
 import { usePrefetchNextPage } from "@/hooks/use-realtime-updates";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCancelQueriesOnUnmount } from "@/hooks/use-request-cancellation";
 import { userService } from "@/services/user.service";
-import type { Page, User, UserStatus } from "@/types/user.types";
+import type { Page, User, UserStatus, UserFilters } from "@/types/user.types";
 import { STATUS_OPTIONS } from "@/config/options";
 import { UserTable } from "@/components/features/user/user-table";
 import { VirtualUserTable } from "@/components/features/user/virtual-user-table";
-import { UserFormSheet } from "@/components/features/user/user-form-sheet";
+import dynamic from "next/dynamic";
 import { ResetPasswordDialog } from "@/components/features/user/reset-password-dialog";
 import { DeleteUserDialog } from "@/components/features/user/delete-user-dialog";
 import { ToggleStatusDialog } from "@/components/features/user/toggle-status-dialog";
+
+// Lazy load form component để giảm initial bundle size
+const UserFormSheet = dynamic(
+  () =>
+    import("@/components/features/user/user-form-sheet").then(
+      (mod) => mod.UserFormSheet
+    ),
+  {
+    ssr: false,
+    loading: () => null, // Form sẽ tự quản lý loading state
+  }
+);
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
@@ -27,8 +41,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useI18n } from "@/hooks/use-i18n";
 
 export default function Page() {
+  const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState("");
   const searchParams = useSearchParams();
   const { page, pageSize, onPaginationChange } = useDataTable();
@@ -78,8 +94,12 @@ export default function Page() {
     [debouncedSearch, statusFilter, zeroBasedPage, pageSize]
   );
 
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useUsers(filters);
   const userPage = data as Page<User> | undefined;
+
+  // Cancel queries when component unmounts to prevent memory leaks
+  useCancelQueriesOnUnmount(queryClient, ["admin", "users"]);
 
   // Prefetch next page để tải nhanh hơn khi user navigate
   usePrefetchNextPage(
@@ -139,15 +159,15 @@ export default function Page() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-card-foreground">
-              User Management
+              {t("admin.users.userManagement")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage all staff members and their roles in the system.
+              {t("admin.users.manageAllStaffMembers")}
             </p>
           </div>
           <Button onClick={handleAddUser}>
             <Plus className="mr-2 h-4 w-4" />
-            Add User
+            {t("admin.users.addUser")}
           </Button>
         </div>
 
@@ -156,7 +176,7 @@ export default function Page() {
           <div className="relative flex-1 md:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by name, email, or phone..."
+              placeholder={t("admin.users.searchByNameEmailPhone")}
               className="pl-9"
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
@@ -164,7 +184,7 @@ export default function Page() {
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
             <DataTableFilter
-              title="Status"
+              title={t("admin.users.status")}
               options={STATUS_OPTIONS}
               paramName="status"
             />
@@ -174,7 +194,7 @@ export default function Page() {
                   variant="outline"
                   className="h-10 min-w-[160px] justify-between rounded-lg border-border text-sm text-muted-foreground"
                 >
-                  Hiển thị: {pageSize}
+                  {t("admin.users.display")}: {pageSize}
                   <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
@@ -186,7 +206,7 @@ export default function Page() {
                     data-active={size === pageSize}
                     className="cursor-pointer text-sm text-muted-foreground data-[active=true]:font-semibold"
                   >
-                    {size} dòng / trang
+                    {size} {t("admin.users.rowsPerPage")}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

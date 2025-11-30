@@ -1,7 +1,5 @@
 package com.orchard.orchard_store_backend.modules.catalog.product.dto;
 
-import com.orchard.orchard_store_backend.modules.catalog.attribute.dto.ProductAttributeValueDTO;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
 @NoArgsConstructor

@@ -79,7 +79,29 @@ export function useWebSocket() {
           }
         });
 
-        // Subscribe vào topic data-updates để nhận realtime updates cho Brands, Categories, Users
+        // Subscribe vào topic brands để nhận realtime updates cho Brands
+        client.subscribe("/topic/brands", (message: IMessage) => {
+          try {
+            const messageBody = message.body;
+            logger.debug("Received brand update notification:", messageBody);
+
+            // ✅ Invalidate queries để đánh dấu data cần refresh
+            queryClient.invalidateQueries({
+              queryKey: ["admin", "brands"],
+            });
+            
+            // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
+            queryClient.refetchQueries({
+              queryKey: ["admin", "brands"],
+            });
+            
+            logger.debug("Invalidated and refetched brands queries");
+          } catch (error) {
+            logger.error("Failed to handle brand update notification:", error);
+          }
+        });
+
+        // Subscribe vào topic data-updates để nhận realtime updates cho Categories, Users
         client.subscribe("/topic/data-updates", (message: IMessage) => {
           try {
             const update = JSON.parse(message.body);
@@ -91,23 +113,30 @@ export function useWebSocket() {
               entityId,
             });
 
-            // Invalidate queries dựa trên entity type
+            // Invalidate và refetch queries dựa trên entity type
             switch (entityType) {
               case "BRAND":
                 queryClient.invalidateQueries({
                   queryKey: ["admin", "brands"],
                 });
-                logger.debug("Invalidated brands queries");
+                queryClient.refetchQueries({
+                  queryKey: ["admin", "brands"],
+                });
+                logger.debug("Invalidated and refetched brands queries");
                 break;
               case "CATEGORY":
                 queryClient.invalidateQueries({
                   queryKey: ["admin", "categories"],
                 });
-                logger.debug("Invalidated categories queries");
+                queryClient.refetchQueries({
+                  queryKey: ["admin", "categories"],
+                });
+                logger.debug("Invalidated and refetched categories queries");
                 break;
               case "USER":
                 queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-                logger.debug("Invalidated users queries");
+                queryClient.refetchQueries({ queryKey: ["admin", "users"] });
+                logger.debug("Invalidated and refetched users queries");
                 break;
               default:
                 logger.debug("Unknown entity type:", entityType);

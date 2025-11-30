@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface UserAdminService {
     Page<UserResponseDTO> getUsers(String keyword, String status, Pageable pageable);
+    UserResponseDTO getUserById(Long id);
     UserResponseDTO createUser(UserCreateRequestDTO request);
     UserResponseDTO updateUser(Long id, UserUpdateRequestDTO request);
     UserResponseDTO toggleUserStatus(Long id);

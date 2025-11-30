@@ -11,6 +11,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types/user.types";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { UserRow } from "@/components/features/user/user-row";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface UserTableProps {
   users: User[];
@@ -30,6 +31,7 @@ export function UserTable({
   isLoading,
 }: UserTableProps) {
   const { user: currentUser } = useAuthStore();
+  const { t } = useI18n();
   const safeUsers = Array.isArray(users) ? users : [];
 
   /**
@@ -62,7 +64,9 @@ export function UserTable({
     if (isLoading) {
       return (
         <div className="flex items-center justify-center py-12">
-          <div className="text-sm text-muted-foreground">Loading users...</div>
+          <div className="text-sm text-muted-foreground">
+            {t("admin.users.loadingUsers")}
+          </div>
         </div>
       );
     }
@@ -70,7 +74,9 @@ export function UserTable({
     if (safeUsers.length === 0) {
       return (
         <div className="flex items-center justify-center py-12">
-          <div className="text-sm text-muted-foreground">No users found</div>
+          <div className="text-sm text-muted-foreground">
+            {t("admin.users.noUsersFound")}
+          </div>
         </div>
       );
     }
@@ -79,11 +85,13 @@ export function UserTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>User</TableHead>
-            <TableHead>Phone</TableHead>
-            <TableHead>Roles</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>{t("admin.users.fullName")}</TableHead>
+            <TableHead>{t("admin.users.phone")}</TableHead>
+            <TableHead>{t("admin.users.roles")}</TableHead>
+            <TableHead>{t("admin.users.status")}</TableHead>
+            <TableHead className="text-right">
+              {t("admin.users.actions")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -112,7 +120,7 @@ export function UserTable({
     <ErrorBoundary
       fallback={
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-center text-sm text-destructive">
-          Không thể tải danh sách người dùng. Vui lòng thử lại.
+          {t("admin.common.error")}: {t("admin.users.loadingUsers")}
         </div>
       }
     >

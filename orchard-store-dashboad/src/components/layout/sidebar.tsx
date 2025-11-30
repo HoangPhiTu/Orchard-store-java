@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { ADMIN_MENU } from "@/config/menu";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useUIStore } from "@/stores/ui-store";
+import { useI18n } from "@/hooks/use-i18n";
 
 export interface SidebarProps {
   isMobileOpen: boolean;
@@ -21,7 +22,20 @@ export function Sidebar({
   onLogout: _onLogout, // eslint-disable-line @typescript-eslint/no-unused-vars
 }: SidebarProps) {
   const pathname = usePathname();
-  const mainNav = useMemo(() => ADMIN_MENU, []);
+  const { t, locale } = useI18n();
+  const mainNav = useMemo(() => {
+    return ADMIN_MENU.map((item) => ({
+      ...item,
+      label:
+        t(
+          `admin.menu.${item.key}` as
+            | "admin.menu.dashboard"
+            | "admin.menu.brands"
+            | "admin.menu.categories"
+            | "admin.menu.users"
+        ) || item.label,
+    }));
+  }, [t, locale]);
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
 
   const renderNav = () => (
@@ -41,7 +55,9 @@ export function Sidebar({
             <p className="text-xs font-bold uppercase tracking-wide text-foreground">
               ORCHARD
             </p>
-            <p className="text-xs text-muted-foreground">Store Admin</p>
+            <p className="text-xs text-muted-foreground">
+              {t("admin.layout.storeAdmin")}
+            </p>
           </div>
         )}
       </div>
@@ -122,7 +138,9 @@ export function Sidebar({
             "focus:outline-none focus:ring-1 focus:ring-primary/30 focus:ring-offset-1"
           )}
           aria-label={
-            isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+            isSidebarCollapsed
+              ? t("admin.layout.expandSidebar")
+              : t("admin.layout.collapseSidebar")
           }
         >
           {isSidebarCollapsed ? (

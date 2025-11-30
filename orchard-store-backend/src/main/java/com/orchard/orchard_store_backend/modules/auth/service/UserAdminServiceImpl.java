@@ -15,9 +15,11 @@ import com.orchard.orchard_store_backend.modules.auth.repository.LoginHistoryRep
 import com.orchard.orchard_store_backend.modules.auth.repository.UserRepository;
 import com.orchard.orchard_store_backend.modules.auth.validation.PasswordValidator;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
-import com.orchard.orchard_store_backend.modules.customer.service.RedisService;
+import com.orchard.orchard_store_backend.modules.customer.service.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -30,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -45,34 +48,32 @@ public class UserAdminServiceImpl implements UserAdminService {
     private final PasswordValidator passwordValidator;
     private final RoleCacheService roleCacheService;
     private final ImageUploadService imageUploadService;
-    private final RedisService redisService;
+    private final CacheService cacheService;
     
     private static final String USER_LIST_CACHE_KEY_PREFIX = "user:list:";
-    private static final long USER_LIST_CACHE_TTL_SECONDS = 120; // 2 minutes (short TTL for user list)
+    private static final long USER_LIST_CACHE_TTL_SECONDS = 300; // 5 minutes (increased for better performance)
 
     @Override
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> getUsers(String keyword, String status, Pageable pageable) {
         // Build cache key from filters
         String cacheKey = USER_LIST_CACHE_KEY_PREFIX + 
-            (keyword != null ? keyword : "") + ":" + 
-            (status != null ? status : "ALL") + ":" +
+            (keyword != null && !keyword.trim().isEmpty() ? keyword.trim() : "") + ":" + 
+            (status != null && !status.equalsIgnoreCase("ALL") ? status : "ALL") + ":" +
             pageable.getPageNumber() + ":" + pageable.getPageSize();
         
         // Try to get from cache (only for first page without filters for simplicity)
         if ((keyword == null || keyword.trim().isEmpty()) && 
             (status == null || status.equalsIgnoreCase("ALL")) && 
             pageable.getPageNumber() == 0) {
-            try {
-                String cached = redisService.getValue(cacheKey);
-                if (cached != null) {
-                    log.debug("User list cache hit for key: {}", cacheKey);
-                    // Note: Full caching would require JSON deserialization of Page<UserResponseDTO>
-                    // For now, we'll just use cache as a marker and still query DB
-                    // TODO: Implement full Page<UserResponseDTO> serialization if needed
-                }
-            } catch (Exception e) {
-                log.warn("Failed to check user list cache: {}", e.getMessage());
+            Optional<Page<UserResponseDTO>> cached = cacheService.getCachedPage(
+                cacheKey, 
+                pageable, 
+                UserResponseDTO.class
+            );
+            if (cached.isPresent()) {
+                log.debug("User list cache hit for key: {}", cacheKey);
+                return cached.get();
             }
         }
         
@@ -102,22 +103,30 @@ public class UserAdminServiceImpl implements UserAdminService {
             // No keyword - use Specification for status filtering only
             Specification<User> spec = buildUserSpecification(keyword, status);
             result = userRepository.findAll(spec, pageable)
-                    .map(userAdminMapper::toResponseDTO);
+                .map(userAdminMapper::toResponseDTO);
         }
         
         // Cache first page without filters
         if ((keyword == null || keyword.trim().isEmpty()) && 
             (status == null || status.equalsIgnoreCase("ALL")) && 
             pageable.getPageNumber() == 0) {
-            try {
-                redisService.setValue(cacheKey, "1", USER_LIST_CACHE_TTL_SECONDS);
-                log.debug("User list cached for key: {}", cacheKey);
-            } catch (Exception e) {
-                log.warn("Failed to cache user list: {}", e.getMessage());
-            }
+            cacheService.cachePage(cacheKey, result, USER_LIST_CACHE_TTL_SECONDS);
         }
         
         return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "users", key = "#id", unless = "#result == null")
+    public UserResponseDTO getUserById(Long id) {
+        log.info("Getting user by ID: {} (cache miss)", id);
+        
+        // Sử dụng findByIdWithRoles với EntityGraph để tránh N+1 query
+        User user = userRepository.findByIdWithRoles(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với ID: " + id));
+        
+        return userAdminMapper.toResponseDTO(user);
     }
 
     @Override
@@ -283,6 +292,7 @@ public class UserAdminServiceImpl implements UserAdminService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "users", key = "#id")
     public UserResponseDTO updateUser(Long id, UserUpdateRequestDTO request) {
         // Fetch target user với userRoles để có hierarchy level
         // Sử dụng findByIdWithRoles với EntityGraph để tránh N+1 query
@@ -451,6 +461,7 @@ public class UserAdminServiceImpl implements UserAdminService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "users", key = "#id")
     public UserResponseDTO toggleUserStatus(Long id) {
         // Sử dụng findByIdWithRoles với EntityGraph để tránh N+1 query
         User user = userRepository.findByIdWithRoles(id)
@@ -528,6 +539,7 @@ public class UserAdminServiceImpl implements UserAdminService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "users", key = "#userId")
     public void deleteUser(Long userId) {
         // Tìm user theo ID với EntityGraph để tránh N+1 query
         User user = userRepository.findByIdWithRoles(userId)
@@ -571,7 +583,7 @@ public class UserAdminServiceImpl implements UserAdminService {
     @Transactional(readOnly = true)
     public Page<LoginHistoryResponseDTO> getUserLoginHistory(Long userId, Pageable pageable) {
         // Kiểm tra user có tồn tại không
-        if (!userRepository.existsById(userId)) {
+        if (userId == null || !userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("Không tìm thấy user với ID: " + userId);
         }
 
@@ -619,15 +631,11 @@ public class UserAdminServiceImpl implements UserAdminService {
      * Evict user list cache
      */
     private void evictUserListCache() {
-        try {
-            // Delete common user list cache keys
-            redisService.deleteKey(USER_LIST_CACHE_KEY_PREFIX + "::0:10");
-            redisService.deleteKey(USER_LIST_CACHE_KEY_PREFIX + "::0:15");
-            redisService.deleteKey(USER_LIST_CACHE_KEY_PREFIX + "::0:20");
-            log.debug("User list cache evicted");
-        } catch (Exception e) {
-            log.warn("Failed to evict user list cache: {}", e.getMessage());
-        }
+        // Delete common user list cache keys
+        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:10");
+        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:15");
+        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:20");
+        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:30");
     }
 }
 

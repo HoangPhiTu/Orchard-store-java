@@ -5,6 +5,7 @@ import Providers from "@/components/providers/query-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { I18nProvider } from "@/components/providers/i18n-provider";
 import { env } from "@/config/env";
 import "./globals.css";
 import "antd/dist/reset.css";
@@ -63,17 +64,19 @@ export default function RootLayout({
     `script-src 'self' 'unsafe-inline' 'unsafe-eval'${
       turnstileDomains ? ` ${turnstileDomains}` : ""
     }`,
-    `style-src 'self' 'unsafe-inline'${
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com${
       turnstileDomains ? ` ${turnstileDomains}` : ""
     }`,
     `img-src 'self' data: blob: http://127.0.0.1:9000 http://localhost:9000${
       turnstileDomains ? ` ${turnstileDomains}` : ""
     }`,
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src 'self'${
       turnstileDomains ? ` ${turnstileDomains}` : ""
     } https://localhost:3000 http://localhost:3000 ${apiUrlForCSP} ${wsUrlsForCSP}`,
     `frame-src 'self'${turnstileDomains ? ` ${turnstileDomains}` : ""}`,
+    // Suppress Permissions-Policy warnings for features not yet standardized
+    "permissions-policy browsing-topics=(), interest-cohort=()",
   ]
     .filter((directive) => directive.trim() !== "")
     .join("; ");
@@ -85,6 +88,11 @@ export default function RootLayout({
         {/* Note: frame-ancestors only works in HTTP headers, not in meta tags */}
         {/* Turnstile domains only included in production to reduce development warnings */}
         <meta httpEquiv="Content-Security-Policy" content={cspContent} />
+        {/* Suppress Permissions-Policy warnings for experimental features */}
+        <meta
+          httpEquiv="Permissions-Policy"
+          content="browsing-topics=(), interest-cohort=()"
+        />
       </head>
       <body
         suppressHydrationWarning
@@ -95,12 +103,14 @@ export default function RootLayout({
           defaultTheme="light"
           disableTransitionOnChange={false}
         >
+          <I18nProvider>
           <Providers>
             <AuthProvider>
               {children}
               <ToastProvider />
             </AuthProvider>
           </Providers>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>

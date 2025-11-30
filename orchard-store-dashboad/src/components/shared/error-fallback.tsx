@@ -104,12 +104,21 @@ export function ErrorFallback({
     errorMessage ||
     "Xin lỗi, đã xảy ra lỗi không mong muốn. Vui lòng thử lại hoặc quay về trang chủ.";
 
-  // Log error (for debugging)
+  // Log error (for debugging and error reporting)
   useEffect(() => {
     if (error) {
       logger.error("Error caught by boundary:", error);
+
+      // TODO: Integrate with error reporting service (e.g., Sentry)
+      // Example:
+      // if (process.env.NODE_ENV === "production") {
+      //   Sentry.captureException(error, {
+      //     tags: { component: "ErrorFallback" },
+      //     extra: { errorMessage: errorMessage },
+      //   });
+      // }
     }
-  }, [error]);
+  }, [error, errorMessage]);
 
   const handleReload = () => {
     if (reset) {

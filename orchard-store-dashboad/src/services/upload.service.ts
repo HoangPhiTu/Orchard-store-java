@@ -1,5 +1,6 @@
 import http from "@/lib/axios-client";
 import type { ApiResponse } from "@/types/api.types";
+import { API_ROUTES } from "@/config/api-routes";
 
 /**
  * Upload Image Service

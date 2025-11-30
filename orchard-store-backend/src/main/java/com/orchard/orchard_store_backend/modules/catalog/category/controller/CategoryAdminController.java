@@ -1,6 +1,7 @@
 package com.orchard.orchard_store_backend.modules.catalog.category.controller;
 
 import com.orchard.orchard_store_backend.dto.ApiResponse;
+import com.orchard.orchard_store_backend.exception.ResourceNotFoundException;
 import com.orchard.orchard_store_backend.modules.catalog.category.dto.CategoryCreateRequest;
 import com.orchard.orchard_store_backend.modules.catalog.category.dto.CategoryDTO;
 import com.orchard.orchard_store_backend.modules.catalog.category.dto.CategoryUpdateRequest;
@@ -52,8 +53,20 @@ public class CategoryAdminController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CategoryDTO>> getCategoryById(@PathVariable Long id) {
-        CategoryDTO category = categoryAdminService.getCategoryById(id);
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin danh mục thành công", category));
+        try {
+            CategoryDTO category = categoryAdminService.getCategoryById(id);
+            // Đảm bảo children luôn null trước khi trả về response
+            if (category != null && category.getChildren() != null) {
+                category.setChildren(null);
+            }
+            return ResponseEntity.ok(ApiResponse.success("Lấy thông tin danh mục thành công", category));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Không tìm thấy danh mục với ID: " + id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Không thể lấy thông tin danh mục: " + e.getMessage()));
+        }
     }
 
     @PostMapping

@@ -3,6 +3,7 @@
 import { Search, ChevronDown, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/hooks/use-i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +41,7 @@ export function TableToolbar({
   pageSizeOptions,
   onPageSizeChange,
 }: TableToolbarProps) {
+  const { t } = useI18n();
   const hasFilter = Boolean(filterValue);
   const filterButtonBorder = hasFilter
     ? "border border-border"
@@ -101,7 +103,9 @@ export function TableToolbar({
               variant="outline"
               className="h-10 min-w-[160px] items-center gap-2 rounded-lg bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition hover:border-primary/60"
             >
-              <span className="truncate text-left">Hiển thị: {pageSize}</span>
+              <span className="truncate text-left">
+                {t("admin.users.display")}: {pageSize}
+              </span>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
@@ -112,7 +116,9 @@ export function TableToolbar({
                 onClick={() => onPageSizeChange(size)}
                 className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
               >
-                <span className="flex-1">{size} dòng / trang</span>
+                <span className="flex-1">
+                  {size} {t("admin.users.rowsPerPage")}
+                </span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

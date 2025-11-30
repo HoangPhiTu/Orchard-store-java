@@ -13,6 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useI18n } from "@/hooks/use-i18n";
+import { logger } from "@/lib/logger";
 
 interface DeleteBrandDialogProps {
   brandId: number;
@@ -29,6 +31,7 @@ export function DeleteBrandDialog({
   onClose,
   onSuccess,
 }: DeleteBrandDialogProps) {
+  const { t } = useI18n();
   const deleteBrandMutation = useDeleteBrand();
 
   const handleDelete = async () => {
@@ -38,7 +41,7 @@ export function DeleteBrandDialog({
       onSuccess?.();
     } catch (error) {
       // Error is already handled by useAppMutation
-      console.error("Failed to delete brand:", error);
+      logger.error("Failed to delete brand:", error);
     }
   };
 
@@ -55,13 +58,12 @@ export function DeleteBrandDialog({
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
               <AlertDialogTitle className="text-xl font-semibold text-foreground">
-                Xóa thương hiệu
+                {t("admin.dialogs.deleteBrand")}
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription className="pt-4 text-muted-foreground">
-              Bạn có chắc chắn muốn xóa thương hiệu này không? Hành động này
-              không thể hoàn tác. Logo và tất cả thông tin liên quan sẽ bị xóa
-              vĩnh viễn.
+              {t("admin.dialogs.deleteBrandConfirm")}{" "}
+              {t("admin.dialogs.deleteUserWarning")}
               {brandName && (
                 <div className="mt-3 rounded-lg bg-muted p-3">
                   <p className="text-sm font-medium text-foreground">
@@ -77,7 +79,7 @@ export function DeleteBrandDialog({
               disabled={deleteBrandMutation.isPending}
               className="rounded-lg font-semibold"
             >
-              Hủy
+              {t("admin.dialogs.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
@@ -87,12 +89,12 @@ export function DeleteBrandDialog({
               {deleteBrandMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xóa...
+                  {t("admin.common.loading")}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Xóa
+                  {t("admin.common.delete")}
                 </>
               )}
             </AlertDialogAction>
@@ -102,4 +104,3 @@ export function DeleteBrandDialog({
     </AlertDialog>
   );
 }
-

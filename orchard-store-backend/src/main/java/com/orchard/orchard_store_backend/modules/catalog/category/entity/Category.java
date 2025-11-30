@@ -54,6 +54,7 @@ public class Category {
     private Long parentId;
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
+    @Builder.Default
     private List<Category> children = new ArrayList<>();
 
     @Column(nullable = false)

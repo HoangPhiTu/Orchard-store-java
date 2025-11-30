@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { userService } from "@/services/user.service";
+import { useI18n } from "@/hooks/use-i18n";
 
 interface DeleteUserDialogProps {
   userId: number;
@@ -33,6 +34,7 @@ export function DeleteUserDialog({
   onClose,
   onSuccess,
 }: DeleteUserDialogProps) {
+  const { t } = useI18n();
   // ✅ Sử dụng useAppMutation - Tự động xử lý error, success
   const deleteUserMutation = useAppMutation({
     mutationFn: () => userService.deleteUser(userId),
@@ -41,7 +43,7 @@ export function DeleteUserDialog({
       onClose();
       onSuccess?.(); // Gọi callback sau khi đóng
     },
-    successMessage: "Xóa người dùng thành công", // ✅ Tự động hiển thị toast success
+    successMessage: t("admin.common.success"), // ✅ Tự động hiển thị toast success
     showErrorToast: true, // ✅ Hiển thị toast error nếu có lỗi
   });
 
@@ -67,12 +69,11 @@ export function DeleteUserDialog({
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
               <AlertDialogTitle className="text-xl font-semibold text-card-foreground">
-                Xóa người dùng
+                {t("admin.dialogs.deleteUser")}
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription className="pt-4 text-muted-foreground">
-              Bạn có chắc chắn muốn xóa người dùng này không? Hành động này
-              không thể hoàn tác.
+              {t("admin.dialogs.deleteUserConfirm")} {t("admin.dialogs.deleteUserWarning")}
               {userName && (
                 <div className="mt-3 rounded-lg bg-muted/40 p-3">
                   <p className="text-sm font-medium text-card-foreground">
@@ -91,7 +92,7 @@ export function DeleteUserDialog({
               disabled={deleteUserMutation.isPending}
               className="rounded-lg border-border bg-card text-card-foreground font-semibold transition hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
             >
-              Hủy
+              {t("admin.dialogs.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
@@ -101,12 +102,12 @@ export function DeleteUserDialog({
               {deleteUserMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xóa...
+                  {t("admin.common.loading")}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Xóa
+                  {t("admin.common.delete")}
                 </>
               )}
             </AlertDialogAction>

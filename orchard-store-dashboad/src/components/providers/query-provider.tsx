@@ -12,6 +12,7 @@ import { App as AntdApp, ConfigProvider, theme } from "antd";
 import { useAuthStore } from "@/stores/auth-store";
 import { useCssVariableValue } from "@/hooks/use-css-variable-value";
 import { useTheme } from "next-themes";
+import { logger } from "@/lib/logger";
 
 function AuthBootstrapper() {
   const initialize = useAuthStore((state) => state.initialize);
@@ -36,24 +37,40 @@ export default function Providers({ children }: { children: ReactNode }) {
         queryCache: new QueryCache({
           // Query errors đã được xử lý trong Axios Interceptor
           // Không cần toast lại ở đây để tránh duplicate
-          onError: (error) => {
+          onError: (error: unknown) => {
             // Silent handling - errors are already shown via axios interceptor
-            console.error("Query error:", error);
+            // Chỉ log trong development mode và không phải 403 errors
+            if (process.env.NODE_ENV === "development") {
+              const axiosError = error as { response?: { status?: number } };
+              const status = axiosError?.response?.status;
+              // Skip logging 403 errors - they're expected when user lacks permissions
+              if (status !== 403) {
+                logger.error("Query error:", error);
+              }
+            }
           },
         }),
         mutationCache: new MutationCache({
           // Mutation errors cũng đã được xử lý trong Axios Interceptor
           // Chỉ log để debug, không toast lại
-          onError: (error) => {
+          onError: (error: unknown) => {
             // Silent handling - errors are already shown via axios interceptor
-            console.error("Mutation error:", error);
+            // Chỉ log trong development mode và không phải 403 errors
+            if (process.env.NODE_ENV === "development") {
+              const axiosError = error as { response?: { status?: number } };
+              const status = axiosError?.response?.status;
+              // Skip logging 403 errors - they're expected when user lacks permissions
+              if (status !== 403) {
+                logger.error("Mutation error:", error);
+              }
+            }
           },
         }),
         defaultOptions: {
           queries: {
             refetchOnWindowFocus: false,
-            staleTime: 60 * 1000, // 1 minute default
-            gcTime: 5 * 60 * 1000, // 5 minutes default
+            staleTime: 2 * 60 * 1000, // 2 minutes default - increased for better performance
+            gcTime: 10 * 60 * 1000, // 10 minutes default - keep in cache longer
             retry: 1,
             // Queries sẽ không throw error để UI có thể handle gracefully
             throwOnError: false,

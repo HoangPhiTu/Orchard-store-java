@@ -1,6 +1,28 @@
 @import "tailwindcss";
 
 @layer base {
+  /* Smooth theme transition - optimized for performance */
+  /* Apply selective transitions to avoid performance issues */
+  html {
+    transition: background-color 200ms ease-in-out, color 200ms ease-in-out;
+  }
+
+  /* Optimize transitions for theme-aware elements only */
+  body,
+  [class*="bg-"],
+  [class*="text-"],
+  [class*="border-"] {
+    transition-property: background-color, border-color, color;
+    transition-duration: 200ms;
+    transition-timing-function: ease-in-out;
+  }
+
+  /* Disable transitions for elements that shouldn't animate */
+  [data-no-transition],
+  [data-no-transition] * {
+    transition: none !important;
+  }
+
   :root {
     /* Surface */
     --background: #ffffff;
@@ -93,9 +115,19 @@
     --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
   }
 
-  /* Smooth theme transition - chuyển đổi từ từ trong 0.5s */
+  /* Smooth theme transition - optimized for performance */
   html {
-    transition: background-color 500ms linear !important;
+    transition: background-color 200ms ease-in-out, color 200ms ease-in-out !important;
+  }
+
+  /* Optimize transitions for theme-aware elements */
+  body,
+  [class*="bg-"],
+  [class*="text-"],
+  [class*="border-"] {
+    transition-property: background-color, border-color, color;
+    transition-duration: 200ms;
+    transition-timing-function: ease-in-out;
   }
 
   html,
@@ -104,8 +136,98 @@
   html *::after {
     transition-property: background-color, color, border-color, fill, stroke,
       box-shadow, opacity !important;
-    transition-duration: 500ms !important;
+    transition-duration: 200ms !important;
     transition-timing-function: linear !important;
+  }
+
+  /* Force light mode cho auth pages - không bị ảnh hưởng bởi theme của admin */
+  /* Override tất cả CSS variables về light mode values */
+  html[data-auth-pages="true"],
+  html[data-auth-pages="true"].dark {
+    --background: #ffffff !important;
+    --card: #ffffff !important;
+    --popover: #ffffff !important;
+    --secondary: #f3f4f6 !important;
+    --accent: #eef2ff !important;
+    --muted: #f6f7fb !important;
+    --neutral: #e2e8f0 !important;
+    --foreground: #0f172a !important;
+    --card-foreground: #111827 !important;
+    --popover-foreground: #111827 !important;
+    --secondary-foreground: #111827 !important;
+    --accent-foreground: #312e81 !important;
+    --muted-foreground: hsl(215.4 16.3% 35%) !important;
+    --neutral-foreground: #0f172a !important;
+    --primary: #6366f1 !important;
+    --primary-foreground: #ffffff !important;
+    --success: #22c55e !important;
+    --success-foreground: #052e16 !important;
+    --warning: #f59e0b !important;
+    --warning-foreground: #422006 !important;
+    --info: #0ea5e9 !important;
+    --info-foreground: #082f49 !important;
+    --destructive: #ef4444 !important;
+    --destructive-foreground: #450a0a !important;
+    --border: #e5e7eb !important;
+    --input: #e5e7eb !important;
+    --ring: #c7d2fe !important;
+    color-scheme: light !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Force light mode cho tất cả elements trong auth pages */
+  html[data-auth-pages="true"] *,
+  html[data-auth-pages="true"].dark * {
+    color: inherit !important;
+  }
+
+  html[data-auth-pages="true"] body,
+  html[data-auth-pages="true"].dark body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Force text color cho OTP inputs trong auth pages - màu đen cho chữ số */
+  html[data-auth-pages="true"] input[type="text"].otp-input,
+  html[data-auth-pages="true"] input[type="text"][inputmode="numeric"],
+  html[data-auth-pages="true"] input[type="text"][inputMode="numeric"],
+  html[data-auth-pages="true"].dark input[type="text"].otp-input,
+  html[data-auth-pages="true"].dark input[type="text"][inputmode="numeric"],
+  html[data-auth-pages="true"].dark input[type="text"][inputMode="numeric"] {
+    color: #000000 !important; /* Black text color */
+    -webkit-text-fill-color: #000000 !important; /* Black text fill */
+    caret-color: #000000 !important; /* Black caret */
+  }
+
+  /* Force black text color cho OTP inputs - override mọi rule khác */
+  html[data-auth-pages="true"] input[type="text"].otp-input *,
+  html[data-auth-pages="true"] input[type="text"][inputmode="numeric"] *,
+  html[data-auth-pages="true"] input[type="text"][inputMode="numeric"] * {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+  }
+
+  html[data-auth-pages="true"]
+    input[type="text"][inputmode="numeric"]:not(:placeholder-shown),
+  html[data-auth-pages="true"]
+    input[type="text"][inputMode="numeric"]:not(:placeholder-shown),
+  html[data-auth-pages="true"].dark
+    input[type="text"][inputmode="numeric"]:not(:placeholder-shown),
+  html[data-auth-pages="true"].dark
+    input[type="text"][inputMode="numeric"]:not(:placeholder-shown) {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+  }
+
+  /* Focus state cho OTP inputs */
+  html[data-auth-pages="true"] input[type="text"][inputmode="numeric"]:focus,
+  html[data-auth-pages="true"] input[type="text"][inputMode="numeric"]:focus {
+    border-color: #22c55e !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    caret-color: #000000 !important;
   }
 
   body {
@@ -201,6 +323,59 @@ select {
   background-color: var(--background);
   font-weight: 500 !important;
   caret-color: var(--primary);
+}
+
+/* Override cho OTP inputs - force black text color với specificity cao nhất */
+html[data-auth-pages="true"] input[type="text"].otp-input,
+html[data-auth-pages="true"] input[type="text"].otp-input.text-white,
+html[data-auth-pages="true"] input[type="text"][inputmode="numeric"],
+html[data-auth-pages="true"] input[type="text"][inputMode="numeric"] {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+/* Override cho tất cả states của OTP inputs - đảm bảo màu đen */
+html[data-auth-pages="true"]
+  input[type="text"].otp-input:not(:placeholder-shown),
+html[data-auth-pages="true"] input[type="text"].otp-input:focus,
+html[data-auth-pages="true"] input[type="text"].otp-input:active,
+html[data-auth-pages="true"] input[type="text"].otp-input:hover,
+html[data-auth-pages="true"]
+  input[type="text"][inputmode="numeric"]:not(:placeholder-shown),
+html[data-auth-pages="true"] input[type="text"][inputmode="numeric"]:focus,
+html[data-auth-pages="true"] input[type="text"][inputmode="numeric"]:active,
+html[data-auth-pages="true"] input[type="text"][inputmode="numeric"]:hover,
+html[data-auth-pages="true"]
+  input[type="text"][inputMode="numeric"]:not(:placeholder-shown),
+html[data-auth-pages="true"] input[type="text"][inputMode="numeric"]:focus,
+html[data-auth-pages="true"] input[type="text"][inputMode="numeric"]:active,
+html[data-auth-pages="true"] input[type="text"][inputMode="numeric"]:hover {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+/* Force black text cho OTP inputs trong auth pages */
+html[data-auth-pages="true"] input[type="text"].otp-input,
+html[data-auth-pages="true"] input[type="text"][inputmode="numeric"],
+html[data-auth-pages="true"] input[type="text"][inputMode="numeric"],
+html[data-auth-pages="true"]
+  input[type="text"][inputmode="numeric"]:not(:placeholder-shown),
+html[data-auth-pages="true"]
+  input[type="text"][inputMode="numeric"]:not(:placeholder-shown) {
+  color: #000000 !important; /* Black text color */
+  -webkit-text-fill-color: #000000 !important; /* Black text fill */
+  caret-color: #000000 !important; /* Black caret */
+}
+
+/* Focus state cho OTP inputs */
+html[data-auth-pages="true"] input[type="text"].otp-input:focus,
+html[data-auth-pages="true"] input[type="text"][inputmode="numeric"]:focus,
+html[data-auth-pages="true"] input[type="text"][inputMode="numeric"]:focus {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #000000 !important;
 }
 
 /* Override browser autofill styles so they follow theme */

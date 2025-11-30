@@ -13,6 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useI18n } from "@/hooks/use-i18n";
+import { logger } from "@/lib/logger";
 
 interface DeleteCategoryDialogProps {
   categoryId: number;
@@ -29,6 +31,7 @@ export function DeleteCategoryDialog({
   onClose,
   onSuccess,
 }: DeleteCategoryDialogProps) {
+  const { t } = useI18n();
   const deleteCategoryMutation = useDeleteCategory();
 
   const handleDelete = async () => {
@@ -38,7 +41,7 @@ export function DeleteCategoryDialog({
       onSuccess?.();
     } catch (error) {
       // Error is already handled by useAppMutation
-      console.error("Failed to delete category:", error);
+      logger.error("Failed to delete category:", error);
     }
   };
 
@@ -55,17 +58,14 @@ export function DeleteCategoryDialog({
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
               <AlertDialogTitle className="text-xl font-semibold text-foreground">
-                Xóa danh mục
+                {t("admin.dialogs.deleteCategory")}
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription className="pt-4 text-muted-foreground">
-              Bạn có chắc chắn muốn xóa danh mục này không? Hành động này không
-              thể hoàn tác. Hình ảnh và tất cả thông tin liên quan sẽ bị xóa
-              vĩnh viễn.
+              {t("admin.dialogs.deleteCategoryConfirm")}
               <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
                 <p className="text-sm font-medium text-warning">
-                  ⚠️ Lưu ý: Không thể xóa danh mục nếu đang có danh mục con hoặc
-                  sản phẩm thuộc về nó.
+                  ⚠️ {t("admin.dialogs.deleteUserWarning")}
                 </p>
               </div>
               {categoryName && (
@@ -78,12 +78,12 @@ export function DeleteCategoryDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-            <AlertDialogFooter>
+          <AlertDialogFooter>
             <AlertDialogCancel
               disabled={deleteCategoryMutation.isPending}
               className="rounded-lg font-semibold"
             >
-              Hủy
+              {t("admin.dialogs.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
@@ -93,12 +93,12 @@ export function DeleteCategoryDialog({
               {deleteCategoryMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xóa...
+                  {t("admin.common.loading")}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Xóa
+                  {t("admin.common.delete")}
                 </>
               )}
             </AlertDialogAction>

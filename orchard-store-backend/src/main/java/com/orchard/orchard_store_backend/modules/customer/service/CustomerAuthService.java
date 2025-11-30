@@ -52,8 +52,8 @@ public class CustomerAuthService {
         // 1. Check rate limit
         checkRateLimit(email);
 
-        // 2. Tìm customer hoặc tạo mới
-        Customer customer = customerRepository.findByEmail(email)
+        // 2. Tìm customer hoặc tạo mới (đảm bảo customer tồn tại trước khi gửi OTP)
+        customerRepository.findByEmail(email)
                 .orElseGet(() -> createGuestCustomer(email));
 
         // 3. Generate OTP

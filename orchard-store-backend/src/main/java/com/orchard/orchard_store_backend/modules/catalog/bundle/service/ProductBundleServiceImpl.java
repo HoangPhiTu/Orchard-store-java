@@ -6,7 +6,6 @@ import com.orchard.orchard_store_backend.modules.catalog.bundle.entity.BundleIte
 import com.orchard.orchard_store_backend.modules.catalog.bundle.entity.ProductBundle;
 import com.orchard.orchard_store_backend.modules.catalog.bundle.mapper.BundleItemMapper;
 import com.orchard.orchard_store_backend.modules.catalog.bundle.mapper.ProductBundleMapper;
-import com.orchard.orchard_store_backend.modules.catalog.bundle.repository.BundleItemRepository;
 import com.orchard.orchard_store_backend.modules.catalog.bundle.repository.ProductBundleRepository;
 import com.orchard.orchard_store_backend.modules.catalog.product.entity.Product;
 import com.orchard.orchard_store_backend.modules.catalog.product.entity.ProductVariant;
@@ -31,7 +30,6 @@ import java.util.stream.Collectors;
 public class ProductBundleServiceImpl implements ProductBundleService {
 
     private final ProductBundleRepository bundleRepository;
-    private final BundleItemRepository bundleItemRepository;
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductBundleMapper bundleMapper;

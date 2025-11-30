@@ -86,7 +86,7 @@ const getValidationErrors = (
 // Tạo axios instance với config
 const http = axios.create({
   baseURL: API_URL,
-  timeout: 10000, // 10 seconds - prevent hanging requests
+  timeout: 5000, // 5 seconds - faster failure detection, prevent hanging requests
   withCredentials: true,
 });
 
@@ -98,7 +98,7 @@ http.interceptors.request.use((config) => {
 
   // Lấy token từ cookie tên là "orchard_admin_token"
   // Prefer cookie (set by backend), fallback to encrypted localStorage
-  let token = Cookies.get(TOKEN_KEY);
+  const token = Cookies.get(TOKEN_KEY);
   if (!token && typeof window !== "undefined") {
     // Try to get from encrypted localStorage (async, but we'll handle it)
     getEncryptedToken(TOKEN_KEY)
@@ -307,15 +307,23 @@ http.interceptors.response.use(
             error.code === "ECONNABORTED" ||
             error.message?.includes("timeout")
           ) {
-            toast.error("Kết nối quá hạn, vui lòng kiểm tra mạng");
+            // Skip toast cho auth endpoints - service sẽ xử lý timeout error
+            // (ví dụ: send-otp có thể timeout nhưng email đã được gửi)
+            if (!isAuthEndpoint) {
+              toast.error("Kết nối quá hạn, vui lòng kiểm tra mạng");
+            }
           } else {
             // Network Error (response undefined)
-            toast.error("Mất kết nối máy chủ");
+            if (!isAuthEndpoint) {
+              toast.error("Mất kết nối máy chủ");
+            }
           }
         } else if (status) {
           // Other HTTP errors
-          const defaultMessage = errorMessage || "Đã có lỗi xảy ra";
-          toast.error(defaultMessage);
+          if (!isAuthEndpoint) {
+            const defaultMessage = errorMessage || "Đã có lỗi xảy ra";
+            toast.error(defaultMessage);
+          }
         }
         break;
     }

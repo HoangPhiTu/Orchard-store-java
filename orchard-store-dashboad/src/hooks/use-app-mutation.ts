@@ -238,7 +238,7 @@ export function useAppMutation<
     // ===== AUTO SUCCESS HANDLING =====
     onSuccess: async (data, variables, context) => {
       try {
-        // 1. Invalidate queries (refresh data)
+        // 1. Invalidate queries (mark as stale)
         if (queryKey) {
           try {
             if (Array.isArray(queryKey) && Array.isArray(queryKey[0])) {
@@ -248,10 +248,18 @@ export function useAppMutation<
                   queryClient.invalidateQueries({ queryKey: key })
                 )
               );
+              // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
+              await Promise.all(
+                (queryKey as QueryKey[]).map((key) =>
+                  queryClient.refetchQueries({ queryKey: key })
+                )
+              );
             } else {
               // Single query key: 'products' or ['products']
               const key = Array.isArray(queryKey) ? queryKey : [queryKey];
               await queryClient.invalidateQueries({ queryKey: key });
+              // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
+              await queryClient.refetchQueries({ queryKey: key });
             }
           } catch (invalidateError) {
             // Log nhưng không crash nếu invalidate fail

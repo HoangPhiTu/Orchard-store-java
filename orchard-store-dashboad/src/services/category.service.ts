@@ -155,7 +155,11 @@ export const categoryService = {
     if (data.name !== undefined) payload.name = data.name;
     if (data.slug !== undefined) payload.slug = data.slug;
     if (data.description !== undefined) payload.description = data.description;
-    if (data.imageUrl !== undefined) payload.imageUrl = data.imageUrl;
+    // Gửi imageUrl nếu có giá trị (string) hoặc null (để xóa ảnh)
+    // Chỉ skip nếu undefined (không thay đổi)
+    if (data.imageUrl !== undefined) {
+      payload.imageUrl = data.imageUrl === null ? null : data.imageUrl;
+    }
 
     // parentId có thể là null (để set root category)
     if (data.parentId !== undefined) {

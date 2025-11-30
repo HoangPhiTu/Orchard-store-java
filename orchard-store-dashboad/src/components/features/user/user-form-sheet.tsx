@@ -31,7 +31,7 @@ import { useRoles } from "@/hooks/use-roles";
 import { userService } from "@/services/user.service";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { ChangeEmailDialog } from "@/components/features/user/change-email-dialog";
-import { uploadService } from "@/services/upload.service";
+import { useImageManagement } from "@/hooks/use-image-management";
 import type { User } from "@/types/user.types";
 import {
   createUserSchema,
@@ -41,6 +41,7 @@ import {
 } from "@/lib/schemas/user.schema";
 import { useAuthStore } from "@/stores/auth-store";
 import { logger } from "@/lib/logger";
+import { useI18n } from "@/hooks/use-i18n";
 
 // Union type cho form data (có thể là create hoặc update)
 // avatarUrl có thể là File (ảnh mới) hoặc string (URL ảnh cũ)
@@ -69,6 +70,7 @@ export function UserFormSheet({
   onOpenChange,
   user,
 }: UserFormSheetProps) {
+  const { t } = useI18n();
   const isEditing = Boolean(user);
   const [activeTab, setActiveTab] = useState("profile");
   const { data: roles = [], isLoading: rolesLoading } = useRoles();
@@ -93,7 +95,7 @@ export function UserFormSheet({
     queryKey: ["admin", "users"], // Tự động refresh danh sách users
     form: form, // Tự động setError và reset form
     onClose: () => onOpenChange(false), // Tự động đóng sheet khi thành công
-    successMessage: "Tạo người dùng thành công", // Tự động hiển thị toast success
+    successMessage: t("admin.forms.user.createUserSuccess"), // Tự động hiển thị toast success
     resetOnSuccess: true, // Tự động reset form sau khi thành công
   });
 
@@ -108,7 +110,7 @@ export function UserFormSheet({
     queryKey: ["admin", "users"], // Tự động refresh danh sách users
     form: form, // ✅ Tự động map lỗi vào form fields
     onClose: () => onOpenChange(false), // ✅ Tự động đóng sheet khi thành công (chỉ khi không có lỗi)
-    successMessage: "Cập nhật người dùng thành công", // ✅ Tự động hiển thị toast success
+    successMessage: t("admin.forms.user.updateUserSuccess"), // ✅ Tự động hiển thị toast success
     resetOnSuccess: false, // ✅ Không reset form khi update (giữ dữ liệu)
   });
 
@@ -122,6 +124,10 @@ export function UserFormSheet({
   const queryClient = useQueryClient();
   const authUser = useAuthStore((state) => state.user);
   const [isChangeEmailDialogOpen, setChangeEmailDialogOpen] = useState(false);
+  const [latestAvatarUrl, setLatestAvatarUrl] = useState<string | null | undefined>(undefined);
+
+  // Image management hook (reusable for all entities)
+  const imageManagement = useImageManagement("users");
 
   // ✅ Shake animation khi có lỗi validation
   const handleSubmitError = () => {
@@ -173,10 +179,14 @@ export function UserFormSheet({
         status: user.status,
         avatarUrl: user.avatarUrl || null,
       });
+      // ✅ Clear latestAvatarUrl khi user data được load
+      setLatestAvatarUrl(undefined);
     } else {
       form.reset(DEFAULT_VALUES);
+      setLatestAvatarUrl(undefined);
     }
-  }, [user?.id, userRoleIdsString, form, user, userRoleIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, userRoleIdsString]);
 
   const watchedRoleIds = form.watch("roleIds");
   const watchedStatus = form.watch("status");
@@ -210,8 +220,8 @@ export function UserFormSheet({
   };
 
   // ✅ Hàm submit với logic upload ảnh trước khi submit
-  // ✅ Nếu có File mới -> Upload trước, lấy URL, rồi mới submit
-  // ✅ Nếu không có File -> Submit trực tiếp với URL cũ (hoặc null)
+  // ✅ Sử dụng useImageManagement hook (reusable, implements best practices)
+  // ✅ Soft delete strategy - mark for deletion instead of hard delete
   const onSubmit = async (data: UserFormData) => {
     logger.debug("onSubmit called with data:", {
       ...data,
@@ -223,35 +233,25 @@ export function UserFormSheet({
 
     const previousAvatarUrl = isEditing ? user?.avatarUrl || null : null;
     let uploadedAvatarUrl: string | null = null;
-    let shouldDeleteOldAvatar = false;
 
     try {
-      // Xử lý upload ảnh nếu có File mới
+      // Xử lý upload ảnh và mark old image for deletion (soft delete)
       let finalAvatarUrl: string | null = null;
 
       if (data.avatarUrl instanceof File) {
         // Có ảnh mới được chọn -> Upload trước
         logger.debug("Uploading image:", data.avatarUrl.name);
         try {
-          finalAvatarUrl = await uploadService.uploadImage(
-            data.avatarUrl,
-            "users"
-          );
+          finalAvatarUrl = await imageManagement.uploadImage(data.avatarUrl);
           uploadedAvatarUrl = finalAvatarUrl;
-          if (
-            isEditing &&
-            previousAvatarUrl &&
-            finalAvatarUrl &&
-            finalAvatarUrl !== previousAvatarUrl
-          ) {
-            shouldDeleteOldAvatar = true;
-          }
           logger.debug("Image uploaded successfully:", finalAvatarUrl);
         } catch (error) {
           // Nếu upload thất bại, set error vào form
           logger.error("Image upload failed:", error);
           const errorMessage =
-            error instanceof Error ? error.message : "Không thể upload ảnh";
+            error instanceof Error
+              ? error.message
+              : t("admin.forms.user.cannotUploadImage");
           form.setError("avatarUrl", {
             type: "manual",
             message: errorMessage,
@@ -264,16 +264,12 @@ export function UserFormSheet({
         logger.debug("Using existing avatar URL:", data.avatarUrl);
         finalAvatarUrl = data.avatarUrl;
       } else {
-        // null hoặc undefined
+        // null hoặc undefined - user removed image
         logger.debug("No avatar URL");
         finalAvatarUrl = null;
-        if (isEditing && previousAvatarUrl) {
-          shouldDeleteOldAvatar = true;
-        }
       }
 
       // Tạo data cuối cùng với URL ảnh đã được xử lý (chỉ string | null, không có File)
-      // Loại bỏ File object và chỉ giữ string | null
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { avatarUrl: _avatarUrl, ...restData } = data;
       const finalData = {
@@ -298,16 +294,37 @@ export function UserFormSheet({
           id: user!.id,
           data: updateData,
         })) as User;
+
+        // ✅ Cập nhật latestAvatarUrl để hiển thị ngay lập tức
+        setLatestAvatarUrl(updatedUser.avatarUrl ?? undefined);
+
+        // ✅ Reset form với dữ liệu mới để cập nhật avatarUrl
+        form.reset({
+          ...form.getValues(),
+          avatarUrl: updatedUser.avatarUrl || null,
+        });
+
+        // Update auth store if current user
         if (updatedUser && authUser && updatedUser.id === authUser.id) {
           useAuthStore.setState({ user: updatedUser });
           queryClient.invalidateQueries({ queryKey: ["currentUser"] });
         }
-        if (shouldDeleteOldAvatar && previousAvatarUrl) {
-          try {
-            await uploadService.deleteImage(previousAvatarUrl);
-          } catch (deleteError) {
-            logger.warn("Không thể xóa ảnh cũ:", deleteError);
-          }
+
+        // Mark old image for deletion (soft delete) AFTER DB update success
+        // This ensures data consistency - if DB update fails, old image is not deleted
+        if (previousAvatarUrl && finalAvatarUrl !== previousAvatarUrl) {
+          await imageManagement.markImageForDeletion(previousAvatarUrl, {
+            entityId: user!.id,
+            reason: "replaced",
+          });
+        }
+
+        // Mark for deletion if image removed
+        if (previousAvatarUrl && !finalAvatarUrl) {
+          await imageManagement.markImageForDeletion(previousAvatarUrl, {
+            entityId: user!.id,
+            reason: "removed",
+          });
         }
       } else {
         // Create user
@@ -315,22 +332,25 @@ export function UserFormSheet({
         const createData = finalData as Omit<CreateUserSchema, "avatarUrl"> & {
           avatarUrl?: string | null;
         };
-        await createUserMutation.mutateAsync(createData);
-      }
-    } catch (error) {
-      if (uploadedAvatarUrl) {
-        try {
-          await uploadService.deleteImage(uploadedAvatarUrl);
-        } catch (cleanupError) {
-          logger.warn("Không thể xóa ảnh mới sau khi lỗi:", cleanupError);
+        const createdUser = (await createUserMutation.mutateAsync(createData)) as User;
+        
+        // ✅ Cập nhật latestAvatarUrl để hiển thị ngay lập tức (nếu form vẫn mở)
+        if (createdUser) {
+          setLatestAvatarUrl(createdUser.avatarUrl ?? undefined);
         }
       }
+    } catch (error) {
+      // Cleanup uploaded image if operation fails
+      if (uploadedAvatarUrl) {
+        await imageManagement.cleanupImage(uploadedAvatarUrl);
+        }
+
       // useAppMutation sẽ tự động xử lý lỗi và gán vào form
       // Nhưng vẫn log để debug
       logger.error("Error in onSubmit:", error);
       // Hiển thị toast error nếu có
       if (error instanceof Error) {
-        toast.error(error.message || "Có lỗi xảy ra khi xử lý");
+        toast.error(error.message || t("admin.forms.user.errorOccurred"));
       }
     }
   };
@@ -361,12 +381,14 @@ export function UserFormSheet({
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <SheetTitle className="text-xl font-semibold text-card-foreground">
-                  {isEditing ? "Edit User" : "Add New User"}
+                  {isEditing
+                    ? t("admin.forms.user.editUser")
+                    : t("admin.forms.user.addNewUser")}
                 </SheetTitle>
                 <SheetDescription className="text-sm text-muted-foreground">
                   {isEditing
-                    ? "Update user information and roles."
-                    : "Create a new user account with roles and permissions."}
+                    ? t("admin.forms.user.updateUserInfo")
+                    : t("admin.forms.user.createNewUser")}
                 </SheetDescription>
               </div>
               <Button
@@ -389,8 +411,12 @@ export function UserFormSheet({
                 className="w-full"
               >
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="profile">Thông tin</TabsTrigger>
-                  <TabsTrigger value="history">Lịch sử</TabsTrigger>
+                  <TabsTrigger value="profile">
+                    {t("admin.forms.user.profile")}
+                  </TabsTrigger>
+                  <TabsTrigger value="history">
+                    {t("admin.forms.user.history")}
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Tab 1: Profile - Form nhập liệu */}
@@ -409,10 +435,44 @@ export function UserFormSheet({
                               userAvatarUrl: user?.avatarUrl,
                               formAvatarUrl: form.watch("avatarUrl"),
                             });
+                            // ✅ Ưu tiên latestAvatarUrl để hiển thị ngay sau khi update
+                            const effectiveValue = (() => {
+                              if (field.value !== undefined) {
+                                return field.value; // File hoặc null
+                              }
+                              if (latestAvatarUrl !== undefined) {
+                                return typeof latestAvatarUrl === "string" ? latestAvatarUrl : null;
+                              }
+                              return field.value;
+                            })();
+
                             return (
                               <ImageUpload
-                                value={field.value}
-                                previewUrl={user?.avatarUrl || null}
+                                key={(() => {
+                                  // ✅ Key thay đổi khi avatar URL thay đổi để force re-render
+                                  const currentValue = (() => {
+                                    if (field.value !== undefined) {
+                                      return field.value instanceof File 
+                                        ? `file-${field.value.name}-${field.value.size}` 
+                                        : field.value === null ? "null" : String(field.value);
+                                    }
+                                    if (latestAvatarUrl !== undefined) {
+                                      return typeof latestAvatarUrl === "string" ? latestAvatarUrl : "null";
+                                    }
+                                    return user?.avatarUrl || "no-avatar";
+                                  })();
+                                  return `user-avatar-${user?.id || "new"}-${currentValue}`;
+                                })()}
+                                value={effectiveValue}
+                                previewUrl={
+                                  // Chỉ dùng previewUrl khi field.value là undefined và không có latestAvatarUrl
+                                  // Nếu field.value === null (user đã xóa), không dùng previewUrl
+                                  field.value === undefined && 
+                                  latestAvatarUrl === undefined && 
+                                  user?.avatarUrl
+                                    ? user.avatarUrl
+                                    : null
+                                }
                                 onChange={(file) => {
                                   field.onChange(file || null);
                                   form.trigger("avatarUrl"); // Trigger validation
@@ -435,7 +495,7 @@ export function UserFormSheet({
 
                     {/* Full Name */}
                     <FormField
-                      label="Full Name"
+                      label={t("admin.forms.user.fullName")}
                       htmlFor="fullName"
                       required
                       error={form.formState.errors.fullName}
@@ -443,7 +503,7 @@ export function UserFormSheet({
                       <Input
                         id="fullName"
                         {...form.register("fullName")}
-                        placeholder="Enter full name"
+                        placeholder={t("admin.forms.user.enterFullName")}
                         className={cn(
                           form.formState.errors.fullName &&
                             "border-red-500 focus:border-red-500 focus:ring-red-500"
@@ -453,7 +513,7 @@ export function UserFormSheet({
 
                     {/* Email */}
                     <FormField
-                      label="Email"
+                      label={t("admin.forms.user.email")}
                       htmlFor="email"
                       required
                       error={
@@ -461,7 +521,9 @@ export function UserFormSheet({
                           .email
                       }
                       description={
-                        isEditing ? "Email không thể thay đổi" : undefined
+                        isEditing
+                          ? t("admin.forms.user.emailCannotChange")
+                          : undefined
                       }
                     >
                       <div className="flex items-center gap-2">
@@ -469,7 +531,7 @@ export function UserFormSheet({
                           id="email"
                           type="email"
                           {...form.register("email" as keyof UserFormData)}
-                          placeholder="Enter email address"
+                          placeholder={t("admin.forms.user.enterEmail")}
                           disabled={isEditing}
                           className={cn(
                             "flex-1",
@@ -490,10 +552,12 @@ export function UserFormSheet({
                             className="shrink-0"
                             onClick={() => setChangeEmailDialogOpen(true)}
                             disabled={isPending}
-                            title="Đổi email người dùng"
+                            title={t("admin.forms.user.changeUserEmail")}
                           >
                             <PenLine className="h-4 w-4" />
-                            <span className="sr-only">Đổi email</span>
+                            <span className="sr-only">
+                              {t("admin.forms.user.changeEmail")}
+                            </span>
                           </Button>
                         )}
                       </div>
@@ -501,12 +565,12 @@ export function UserFormSheet({
 
                     {/* Password */}
                     <FormField
-                      label="Password"
+                      label={t("admin.forms.user.password")}
                       htmlFor="password"
                       error={form.formState.errors.password}
                       description={
                         isEditing
-                          ? "Để trống nếu bạn không muốn thay đổi mật khẩu"
+                          ? t("admin.forms.user.leaveEmptyToKeepPassword")
                           : undefined
                       }
                     >
@@ -514,7 +578,7 @@ export function UserFormSheet({
                         id="password"
                         type="password"
                         {...form.register("password")}
-                        placeholder="Nhập mật khẩu mới (tùy chọn)"
+                        placeholder={t("admin.forms.user.enterNewPassword")}
                         className={cn(
                           form.formState.errors.password &&
                             "border-red-500 focus:border-red-500 focus:ring-red-500"
@@ -524,7 +588,7 @@ export function UserFormSheet({
 
                     {/* Phone */}
                     <FormField
-                      label="Phone Number"
+                      label={t("admin.forms.user.phoneNumber")}
                       htmlFor="phone"
                       error={form.formState.errors.phone}
                     >
@@ -532,7 +596,7 @@ export function UserFormSheet({
                         id="phone"
                         type="tel"
                         {...form.register("phone")}
-                        placeholder="Enter phone number"
+                        placeholder={t("admin.forms.user.enterPhoneNumber")}
                         className={cn(
                           form.formState.errors.phone &&
                             "border-red-500 focus:border-red-500 focus:ring-red-500"
@@ -543,15 +607,16 @@ export function UserFormSheet({
                     {/* Roles - Selectable Cards */}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-foreground">
-                        Roles <span className="text-red-500">*</span>
+                        {t("admin.forms.user.roles")}{" "}
+                        <span className="text-red-500">*</span>
                       </Label>
                       {rolesLoading ? (
                         <p className="text-sm text-muted-foreground">
-                          Loading roles...
+                          {t("admin.forms.user.loadingRoles")}
                         </p>
                       ) : roles.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                          No roles available
+                          {t("admin.forms.user.noRolesAvailable")}
                         </p>
                       ) : (
                         <div className="grid gap-3 sm:grid-cols-2">
@@ -614,7 +679,7 @@ export function UserFormSheet({
                         htmlFor="status"
                         className="text-sm font-medium text-foreground"
                       >
-                        Status
+                        {t("admin.forms.user.status")}
                       </Label>
                       <div className="flex items-center space-x-3">
                         <Switch
@@ -626,7 +691,9 @@ export function UserFormSheet({
                           htmlFor="status"
                           className="cursor-pointer font-normal"
                         >
-                          {watchedStatus === "ACTIVE" ? "Active" : "Inactive"}
+                          {watchedStatus === "ACTIVE"
+                            ? t("admin.forms.user.active")
+                            : t("admin.forms.user.inactive")}
                         </Label>
                       </div>
                     </div>
@@ -653,9 +720,36 @@ export function UserFormSheet({
                     <Controller
                       name="avatarUrl"
                       control={form.control}
-                      render={({ field }) => (
+                        render={({ field }) => {
+                          // ✅ Ưu tiên latestAvatarUrl để hiển thị ngay sau khi create
+                          const effectiveValue = (() => {
+                            if (field.value !== undefined) {
+                              return field.value; // File hoặc null
+                            }
+                            if (latestAvatarUrl !== undefined) {
+                              return typeof latestAvatarUrl === "string" ? latestAvatarUrl : null;
+                            }
+                            return field.value;
+                          })();
+
+                          return (
                         <ImageUpload
-                          value={field.value}
+                              key={(() => {
+                                // ✅ Key thay đổi khi avatar URL thay đổi để force re-render
+                                const currentValue = (() => {
+                                  if (field.value !== undefined) {
+                                    return field.value instanceof File 
+                                      ? `file-${field.value.name}-${field.value.size}` 
+                                      : field.value === null ? "null" : String(field.value);
+                                  }
+                                  if (latestAvatarUrl !== undefined) {
+                                    return typeof latestAvatarUrl === "string" ? latestAvatarUrl : "null";
+                                  }
+                                  return "no-avatar";
+                                })();
+                                return `user-avatar-new-${currentValue}`;
+                              })()}
+                              value={effectiveValue}
                           previewUrl={null}
                           onChange={(file) => {
                             field.onChange(file || null);
@@ -664,7 +758,8 @@ export function UserFormSheet({
                           size="lg"
                           disabled={isPending}
                         />
-                      )}
+                          );
+                        }}
                     />
                   </div>
                   {/* Error message cho avatarUrl */}
@@ -696,7 +791,7 @@ export function UserFormSheet({
 
                 {/* Email */}
                 <FormField
-                  label="Email"
+                  label={t("admin.forms.user.email")}
                   htmlFor="email"
                   required
                   error={
@@ -707,7 +802,7 @@ export function UserFormSheet({
                     id="email"
                     type="email"
                     {...form.register("email" as keyof UserFormData)}
-                    placeholder="Enter email address"
+                    placeholder={t("admin.forms.user.enterEmail")}
                     className={cn(
                       (
                         form.formState.errors as Record<
@@ -722,7 +817,7 @@ export function UserFormSheet({
 
                 {/* Password */}
                 <FormField
-                  label="Password"
+                  label={t("admin.forms.user.password")}
                   htmlFor="password"
                   required
                   error={form.formState.errors.password}
@@ -731,7 +826,7 @@ export function UserFormSheet({
                     id="password"
                     type="password"
                     {...form.register("password")}
-                    placeholder="Nhập mật khẩu"
+                    placeholder={t("admin.forms.user.enterNewPassword")}
                     className={cn(
                       form.formState.errors.password &&
                         "border-red-500 focus:border-red-500 focus:ring-red-500"
@@ -741,7 +836,7 @@ export function UserFormSheet({
 
                 {/* Phone */}
                 <FormField
-                  label="Phone Number"
+                  label={t("admin.forms.user.phoneNumber")}
                   htmlFor="phone"
                   error={form.formState.errors.phone}
                 >
@@ -749,7 +844,7 @@ export function UserFormSheet({
                     id="phone"
                     type="tel"
                     {...form.register("phone")}
-                    placeholder="Enter phone number"
+                    placeholder={t("admin.forms.user.enterPhoneNumber")}
                     className={cn(
                       form.formState.errors.phone &&
                         "border-red-500 focus:border-red-500 focus:ring-red-500"
@@ -760,15 +855,16 @@ export function UserFormSheet({
                 {/* Roles - Selectable Cards */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-foreground">
-                    Roles <span className="text-red-500">*</span>
+                    {t("admin.forms.user.roles")}{" "}
+                    <span className="text-red-500">*</span>
                   </Label>
                   {rolesLoading ? (
                     <p className="text-sm text-muted-foreground">
-                      Loading roles...
+                      {t("admin.forms.user.loadingRoles")}
                     </p>
                   ) : roles.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No roles available
+                      {t("admin.forms.user.noRolesAvailable")}
                     </p>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -837,7 +933,7 @@ export function UserFormSheet({
                 className="flex-1 rounded-lg border-border bg-card text-card-foreground font-semibold transition hover:bg-muted/40 hover:text-foreground focus:ring-1 focus:ring-primary/30"
                 disabled={isPending}
               >
-                Cancel
+                {t("admin.forms.common.cancel")}
               </Button>
               <Button
                 ref={submitButtonRef}
@@ -848,12 +944,12 @@ export function UserFormSheet({
                 {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang lưu...
+                    {t("admin.forms.common.loading")}
                   </>
                 ) : isEditing ? (
-                  "Cập nhật"
+                  t("admin.common.save")
                 ) : (
-                  "Tạo mới"
+                  t("admin.common.addNew")
                 )}
               </Button>
             </div>
