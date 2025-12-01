@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useRef, useEffect, useState } from "react";
 import { User, X, Upload } from "lucide-react";
@@ -48,6 +49,12 @@ interface ImageUploadProps {
    * Class name tùy chỉnh
    */
   className?: string;
+
+  /**
+   * Cache busting key - thay đổi để force reload ảnh
+   * Dùng khi cần force browser reload ảnh mới (ví dụ: sau khi upload)
+   */
+  cacheKey?: string | number;
 }
 
 const sizeClasses = {
@@ -73,6 +80,7 @@ export function ImageUpload({
   variant = "circle",
   folder,
   className,
+  cacheKey,
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -217,10 +225,20 @@ export function ImageUpload({
 
   // 👇 Tính URL hiển thị (QUAN TRỌNG)
   // File (blob/data URL) thì giữ nguyên, URL string thì áp dụng timestamp để tránh cache
-  const displayUrl =
-    value instanceof File
-      ? effectivePreview
-      : getImageUrlWithTimestamp(effectivePreview);
+  const displayUrl = (() => {
+    if (value instanceof File) {
+      return effectivePreview; // File preview (blob/data URL)
+    }
+
+    if (typeof effectivePreview === "string" && effectivePreview) {
+      // ✅ Sử dụng cacheKey nếu có (từ timestampKey) để force reload ảnh mới
+      // Nếu không có cacheKey, dùng timestamp hiện tại
+      const timestamp = cacheKey || Date.now();
+      return getImageUrlWithTimestamp(effectivePreview, timestamp);
+    }
+
+    return null;
+  })();
 
   const sizeClass =
     variant === "rectangle" ? rectangleSizeClasses[size] : sizeClasses[size];
@@ -241,10 +259,11 @@ export function ImageUpload({
           >
             {hasImage && displayUrl ? (
               <img
-                key={displayUrl} // 👈 QUAN TRỌNG: Key thay đổi -> React vẽ lại ảnh
+                key={`${displayUrl}-${cacheKey || Date.now()}`} // 👈 QUAN TRỌNG: Key thay đổi khi cacheKey thay đổi -> React vẽ lại ảnh
                 src={displayUrl || ""} // 👈 QUAN TRỌNG: Src có timestamp -> Trình duyệt tải ảnh mới
                 alt="Logo"
                 className="h-full w-full object-contain p-2"
+                loading="eager" // ✅ Force load ngay lập tức, không lazy load
                 onError={(e) => {
                   // Fallback nếu ảnh timestamp lỗi
                   if (
@@ -285,6 +304,7 @@ export function ImageUpload({
         {/* Helper text */}
         <p className="text-xs text-center text-muted-foreground">
           Nhấp vào ô để chọn hình ảnh
+          {folder ? ` (${folder})` : ""}
         </p>
 
         {/* Hidden File Input */}
@@ -315,7 +335,7 @@ export function ImageUpload({
         >
           {hasImage && displayUrl ? (
             <AvatarImage
-              key={displayUrl} // 👈 QUAN TRỌNG: Key thay đổi -> React vẽ lại ảnh
+              key={`${displayUrl}-${cacheKey || Date.now()}`} // 👈 QUAN TRỌNG: Key thay đổi khi cacheKey thay đổi -> React vẽ lại ảnh
               src={displayUrl || ""} // 👈 QUAN TRỌNG: Src có timestamp -> Trình duyệt tải ảnh mới
               alt="Avatar"
               onError={(e) => {
@@ -358,6 +378,7 @@ export function ImageUpload({
       {/* Helper text */}
       <p className="text-xs text-center text-muted-foreground">
         Nhấp vào avatar để chọn hình ảnh
+        {folder ? ` (${folder})` : ""}
       </p>
 
       {/* Hidden File Input */}

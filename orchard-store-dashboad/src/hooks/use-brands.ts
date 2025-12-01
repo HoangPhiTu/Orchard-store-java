@@ -1,14 +1,12 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import {
+  useQuery,
+  keepPreviousData,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useMemo } from "react";
 import { brandService } from "@/services/brand.service";
 import { useAppMutation } from "@/hooks/use-app-mutation";
-import { normalizeQueryKey } from "@/lib/query-key-utils";
-import type {
-  Brand,
-  BrandFormData,
-  BrandFilter,
-  CatalogStatus,
-} from "@/types/catalog.types";
+import type { Brand, BrandFormData, BrandFilter } from "@/types/catalog.types";
 import type { Page } from "@/types/user.types";
 
 const BRANDS_QUERY_KEY = ["admin", "brands"] as const;
@@ -80,7 +78,7 @@ export const useBrands = (filters?: BrandFilter) => {
 
 /**
  * Hook để lấy chi tiết một brand theo ID
- * Có caching để tránh refetch không cần thiết
+ * ✅ Cập nhật: Luôn fetch lại để đảm bảo dữ liệu mới nhất
  */
 export const useBrand = (id: number | null) => {
   return useQuery<Brand, Error>({
@@ -92,9 +90,9 @@ export const useBrand = (id: number | null) => {
       return brandService.getBrand(id);
     },
     enabled: !!id, // Chỉ query khi có ID
-    staleTime: 10 * 60 * 1000, // 10 minutes - brand data ít thay đổi
-    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache longer
-    refetchOnMount: false, // Không refetch khi component mount lại
+    staleTime: 0, // ✅ Luôn coi dữ liệu là cũ để fetch lại
+    gcTime: 5 * 60 * 1000, // ✅ 5 phút - giảm thời gian cache
+    refetchOnMount: true, // ✅ Luôn fetch lại khi mở Form
     refetchOnWindowFocus: false, // Không refetch khi window focus
   });
 };
@@ -114,8 +112,11 @@ export const useCreateBrand = () => {
 /**
  * Hook để cập nhật brand
  * Sử dụng useAppMutation để tự động xử lý error, success, invalidate queries
+ * ✅ Cập nhật: Ép buộc tải lại dữ liệu chi tiết và danh sách sau khi update
  */
 export const useUpdateBrand = () => {
+  const queryClient = useQueryClient();
+
   return useAppMutation<
     Brand,
     Error,
@@ -124,6 +125,20 @@ export const useUpdateBrand = () => {
     mutationFn: ({ id, data }) => brandService.updateBrand(id, data),
     queryKey: BRANDS_QUERY_KEY,
     successMessage: "Cập nhật thương hiệu thành công!",
+    onSuccess: (updatedBrand, variables) => {
+      // ✅ Chỉ invalidate detail query - useAppMutation đã refetch list rồi
+      // Điều này tránh duplicate refetch và cải thiện hiệu năng
+      if (variables.id) {
+        queryClient.invalidateQueries({
+          queryKey: [...BRANDS_QUERY_KEY, "detail", variables.id],
+        });
+        // Cập nhật cache trực tiếp với data mới để tránh refetch không cần thiết
+        queryClient.setQueryData(
+          [...BRANDS_QUERY_KEY, "detail", variables.id],
+          updatedBrand
+        );
+      }
+    },
   });
 };
 

@@ -85,17 +85,16 @@ export function useWebSocket() {
             const messageBody = message.body;
             logger.debug("Received brand update notification:", messageBody);
 
-            // ✅ Invalidate queries để đánh dấu data cần refresh
+            // ✅ Chỉ invalidate queries (mark as stale) - KHÔNG refetch tự động
+            // Mutation hooks (useAppMutation, useCreateBrand, useUpdateBrand) sẽ tự refetch
+            // Điều này tránh duplicate refetch và cải thiện hiệu năng
+            // ⚠️ QUAN TRỌNG: refetchType: 'none' để tránh React Query tự động refetch khi invalidate
             queryClient.invalidateQueries({
               queryKey: ["admin", "brands"],
+              refetchType: "none", // ✅ Không tự động refetch
             });
             
-            // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
-            queryClient.refetchQueries({
-              queryKey: ["admin", "brands"],
-            });
-            
-            logger.debug("Invalidated and refetched brands queries");
+            logger.debug("Invalidated brands queries (mutation hooks will refetch)");
           } catch (error) {
             logger.error("Failed to handle brand update notification:", error);
           }
@@ -113,30 +112,32 @@ export function useWebSocket() {
               entityId,
             });
 
-            // Invalidate và refetch queries dựa trên entity type
+            // ✅ Chỉ invalidate queries (mark as stale) - KHÔNG refetch tự động
+            // Mutation hooks (useAppMutation, useCreateUser, useUpdateUser, etc.) sẽ tự refetch
+            // Điều này tránh duplicate refetch và cải thiện hiệu năng đáng kể
+            // Khi user xóa avatar hoặc update user, chỉ có 1 lần refetch từ mutation hook
+            // ⚠️ QUAN TRỌNG: refetchType: 'none' để tránh React Query tự động refetch khi invalidate
             switch (entityType) {
               case "BRAND":
                 queryClient.invalidateQueries({
                   queryKey: ["admin", "brands"],
+                  refetchType: "none", // ✅ Không tự động refetch
                 });
-                queryClient.refetchQueries({
-                  queryKey: ["admin", "brands"],
-                });
-                logger.debug("Invalidated and refetched brands queries");
+                logger.debug("Invalidated brands queries (mutation hooks will refetch)");
                 break;
               case "CATEGORY":
                 queryClient.invalidateQueries({
                   queryKey: ["admin", "categories"],
+                  refetchType: "none", // ✅ Không tự động refetch
                 });
-                queryClient.refetchQueries({
-                  queryKey: ["admin", "categories"],
-                });
-                logger.debug("Invalidated and refetched categories queries");
+                logger.debug("Invalidated categories queries (mutation hooks will refetch)");
                 break;
               case "USER":
-                queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-                queryClient.refetchQueries({ queryKey: ["admin", "users"] });
-                logger.debug("Invalidated and refetched users queries");
+                queryClient.invalidateQueries({
+                  queryKey: ["admin", "users"],
+                  refetchType: "none", // ✅ Không tự động refetch
+                });
+                logger.debug("Invalidated users queries (mutation hooks will refetch)");
                 break;
               default:
                 logger.debug("Unknown entity type:", entityType);

@@ -358,12 +358,19 @@ export function UserFormSheet({
   const handleChangeEmailSuccess = (updatedEmail: string) => {
     if (!updatedEmail) return;
     form.setValue("email", updatedEmail, { shouldDirty: false });
-    queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    // ✅ Chỉ invalidate, không refetch - mutation hook đã refetch rồi
+    queryClient.invalidateQueries({
+      queryKey: ["admin", "users"],
+      refetchType: "none", // ✅ Không tự động refetch
+    });
     if (user && authUser && user.id === authUser.id) {
       useAuthStore.setState((state) => ({
         user: state.user ? { ...state.user, email: updatedEmail } : state.user,
       }));
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      queryClient.invalidateQueries({
+        queryKey: ["currentUser"],
+        refetchType: "none", // ✅ Không tự động refetch
+      });
     }
   };
 
@@ -686,14 +693,36 @@ export function UserFormSheet({
                           id="status"
                           checked={watchedStatus === "ACTIVE"}
                           onCheckedChange={handleStatusToggle}
+                          disabled={
+                            isEditing &&
+                            authUser &&
+                            user &&
+                            authUser.id === user.id
+                          }
                         />
                         <Label
                           htmlFor="status"
-                          className="cursor-pointer font-normal"
+                          className={cn(
+                            "font-normal",
+                            isEditing &&
+                              authUser &&
+                              user &&
+                              authUser.id === user.id
+                              ? "cursor-not-allowed text-muted-foreground"
+                              : "cursor-pointer"
+                          )}
                         >
                           {watchedStatus === "ACTIVE"
                             ? t("admin.forms.user.active")
                             : t("admin.forms.user.inactive")}
+                          {isEditing &&
+                            authUser &&
+                            user &&
+                            authUser.id === user.id && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                (Bạn không thể tự thay đổi trạng thái của chính mình)
+                              </span>
+                            )}
                         </Label>
                       </div>
                     </div>

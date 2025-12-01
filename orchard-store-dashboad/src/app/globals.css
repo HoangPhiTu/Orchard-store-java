@@ -1,20 +1,99 @@
 @import "tailwindcss";
 
 @layer base {
-  /* Smooth theme transition - optimized for performance */
-  /* Apply selective transitions to avoid performance issues */
-  html {
-    transition: background-color 200ms ease-in-out, color 200ms ease-in-out;
+  /* ✅ Tối ưu theme transition - chỉ apply cho CSS variables và essential properties */
+  /* Sử dụng CSS custom properties với transition để smooth hơn */
+  :root {
+    /* Force hardware acceleration */
+    transform: translateZ(0);
+    will-change: background-color, color;
   }
 
-  /* Optimize transitions for theme-aware elements only */
-  body,
+  /* ✅ Respect user's motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  html {
+    /* Chỉ transition background và color của html element */
+    /* ✅ Tối ưu mobile: Giảm duration trên mobile để smooth hơn */
+    transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+      color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  /* ✅ Desktop: Smooth transition với duration dài hơn */
+  @media (min-width: 768px) {
+    html {
+      transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+        color 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+  }
+
+  body {
+    /* Chỉ transition background và color của body */
+    /* ✅ Tối ưu mobile: Giảm duration trên mobile */
+    transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+      color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  /* ✅ Desktop: Smooth transition với duration dài hơn */
+  @media (min-width: 768px) {
+    body {
+      transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+        color 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+  }
+
+  /* ✅ Chỉ apply transition cho elements sử dụng CSS variables */
+  /* ✅ Tối ưu mobile: Giảm số lượng properties được transition */
   [class*="bg-"],
   [class*="text-"],
   [class*="border-"] {
+    /* Mobile: Chỉ transition essential properties */
     transition-property: background-color, border-color, color;
     transition-duration: 200ms;
-    transition-timing-function: ease-in-out;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    /* ✅ Tối ưu: Sử dụng contain để isolate rendering */
+    contain: layout style paint;
+  }
+
+  /* ✅ Desktop: Smooth transition với duration dài hơn */
+  @media (min-width: 768px) {
+    [class*="bg-"],
+    [class*="text-"],
+    [class*="border-"] {
+      transition-duration: 300ms;
+      /* Optimize rendering */
+      will-change: background-color, border-color, color;
+    }
+  }
+
+  /* ✅ Mobile: Disable transitions cho một số elements phức tạp để tăng performance */
+  @media (max-width: 767px) {
+    /* Disable transitions cho images, videos, và complex components */
+    img,
+    video,
+    canvas,
+    svg,
+    [data-no-transition],
+    [data-no-transition] * {
+      transition: none !important;
+    }
+
+    /* Chỉ transition cho essential UI elements */
+    [class*="bg-"]:not(img):not(video):not(canvas):not(svg),
+    [class*="text-"]:not(img):not(video):not(canvas):not(svg),
+    [class*="border-"]:not(img):not(video):not(canvas):not(svg) {
+      transition-property: background-color, border-color, color;
+      transition-duration: 150ms; /* ✅ Nhanh hơn trên mobile */
+      transition-timing-function: ease-out;
+    }
   }
 
   /* Disable transitions for elements that shouldn't animate */
@@ -24,6 +103,9 @@
   }
 
   :root {
+    /* ✅ Tối ưu: CSS variables tự động transition khi thay đổi */
+    /* Không cần transition cho từng variable, chỉ cần transition cho elements sử dụng chúng */
+
     /* Surface */
     --background: #ffffff;
     --card: #ffffff;
@@ -115,30 +197,9 @@
     --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
   }
 
-  /* Smooth theme transition - optimized for performance */
-  html {
-    transition: background-color 200ms ease-in-out, color 200ms ease-in-out !important;
-  }
-
-  /* Optimize transitions for theme-aware elements */
-  body,
-  [class*="bg-"],
-  [class*="text-"],
-  [class*="border-"] {
-    transition-property: background-color, border-color, color;
-    transition-duration: 200ms;
-    transition-timing-function: ease-in-out;
-  }
-
-  html,
-  html *,
-  html *::before,
-  html *::after {
-    transition-property: background-color, color, border-color, fill, stroke,
-      box-shadow, opacity !important;
-    transition-duration: 200ms !important;
-    transition-timing-function: linear !important;
-  }
+  /* ✅ REMOVED: Quá nhiều transitions gây lag */
+  /* Thay vào đó, chỉ transition CSS variables và essential properties */
+  /* CSS variables tự động transition khi thay đổi, không cần transition cho tất cả elements */
 
   /* Force light mode cho auth pages - không bị ảnh hưởng bởi theme của admin */
   /* Override tất cả CSS variables về light mode values */
@@ -287,10 +348,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Custom Scrollbar Styles */
+/* ✅ Custom Scrollbar Styles - Tối ưu cho theme switching */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: rgb(203 213 225) transparent; /* slate-300 */
+  scrollbar-color: var(--border) transparent;
+  /* Smooth scroll behavior */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -303,12 +367,26 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgb(203 213 225); /* slate-300 */
+  background-color: var(--border);
   border-radius: 3px;
+  transition: background-color 200ms ease-in-out;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(148 163 184); /* slate-400 */
+  background-color: var(--muted-foreground);
+}
+
+/* ✅ Scrollbar styling cho dark mode */
+.dark .scrollbar-thin {
+  scrollbar-color: var(--border) transparent;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
 }
 
 /* Inputs inherit text color from current theme */

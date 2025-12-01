@@ -102,6 +102,7 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="light"
           disableTransitionOnChange={false}
+          // ✅ Tối ưu: Không disable transition để có smooth theme switching
         >
           <I18nProvider>
           <Providers>

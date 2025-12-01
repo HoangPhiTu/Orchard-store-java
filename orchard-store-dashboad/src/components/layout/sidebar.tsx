@@ -116,14 +116,15 @@ export function Sidebar({
     <>
       <aside
         className={cn(
-          "hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col",
+          "hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:flex lg:flex-col",
           "bg-card text-foreground border-r border-border lg:border-dashed",
           "transition-all duration-300 ease-in-out",
-          "relative",
+          "z-40 h-screen",
           isSidebarCollapsed ? "lg:w-[84px]" : "lg:w-64"
         )}
       >
-        <div className="flex h-full flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {/* ✅ Tối ưu scroll: Hiển thị scrollbar mỏng và smooth scroll */}
+        <div className="flex h-full flex-col overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border hover:scrollbar-thumb-muted-foreground/30">
           {renderNav()}
         </div>
 

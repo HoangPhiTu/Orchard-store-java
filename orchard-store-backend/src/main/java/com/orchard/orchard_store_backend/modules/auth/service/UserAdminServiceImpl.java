@@ -51,69 +51,17 @@ public class UserAdminServiceImpl implements UserAdminService {
     private final CacheService cacheService;
     
     private static final String USER_LIST_CACHE_KEY_PREFIX = "user:list:";
-    private static final long USER_LIST_CACHE_TTL_SECONDS = 300; // 5 minutes (increased for better performance)
+    private static final long USER_LIST_CACHE_TTL_SECONDS = 300; // 5 minutes (legacy - no longer used for admin list)
 
     @Override
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> getUsers(String keyword, String status, Pageable pageable) {
-        // Build cache key from filters
-        String cacheKey = USER_LIST_CACHE_KEY_PREFIX + 
-            (keyword != null && !keyword.trim().isEmpty() ? keyword.trim() : "") + ":" + 
-            (status != null && !status.equalsIgnoreCase("ALL") ? status : "ALL") + ":" +
-            pageable.getPageNumber() + ":" + pageable.getPageSize();
-        
-        // Try to get from cache (only for first page without filters for simplicity)
-        if ((keyword == null || keyword.trim().isEmpty()) && 
-            (status == null || status.equalsIgnoreCase("ALL")) && 
-            pageable.getPageNumber() == 0) {
-            Optional<Page<UserResponseDTO>> cached = cacheService.getCachedPage(
-                cacheKey, 
-                pageable, 
-                UserResponseDTO.class
-            );
-            if (cached.isPresent()) {
-                log.debug("User list cache hit for key: {}", cacheKey);
-                return cached.get();
-            }
-        }
-        
-        // Use native full-text search query if keyword is provided, otherwise use Specification
-        Page<UserResponseDTO> result;
-        
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            // Use PostgreSQL full-text search for better performance
-            // This leverages the GIN indexes created in migration V9
-            String normalizedKeyword = keyword.trim();
-            String normalizedStatus = (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status)) 
-                ? status.toUpperCase() 
-                : null;
-            
-            try {
-                // Use native query with full-text search
-                Page<User> usersPage = userRepository.searchUsersFullText(normalizedKeyword, normalizedStatus, pageable);
-                result = usersPage.map(userAdminMapper::toResponseDTO);
-            } catch (Exception e) {
-                // Fallback to Specification with LIKE if full-text search fails
-                log.warn("Full-text search failed, falling back to LIKE search: {}", e.getMessage());
-                Specification<User> spec = buildUserSpecification(keyword, status);
-                result = userRepository.findAll(spec, pageable)
-                        .map(userAdminMapper::toResponseDTO);
-            }
-        } else {
-            // No keyword - use Specification for status filtering only
-            Specification<User> spec = buildUserSpecification(keyword, status);
-            result = userRepository.findAll(spec, pageable)
+        // NOTE: Admin list is not cached to avoid issues with pagination and realtime updates.
+        // For simplicity and reliability, always use Specification with LIKE filters
+        // instead of native full-text search (which can cause transaction issues).
+        Specification<User> spec = buildUserSpecification(keyword, status);
+        return userRepository.findAll(spec, pageable)
                 .map(userAdminMapper::toResponseDTO);
-        }
-        
-        // Cache first page without filters
-        if ((keyword == null || keyword.trim().isEmpty()) && 
-            (status == null || status.equalsIgnoreCase("ALL")) && 
-            pageable.getPageNumber() == 0) {
-            cacheService.cachePage(cacheKey, result, USER_LIST_CACHE_TTL_SECONDS);
-        }
-        
-        return result;
     }
 
     @Override
@@ -467,16 +415,16 @@ public class UserAdminServiceImpl implements UserAdminService {
         User user = userRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user với ID: " + id));
 
-        // Validate Self-Protection: Không cho phép tự khóa/xóa chính mình
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            String currentUserEmail = authentication.getName();
-            if (user.getEmail().equals(currentUserEmail)) {
-                throw new OperationNotPermittedException("Bạn không thể tự khóa hoặc xóa tài khoản của chính mình");
-            }
-        }
-
         User currentUser = getCurrentUser();
+        
+        // ✅ Validate Self-Protection: Không cho phép tự thay đổi trạng thái hoạt động của chính mình
+        // Chặn cả hai trường hợp: ACTIVE -> INACTIVE (khóa) và INACTIVE -> ACTIVE (mở khóa)
+        if (currentUser != null && currentUser.getId().equals(user.getId())) {
+            throw new OperationNotPermittedException(
+                "Bạn không thể tự thay đổi trạng thái hoạt động của chính mình. " +
+                "Vui lòng liên hệ quản trị viên để được hỗ trợ."
+            );
+        }
         
         // Gác cổng: Kiểm tra quyền phân cấp trước khi toggle status
         checkHierarchyPermission(user, currentUser);
@@ -484,10 +432,12 @@ public class UserAdminServiceImpl implements UserAdminService {
         // Toggle status: ACTIVE -> INACTIVE, others -> ACTIVE
         if (user.getStatus() == User.Status.ACTIVE) {
             user.setStatus(User.Status.INACTIVE);
-            log.info("Deactivated user: {} with email: {}", user.getId(), user.getEmail());
+            log.info("Deactivated user: {} with email: {} by user: {}", 
+                    user.getId(), user.getEmail(), currentUser != null ? currentUser.getEmail() : "SYSTEM");
         } else {
             user.setStatus(User.Status.ACTIVE);
-            log.info("Activated user: {} with email: {}", user.getId(), user.getEmail());
+            log.info("Activated user: {} with email: {} by user: {}", 
+                    user.getId(), user.getEmail(), currentUser != null ? currentUser.getEmail() : "SYSTEM");
         }
 
         User updatedUser = userRepository.save(user);
@@ -616,13 +566,6 @@ public class UserAdminServiceImpl implements UserAdminService {
                 }
             }
 
-            // Eagerly fetch userRoles and roles to avoid LazyInitializationException
-            if (query != null) {
-                root.fetch("userRoles", jakarta.persistence.criteria.JoinType.LEFT)
-                    .fetch("role", jakarta.persistence.criteria.JoinType.LEFT);
-                query.distinct(true); // Avoid duplicate results from joins
-            }
-
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
@@ -631,11 +574,8 @@ public class UserAdminServiceImpl implements UserAdminService {
      * Evict user list cache
      */
     private void evictUserListCache() {
-        // Delete common user list cache keys
-        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:10");
-        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:15");
-        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:20");
-        cacheService.evict(USER_LIST_CACHE_KEY_PREFIX + ":ALL:0:30");
+        // User admin list is no longer cached, keep this method for future use.
+        log.debug("evictUserListCache called (no-op - user admin list is not cached)");
     }
 }
 

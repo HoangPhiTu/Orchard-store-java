@@ -57,27 +57,6 @@ public class BrandAdminServiceImpl implements BrandAdminService {
     @Override
     @Transactional(readOnly = true)
     public Page<BrandDTO> getBrands(String keyword, String status, Pageable pageable) {
-        // Build cache key from filters
-        String cacheKey = BRAND_LIST_CACHE_KEY_PREFIX + 
-            (keyword != null && !keyword.trim().isEmpty() ? keyword.trim() : "") + ":" + 
-            (status != null && !status.equalsIgnoreCase("ALL") ? status : "ALL") + ":" +
-            pageable.getPageNumber() + ":" + pageable.getPageSize();
-        
-        // Try to get from cache (only for first page without filters)
-        if ((keyword == null || keyword.trim().isEmpty()) && 
-            (status == null || status.equalsIgnoreCase("ALL")) && 
-            pageable.getPageNumber() == 0) {
-            Optional<Page<BrandDTO>> cached = cacheService.getCachedPage(
-                cacheKey, 
-                pageable, 
-                BrandDTO.class
-            );
-            if (cached.isPresent()) {
-                log.debug("Brand list cache hit for key: {}", cacheKey);
-                return cached.get();
-            }
-        }
-        
         Specification<Brand> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -103,17 +82,10 @@ public class BrandAdminServiceImpl implements BrandAdminService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        Page<BrandDTO> result = brandRepository.findAll(spec, pageable)
+        // Directly query database without caching for admin list to ensure
+        // pagination and realtime updates are always consistent.
+        return brandRepository.findAll(spec, pageable)
                 .map(brandAdminMapper::toDTO);
-        
-        // Cache first page without filters
-        if ((keyword == null || keyword.trim().isEmpty()) && 
-            (status == null || status.equalsIgnoreCase("ALL")) && 
-            pageable.getPageNumber() == 0) {
-            cacheService.cachePage(cacheKey, result, CACHE_TTL_SECONDS);
-        }
-        
-        return result;
     }
 
     @Override
@@ -377,12 +349,9 @@ public class BrandAdminServiceImpl implements BrandAdminService {
      */
     private void evictBrandListCache() {
         try {
-            // Delete common brand list cache keys
-            // In production, you might want to use Redis pattern matching or maintain a set of keys
-            redisService.deleteKey(BRAND_LIST_CACHE_KEY_PREFIX + "::0:10");
-            redisService.deleteKey(BRAND_LIST_CACHE_KEY_PREFIX + "::0:15");
-            redisService.deleteKey(BRAND_LIST_CACHE_KEY_PREFIX + "::0:20");
-            log.debug("Brand list cache evicted");
+            // Brand admin list is no longer cached, but keep this method for future use.
+            // It's safe to be a no-op now.
+            log.debug("evictBrandListCache called (no-op - brand admin list is not cached)");
         } catch (Exception e) {
             log.warn("Failed to evict brand list cache: {}", e.getMessage());
         }

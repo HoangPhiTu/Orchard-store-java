@@ -105,8 +105,12 @@ export const useCreateUser = (
     onSuccess: async (data, variables, context, mutation) => {
       // ✅ Invalidate queries (mark as stale)
       await queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-      // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
-      await queryClient.refetchQueries({ queryKey: USERS_QUERY_KEY });
+      // ✅ Chỉ refetch những queries đang active (đang được sử dụng trong component)
+      // Điều này tránh refetch tất cả queries và cải thiện hiệu năng
+      await queryClient.refetchQueries({
+        queryKey: USERS_QUERY_KEY,
+        type: "active", // ✅ Chỉ refetch active queries
+      });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });
@@ -235,8 +239,12 @@ export const useChangeEmailVerify = (
     onSuccess: async (data, variables, context, mutation) => {
       // ✅ Invalidate queries (mark as stale)
       await queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-      // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
-      await queryClient.refetchQueries({ queryKey: USERS_QUERY_KEY });
+      // ✅ Chỉ refetch những queries đang active (đang được sử dụng trong component)
+      // Điều này tránh refetch tất cả queries và cải thiện hiệu năng
+      await queryClient.refetchQueries({
+        queryKey: USERS_QUERY_KEY,
+        type: "active", // ✅ Chỉ refetch active queries
+      });
       options?.onSuccess?.(data, variables, context, mutation);
     },
   });

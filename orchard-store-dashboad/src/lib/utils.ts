@@ -32,18 +32,25 @@ export function slugify(input: string) {
 
 /**
  * Thêm timestamp vào URL ảnh để tránh browser caching
- * 
+ *
  * @param url URL gốc của ảnh
+ * @param timestamp Timestamp tùy chọn (nếu không có sẽ dùng timestamp hiện tại)
  * @returns URL đã thêm query param ?t=...
- * 
+ *
  * @example
  * getImageUrlWithTimestamp("https://example.com/image.jpg")
  * // Returns: "https://example.com/image.jpg?t=1234567890"
- * 
+ *
+ * getImageUrlWithTimestamp("https://example.com/image.jpg", 1234567890)
+ * // Returns: "https://example.com/image.jpg?t=1234567890"
+ *
  * getImageUrlWithTimestamp(null)
  * // Returns: null
  */
-export function getImageUrlWithTimestamp(url: string | null | undefined): string | null {
+export function getImageUrlWithTimestamp(
+  url: string | null | undefined,
+  timestamp?: string | number
+): string | null {
   if (!url || typeof url !== "string" || url.trim() === "") {
     return null;
   }
@@ -53,7 +60,21 @@ export function getImageUrlWithTimestamp(url: string | null | undefined): string
     return url;
   }
 
+  // ✅ Sử dụng timestamp được truyền vào hoặc timestamp hiện tại
+  // Điều này cho phép force reload ảnh bằng cách thay đổi timestamp
+  const ts = timestamp !== undefined ? timestamp : Date.now();
+
+  // ✅ Xóa timestamp cũ nếu có (để tránh tích lũy ?t=...&t=...)
+  const urlWithoutTimestamp = url.split("?")[0];
+  const existingParams = url.includes("?") ? url.split("?")[1] : "";
+  const params = existingParams
+    .split("&")
+    .filter((param) => !param.startsWith("t="))
+    .join("&");
+
   // Nếu URL đã có tham số query thì dùng &, ngược lại dùng ?
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}t=${new Date().getTime()}`;
+  const separator = params ? "&" : "?";
+  const finalParams = params ? `${params}${separator}t=${ts}` : `t=${ts}`;
+
+  return `${urlWithoutTimestamp}?${finalParams}`;
 }

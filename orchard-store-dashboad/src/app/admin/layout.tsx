@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       <div
         className={cn(
-          "relative flex min-h-screen w-full flex-col transition-all duration-300 ease-in-out",
+          "relative flex h-screen w-full flex-col overflow-hidden transition-all duration-300 ease-in-out",
           "ml-0",
           isSidebarCollapsed ? "lg:ml-[84px]" : "lg:ml-64"
         )}
@@ -98,7 +98,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           userEmail={user?.email}
           userAvatar={user?.avatarUrl ?? null}
         />
-        <main className="min-h-[calc(100vh-4rem)] flex-1 overflow-y-auto px-4 py-6 lg:px-8">
+        {/* ✅ Tối ưu scroll: Sử dụng scrollbar-thin và smooth scroll - chỉ main content scroll, sidebar cố định */}
+        <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-8 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border hover:scrollbar-thumb-muted-foreground/30">
           {children}
         </main>
       </div>

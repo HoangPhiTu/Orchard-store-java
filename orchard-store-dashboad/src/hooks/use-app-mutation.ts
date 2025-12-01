@@ -248,18 +248,27 @@ export function useAppMutation<
                   queryClient.invalidateQueries({ queryKey: key })
                 )
               );
-              // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
+              // ✅ Chỉ refetch những queries đang active (đang được sử dụng trong component)
+              // Điều này tránh refetch tất cả queries và cải thiện hiệu năng
               await Promise.all(
                 (queryKey as QueryKey[]).map((key) =>
-                  queryClient.refetchQueries({ queryKey: key })
+                  queryClient.refetchQueries({
+                    queryKey: key,
+                    type: "active", // ✅ Chỉ refetch active queries
+                  })
                 )
               );
             } else {
               // Single query key: 'products' or ['products']
               const key = Array.isArray(queryKey) ? queryKey : [queryKey];
               await queryClient.invalidateQueries({ queryKey: key });
-              // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
-              await queryClient.refetchQueries({ queryKey: key });
+              // ✅ Chỉ refetch những queries đang active (đang được sử dụng trong component)
+              // Điều này tránh refetch tất cả queries (bao gồm cả những queries không đang được sử dụng)
+              // và cải thiện hiệu năng đáng kể
+              await queryClient.refetchQueries({
+                queryKey: key,
+                type: "active", // ✅ Chỉ refetch active queries
+              });
             }
           } catch (invalidateError) {
             // Log nhưng không crash nếu invalidate fail

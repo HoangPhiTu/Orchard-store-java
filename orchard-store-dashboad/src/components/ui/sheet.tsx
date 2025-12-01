@@ -63,6 +63,18 @@ export function SheetContent({
     setMounted(true);
   }, []);
 
+  // ✅ Lock body scroll when sheet is open to prevent scroll conflicts
+  // ⚠️ Must be called before early returns to follow Rules of Hooks
+  React.useEffect(() => {
+    if (context?.open) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [context?.open]);
+
   if (!context || !mounted) return null;
   if (!context.open) return null;
 
@@ -152,7 +164,8 @@ export function SheetBody({
   return (
     <div
       className={cn(
-        "flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-track-transparent",
+        "flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border hover:scrollbar-thumb-muted-foreground/30",
+        "scroll-smooth", // ✅ Smooth scroll behavior
         className
       )}
     >

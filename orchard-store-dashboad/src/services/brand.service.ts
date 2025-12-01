@@ -124,7 +124,12 @@ export const brandService = {
     if (data.name !== undefined) payload.name = data.name;
     if (data.slug !== undefined) payload.slug = data.slug;
     if (data.description !== undefined) payload.description = data.description;
-    if (data.logoUrl !== undefined) payload.logoUrl = data.logoUrl;
+    // ✅ Xử lý logoUrl: null để xóa logo, undefined để không thay đổi, string để cập nhật
+    if (data.logoUrl !== undefined) {
+      // Nếu là null hoặc empty string, gửi null để backend xóa logo
+      payload.logoUrl =
+        data.logoUrl === null || data.logoUrl === "" ? null : data.logoUrl;
+    }
     if (data.country !== undefined) payload.country = data.country;
     if (data.website !== undefined) payload.website = data.website;
     if (data.displayOrder !== undefined)

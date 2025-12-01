@@ -13,7 +13,6 @@ import {
   Menu,
   Settings,
   User,
-  X,
 } from "lucide-react";
 import {
   Popover,
@@ -313,7 +312,7 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
         >
           <div className="flex h-full flex-col">
             {/* Logo Header */}
-            <div className="flex h-16 items-center justify-between border-b border-border px-6">
+            <div className="flex h-16 items-center border-b border-border px-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-white font-bold">
                   O
@@ -327,13 +326,6 @@ export function Header({ userName, userEmail, userAvatar }: HeaderProps) {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-muted/40"
-              >
-                <X size={18} />
-              </button>
             </div>
 
             {/* Menu Navigation */}

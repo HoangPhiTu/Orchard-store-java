@@ -86,7 +86,7 @@ const getValidationErrors = (
 // Tạo axios instance với config
 const http = axios.create({
   baseURL: API_URL,
-  timeout: 5000, // 5 seconds - faster failure detection, prevent hanging requests
+  timeout: 15000, // 15 seconds để tránh timeout giả khi API xử lý lâu
   withCredentials: true,
 });
 
@@ -99,6 +99,7 @@ http.interceptors.request.use((config) => {
   // Lấy token từ cookie tên là "orchard_admin_token"
   // Prefer cookie (set by backend), fallback to encrypted localStorage
   const token = Cookies.get(TOKEN_KEY);
+
   if (!token && typeof window !== "undefined") {
     // Try to get from encrypted localStorage (async, but we'll handle it)
     getEncryptedToken(TOKEN_KEY)
@@ -129,7 +130,102 @@ http.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
+      _retryCount?: number;
     };
+
+    // ✅ Xử lý 403: Có thể do token hết hạn hoặc không có quyền
+    // Thử refresh token trước, nếu thất bại thì logout
+    if (error?.response?.status === 403 && !originalRequest._retry) {
+      // Chỉ retry một lần để tránh vòng lặp
+      const retryCount = originalRequest._retryCount || 0;
+      if (retryCount >= 1) {
+        // Đã retry rồi, có thể là lỗi quyền thật sự
+        toast.error("Không có quyền truy cập");
+        return Promise.reject(error);
+      }
+
+      // Kiểm tra xem có phải lỗi do token hết hạn không
+      // (403 có thể do token hết hạn nếu backend không trả về 401)
+      const refreshToken =
+        typeof window !== "undefined"
+          ? await getEncryptedToken(REFRESH_TOKEN_KEY)
+          : null;
+
+      if (refreshToken) {
+        // Có refresh token, thử refresh
+        originalRequest._retry = true;
+        originalRequest._retryCount = (retryCount || 0) + 1;
+
+        try {
+          // Thử refresh token
+          const refreshAxios = axios.create({
+            baseURL: API_URL,
+            withCredentials: true,
+          });
+
+          const refreshResponse = await refreshAxios.post<LoginResponse>(
+            "/api/auth/refresh",
+            { refreshToken }
+          );
+
+          const loginResponse = refreshResponse.data;
+
+          // Lưu token mới
+          const cookieOptions: Cookies.CookieAttributes = {
+            path: "/",
+            sameSite: "Lax",
+            secure: window.location.protocol === "https:",
+          };
+          Cookies.set(TOKEN_KEY, loginResponse.accessToken, cookieOptions);
+
+          if (loginResponse.refreshToken) {
+            const { setEncryptedToken } = await import(
+              "@/lib/security/token-encryption"
+            );
+            await setEncryptedToken(
+              REFRESH_TOKEN_KEY,
+              loginResponse.refreshToken
+            );
+          }
+
+          // Cập nhật header cho request gốc
+          const accessToken = loginResponse.accessToken;
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          }
+
+          // Retry request gốc với token mới
+          return http(originalRequest);
+        } catch (refreshError) {
+          // Refresh token thất bại, logout
+          Cookies.remove(TOKEN_KEY, { path: "/" });
+          if (typeof window !== "undefined") {
+            const { removeEncryptedToken } = await import(
+              "@/lib/security/token-encryption"
+            );
+            removeEncryptedToken(TOKEN_KEY);
+            removeEncryptedToken(REFRESH_TOKEN_KEY);
+          }
+          toast.error("Phiên đăng nhập hết hạn");
+          forceLogout();
+          return Promise.reject(refreshError);
+        }
+      } else {
+        // Không có refresh token, có thể là lỗi quyền thật sự
+        // Nhưng vẫn logout để đảm bảo an toàn
+        toast.error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+        Cookies.remove(TOKEN_KEY, { path: "/" });
+        if (typeof window !== "undefined") {
+          const { removeEncryptedToken } = await import(
+            "@/lib/security/token-encryption"
+          );
+          removeEncryptedToken(TOKEN_KEY);
+          removeEncryptedToken(REFRESH_TOKEN_KEY);
+        }
+        forceLogout();
+        return Promise.reject(error);
+      }
+    }
 
     // Xử lý 401: Refresh token logic
     if (error?.response?.status === 401 && !originalRequest._retry) {
@@ -257,8 +353,9 @@ http.interceptors.response.use(
         break;
 
       case 403:
-        // Forbidden
-        toast.error("Không có quyền truy cập");
+        // Forbidden - Đã xử lý ở trên (thử refresh token hoặc logout)
+        // Nếu đến đây nghĩa là đã retry và vẫn 403 (lỗi quyền thật sự)
+        // Không cần hiển thị toast nữa vì đã hiển thị ở trên
         break;
 
       case 404:

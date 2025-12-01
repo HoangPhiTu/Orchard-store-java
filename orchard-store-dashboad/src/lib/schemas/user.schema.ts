@@ -23,7 +23,7 @@ const fullNameSchema = z
   .max(50, "Họ tên không được vượt quá 50 ký tự")
   .regex(
     /^[a-zA-ZÀ-ỹĂăÂâĐđÊêÔôƠơƯư\s]+$/,
-    "Họ tên chỉ được chứa chữ cái và khoảng trắng"
+    "Họ tên không được chứa số hoặc ký tự đặc biệt, chỉ nhập chữ và khoảng trắng"
   );
 
 /**

@@ -32,6 +32,13 @@ export const BrandRow = React.memo<BrandRowProps>(
     const logoUrl = brand.logoUrl?.trim();
     const shouldShowImage = Boolean(logoUrl) && !imageError;
 
+    React.useEffect(() => {
+      // Khi logoUrl thay đổi, thử tải lại ảnh
+      if (logoUrl) {
+        setImageError(false);
+      }
+    }, [logoUrl]);
+
     return (
       <TableRow className="hover:bg-muted/40">
         <TableCell>
@@ -39,12 +46,18 @@ export const BrandRow = React.memo<BrandRowProps>(
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
               {shouldShowImage ? (
                 <Image
-                  src={getImageUrlWithTimestamp(logoUrl!) || logoUrl!}
+                  src={
+                    getImageUrlWithTimestamp(
+                      logoUrl!,
+                      brand.updatedAt ?? Date.now()
+                    ) || logoUrl!
+                  }
                   alt={displayName}
                   fill
                   className="object-contain p-1"
                   sizes="40px"
                   unoptimized
+                  onLoadingComplete={() => setImageError(false)}
                   onError={() => setImageError(true)}
                 />
               ) : (

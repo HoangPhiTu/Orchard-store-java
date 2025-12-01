@@ -213,7 +213,8 @@ const CONFLICT_FIELD_MAP: Array<{ keywords: string[]; field: string }> = [
     field: "username",
   },
 
-  // Name
+  // Name (ưu tiên "brand name", "tên thương hiệu" trước "name" chung)
+  { keywords: ["brand name", "tên thương hiệu", "tên brand"], field: "name" },
   { keywords: ["name", "tên", "full name", "fullname"], field: "name" },
   { keywords: ["full name", "fullname", "họ tên"], field: "fullName" },
 
@@ -268,7 +269,7 @@ const CONFLICT_MESSAGES: Record<string, string> = {
   phone: "Số điện thoại này đã được sử dụng",
   username: "Tên đăng nhập này đã được sử dụng",
   fullName: "Tên này đã tồn tại",
-  name: "Tên này đã tồn tại",
+  name: "Tên này đã tồn tại", // Generic - sẽ được override bởi context-specific message
   password: "Mật khẩu không hợp lệ",
 
   // Product fields
@@ -415,22 +416,40 @@ function detectConflictField(message: string): string | null {
  * @returns Vietnamese error message
  */
 function getConflictMessage(field: string, originalMessage?: string): string {
-  // Ưu tiên message có sẵn trong CONFLICT_MESSAGES
-  if (CONFLICT_MESSAGES[field]) {
-    return CONFLICT_MESSAGES[field];
-  }
-
-  // Nếu có originalMessage và nó đã là tiếng Việt, giữ nguyên
+  // Kiểm tra context-specific messages từ originalMessage
   if (originalMessage) {
-    // Kiểm tra xem có phải tiếng Việt không (chứa ký tự tiếng Việt)
+    const messageLower = originalMessage.toLowerCase();
+    
+    // Brand name context
+    if (field === "name" && (messageLower.includes("brand") || messageLower.includes("thương hiệu"))) {
+      return "Tên thương hiệu này đã tồn tại";
+    }
+    
+    // Category name context
+    if (field === "name" && (messageLower.includes("category") || messageLower.includes("danh mục"))) {
+      return "Tên danh mục này đã tồn tại";
+    }
+    
+    // Product name context
+    if (field === "name" && (messageLower.includes("product") || messageLower.includes("sản phẩm"))) {
+      return "Tên sản phẩm này đã tồn tại";
+    }
+    
+    // Nếu có originalMessage và nó đã là tiếng Việt, giữ nguyên
     const hasVietnameseChars =
       /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
         originalMessage
       );
 
     if (hasVietnameseChars) {
+      // Nếu message đã rõ ràng, giữ nguyên
       return originalMessage;
     }
+  }
+
+  // Ưu tiên message có sẵn trong CONFLICT_MESSAGES
+  if (CONFLICT_MESSAGES[field]) {
+    return CONFLICT_MESSAGES[field];
   }
 
   // Fallback: tạo message chung
@@ -547,12 +566,26 @@ export function handleApiError<T extends FieldValues>(
       const conflictMessage = getConflictMessage(conflictField, errorMessage);
       const fieldName = (formFieldPrefix + conflictField) as Path<T>;
 
-      setError(fieldName, {
-        type: "manual",
-        message: conflictMessage,
-      });
+      try {
+        setError(fieldName, {
+          type: "manual",
+          message: conflictMessage,
+        });
+        
+        // ✅ Vẫn hiển thị toast để user biết có lỗi (ngay cả khi đã map vào form)
+        // Điều này đảm bảo user luôn thấy thông báo lỗi
+        if (showToast) {
+          toast.error(conflictMessage);
+        }
+      } catch (setErrorException) {
+        // Nếu setError fail (ví dụ: field không tồn tại), vẫn hiển thị toast
+        console.error("[handleApiError] Failed to set error on form field:", setErrorException);
+        if (showToast) {
+          toast.error(conflictMessage || errorMessage || "Đã có lỗi xảy ra");
+        }
+      }
 
-      // Đã set error vào form -> không cần toast
+      // Đã xử lý error -> return
       return;
     }
 

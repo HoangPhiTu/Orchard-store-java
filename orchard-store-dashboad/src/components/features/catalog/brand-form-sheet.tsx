@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ import { useImageManagement } from "@/hooks/use-image-management";
 import { useAuthStore } from "@/stores/auth-store";
 import { brandService } from "@/services/brand.service";
 import type { Brand, BrandFormData } from "@/types/catalog.types";
+import type { Page } from "@/types/user.types";
 import { brandFormSchema } from "@/types/catalog.types";
 import { toast } from "sonner";
 import { useI18n } from "@/hooks/use-i18n";
@@ -69,14 +70,21 @@ export function BrandFormSheet({
     (role) => role === "SUPER_ADMIN" || role === "ROLE_SUPER_ADMIN"
   );
 
+  type BrandLocalState = {
+    latestLogoUrl?: string | null;
+    timestampKey: number;
+    dataVersion: number;
+  };
+
   const isEditing = Boolean(brand);
   const [isSlugEditable, setIsSlugEditable] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null | undefined>(undefined);
-  const [latestLogoUrl, setLatestLogoUrl] = useState<string | null | undefined>(
-    undefined
+  const [brandState, setBrandState] = useState<Record<string, BrandLocalState>>(
+    {}
   );
-  // ✅ State để force update form khi cập nhật thành công
-  const [timestampKey, setTimestampKey] = useState(Date.now());
+  const defaultBrandStateRef = useRef<Record<string, BrandLocalState>>({});
+  // ✅ Ref để lưu logoUrl đã upload (dùng cho cleanup khi có lỗi)
+  const uploadedLogoUrlRef = useRef<string | undefined>(undefined);
 
   // Image management hook (reusable, implements best practices)
   const imageManagement = useImageManagement("brands");
@@ -86,10 +94,73 @@ export function BrandFormSheet({
     brand?.id ?? null
   );
 
+  const getDefaultBrandState = useCallback(
+    (brandId: string): BrandLocalState => {
+      if (!defaultBrandStateRef.current[brandId]) {
+        defaultBrandStateRef.current[brandId] = {
+          latestLogoUrl: undefined,
+          timestampKey: Date.now(),
+          dataVersion: 0,
+        };
+      }
+      return defaultBrandStateRef.current[brandId];
+    },
+    []
+  );
+
+  const updateBrandState = useCallback(
+    (brandId: string, updates: Partial<BrandLocalState>) => {
+      setBrandState((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...(prev[brandId] ?? getDefaultBrandState(brandId)),
+          ...updates,
+        },
+      }));
+    },
+    [getDefaultBrandState]
+  );
+
+  const currentBrandId = brand?.id?.toString() || "new";
+  const currentBrandState =
+    brandState[currentBrandId] ?? getDefaultBrandState(currentBrandId);
+
   const form = useForm<BrandFormData>({
     resolver: zodResolver(brandFormSchema),
     defaultValues: DEFAULT_VALUES,
   });
+
+  const syncBrandCaches = (brandToSync: Brand | null | undefined) => {
+    if (!brandToSync?.id) {
+      return;
+    }
+
+    queryClient.setQueryData<Brand>(
+      ["admin", "brands", "detail", brandToSync.id],
+      (existing) =>
+        existing
+          ? {
+              ...existing,
+              ...brandToSync,
+            }
+          : brandToSync
+    );
+
+    queryClient.setQueriesData<Page<Brand>>(
+      { queryKey: ["admin", "brands", "list"] },
+      (existing) => {
+        if (!existing?.content) {
+          return existing;
+        }
+        return {
+          ...existing,
+          content: existing.content.map((item) =>
+            item.id === brandToSync.id ? { ...item, ...brandToSync } : item
+          ),
+        };
+      }
+    );
+  };
 
   // Watch name to auto-generate slug (only when not editing slug manually)
   const watchedName = form.watch("name");
@@ -102,50 +173,35 @@ export function BrandFormSheet({
     }
   }, [watchedName, isSlugEditable, form, isSuperAdmin]);
 
-  // Reset form when brand data is loaded or when opening/closing
-  // ❌ KHÔNG thêm timestampKey và latestLogoUrl vào dependency array
-  // để tránh form bị reset toàn bộ mỗi khi cập nhật ảnh
   useEffect(() => {
-    if (open) {
-      if (isEditing && brandData) {
-        form.reset({
-          name: brandData.name,
-          slug: brandData.slug,
-          description: brandData.description ?? undefined,
-          logoUrl: brandData.logoUrl ?? undefined,
-          country: brandData.country ?? undefined,
-          website: brandData.websiteUrl ?? undefined,
-          displayOrder: brandData.displayOrder ?? undefined,
-          status: brandData.status,
-        });
-        setIsSlugEditable(false);
-        setLogoFile(undefined); // Reset về undefined để dùng logoUrl từ form
-
-        // ✅ Chỉ clear latestLogoUrl khi brandData.logoUrl đã khớp với latestLogoUrl
-        // Điều này đảm bảo latestLogoUrl được giữ lại cho đến khi brandData được refetch và cập nhật
-        // Note: latestLogoUrl không được thêm vào dependency array để tránh form bị reset
-        if (
-          latestLogoUrl !== undefined &&
-          brandData.logoUrl === latestLogoUrl
-        ) {
-          setLatestLogoUrl(undefined);
-        }
-      } else if (!isEditing) {
-        form.reset(DEFAULT_VALUES);
-        setIsSlugEditable(false);
-        setLogoFile(undefined);
-        setLatestLogoUrl(undefined);
-      }
-    } else {
-      // Reset when closing
+    if (!open) {
       form.reset(DEFAULT_VALUES);
       setIsSlugEditable(false);
       setLogoFile(undefined);
-      setLatestLogoUrl(undefined);
+      setBrandState({});
+      defaultBrandStateRef.current = {};
+      return;
     }
-    // Note: latestLogoUrl và timestampKey không được thêm vào dependency array
-    // để tránh form bị reset toàn bộ mỗi khi cập nhật ảnh
-  }, [brandData, isEditing, open, form]);
+
+    if (isEditing && brandData) {
+      form.reset({
+        name: brandData.name,
+        slug: brandData.slug,
+        description: brandData.description ?? undefined,
+        logoUrl: brandData.logoUrl ?? undefined,
+        country: brandData.country ?? undefined,
+        website: brandData.websiteUrl ?? undefined,
+        displayOrder: brandData.displayOrder ?? undefined,
+        status: brandData.status,
+      });
+      setIsSlugEditable(false);
+      setLogoFile(undefined);
+    } else if (!isEditing) {
+      form.reset(DEFAULT_VALUES);
+      setIsSlugEditable(false);
+      setLogoFile(undefined);
+    }
+  }, [open, isEditing, brandData, brandData?.id, brandData?.logoUrl, form]);
 
   // Create mutation
   const createMutation = useAppMutation<
@@ -161,9 +217,14 @@ export function BrandFormSheet({
       if (logoFile) {
         // Upload new file with date partitioning
         logoUrl = await imageManagement.uploadImage(logoFile);
+        // ✅ Lưu logoUrl đã upload vào ref để cleanup nếu có lỗi
+        uploadedLogoUrlRef.current = logoUrl;
       } else if (data.logoUrl && typeof data.logoUrl === "string") {
         // Keep existing URL if no new file
         logoUrl = data.logoUrl;
+        uploadedLogoUrlRef.current = undefined; // Không cần cleanup nếu dùng URL cũ
+      } else {
+        uploadedLogoUrlRef.current = undefined; // Reset ref
       }
 
       const payload = {
@@ -171,29 +232,52 @@ export function BrandFormSheet({
         logoUrl: logoUrl,
       };
 
-      return brandService.createBrand(payload);
+      try {
+        const result = await brandService.createBrand(payload);
+        // ✅ Clear ref sau khi thành công
+        uploadedLogoUrlRef.current = undefined;
+        return result;
+      } catch (error) {
+        // ✅ Nếu có lỗi, giữ lại ref để cleanup trong onError
+        throw error;
+      }
     },
-    queryKey: ["admin", "brands"],
+    // ✅ Chỉ invalidate, không refetch - sẽ refetch thủ công nếu cần
+    // Điều này tránh duplicate refetch và cải thiện hiệu năng
+    queryKey: undefined, // Không auto refetch, sẽ refetch thủ công trong onSuccess
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     form: form as any, // Type workaround: React Hook Form's UseFormReturn is not fully compatible with FieldValues generic
-    onSuccess: (createdBrand) => {
-      // ✅ Cập nhật UI ngay lập tức sau khi tạo mới thành công
+    onSuccess: async (createdBrand) => {
       if (createdBrand) {
-        // 1. Cập nhật state local để hiển thị ngay lập tức
-        const newLogoUrl = createdBrand.logoUrl ?? undefined;
-        setLatestLogoUrl(newLogoUrl);
-
-        // 2. Ép React vẽ lại component ảnh
-        setTimestampKey(Date.now());
-
-        // 3. Cập nhật form với dữ liệu mới (bao gồm logoUrl)
+        const normalizedLogo =
+          createdBrand.logoUrl === null ? undefined : createdBrand.logoUrl;
+        updateBrandState(currentBrandId, {
+          latestLogoUrl: normalizedLogo,
+          timestampKey: Date.now(),
+        });
         form.reset({
           ...form.getValues(),
-          logoUrl: createdBrand.logoUrl ?? undefined,
+          logoUrl: normalizedLogo,
         });
-
-        // 4. Reset file input (quan trọng để xóa preview blob cũ)
         setLogoFile(undefined);
+        syncBrandCaches(createdBrand);
+        
+        // ✅ Chỉ invalidate, không refetch - syncBrandCaches đã update cache rồi
+        // Điều này tránh duplicate refetch và cải thiện hiệu năng
+        queryClient.invalidateQueries({
+          queryKey: ["admin", "brands"],
+          refetchType: "none", // ✅ Không tự động refetch
+        });
+      }
+      uploadedLogoUrlRef.current = undefined;
+    },
+    onError: async () => {
+      // ✅ Cleanup uploaded image on error
+      // Nếu có logoUrl đã upload (trong ref) nhưng create brand fail,
+      // thì cần cleanup image đã upload
+      if (uploadedLogoUrlRef.current) {
+        await imageManagement.cleanupImage(uploadedLogoUrlRef.current);
+        uploadedLogoUrlRef.current = undefined; // Clear ref sau khi cleanup
       }
     },
     onClose: () => {
@@ -201,7 +285,8 @@ export function BrandFormSheet({
       form.reset(DEFAULT_VALUES);
       setIsSlugEditable(false);
       setLogoFile(undefined);
-      setLatestLogoUrl(undefined);
+      setBrandState({});
+      uploadedLogoUrlRef.current = undefined;
     },
     successMessage: t("admin.forms.brand.createBrandSuccess"),
   });
@@ -220,30 +305,56 @@ export function BrandFormSheet({
       if (logoFile) {
         // Upload new file with date partitioning
         logoUrl = await imageManagement.uploadImage(logoFile);
+        // ✅ Lưu logoUrl đã upload vào ref để cleanup nếu có lỗi
+        uploadedLogoUrlRef.current = logoUrl;
       } else if (logoFile === null) {
-        // User explicitly removed logo - set to undefined to delete (backend sẽ xử lý null)
-        logoUrl = undefined;
+        // User explicitly removed logo - set to null để backend xóa
+        logoUrl = null as unknown as string | undefined; // Backend cần null để xóa logo
+        uploadedLogoUrlRef.current = undefined; // Không cần cleanup
       } else if (data.logoUrl && typeof data.logoUrl === "string") {
         // Keep existing URL if no new file and no deletion
         logoUrl = data.logoUrl;
+        uploadedLogoUrlRef.current = undefined; // Không cần cleanup nếu dùng URL cũ
+      } else {
+        uploadedLogoUrlRef.current = undefined; // Reset ref
       }
       // If logoFile is undefined and no existing logoUrl, logoUrl will be undefined (no change)
 
       const payload: Partial<BrandFormData> = {
         ...data,
-        logoUrl: logoUrl ?? undefined, // Ensure it's undefined, not null
+        // ✅ Gửi null nếu user xóa logo, undefined nếu không thay đổi, string nếu có URL mới
+        // Note: BrandFormData không chấp nhận null, nhưng payload này sẽ được convert trong service
+        logoUrl:
+          logoUrl !== undefined
+            ? logoUrl === null
+              ? (null as unknown as string | undefined)
+              : logoUrl
+            : undefined,
       };
 
-      return brandService.updateBrand(id, payload);
+      try {
+        const result = await brandService.updateBrand(id, payload);
+        // ✅ Clear ref sau khi thành công
+        uploadedLogoUrlRef.current = undefined;
+        return result;
+      } catch (error) {
+        // ✅ Nếu có lỗi, giữ lại ref để cleanup trong onError
+        throw error;
+      }
     },
-    queryKey: ["admin", "brands"],
+    // ✅ Chỉ invalidate, không refetch - sẽ refetch thủ công nếu cần
+    // Điều này tránh duplicate refetch và cải thiện hiệu năng
+    queryKey: undefined, // Không auto refetch, sẽ refetch thủ công trong onSuccess
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     form: form as any, // Type workaround: React Hook Form's UseFormReturn is not fully compatible with FieldValues generic
-    onSuccess: (updatedBrand) => {
+    showErrorToast: true, // ✅ Hiển thị toast error để user luôn biết có lỗi
+    onSuccess: async (updatedBrand) => {
       // Mark old logo for deletion (soft delete) AFTER DB update success
       if (updatedBrand && brand?.id) {
         const previousLogoUrl = brand?.logoUrl || null;
-        if (previousLogoUrl && updatedBrand.logoUrl !== previousLogoUrl) {
+        const newLogoUrl = updatedBrand.logoUrl || null;
+
+        if (previousLogoUrl && newLogoUrl !== previousLogoUrl) {
           imageManagement.markImageForDeletion(previousLogoUrl, {
             entityId: brand.id,
             reason: "replaced",
@@ -251,7 +362,7 @@ export function BrandFormSheet({
         }
 
         // Mark for deletion if logo removed
-        if (previousLogoUrl && !updatedBrand.logoUrl) {
+        if (previousLogoUrl && !newLogoUrl) {
           imageManagement.markImageForDeletion(previousLogoUrl, {
             entityId: brand.id,
             reason: "removed",
@@ -259,35 +370,36 @@ export function BrandFormSheet({
         }
       }
 
-      // ✅ Cập nhật giá trị trực tiếp vào form và state (không chờ useEffect)
       if (updatedBrand) {
-        // 1. Cập nhật state local để hiển thị ngay lập tức
-        const newLogoUrl = updatedBrand.logoUrl ?? undefined;
-        setLatestLogoUrl(newLogoUrl);
-
-        // 2. Ép React vẽ lại component ảnh
-        setTimestampKey(Date.now());
-
-        // 3. ✅ Reset form với dữ liệu mới để cập nhật logoUrl (giống User form)
+        const normalizedLogo =
+          updatedBrand.logoUrl === null ? undefined : updatedBrand.logoUrl;
+        updateBrandState(currentBrandId, {
+          latestLogoUrl: normalizedLogo,
+          timestampKey: Date.now(),
+        });
         form.reset({
           ...form.getValues(),
-          logoUrl: updatedBrand.logoUrl ?? undefined,
+          logoUrl: normalizedLogo,
         });
-
-        // 4. Reset file input (quan trọng để xóa preview blob cũ)
         setLogoFile(undefined);
-
-        // ✅ Refetch brandData để cập nhật UI ngay lập tức (background)
-        if (brand?.id) {
-          // Invalidate queries (mark as stale)
-          queryClient.invalidateQueries({
-            queryKey: ["admin", "brands", "detail", brand.id],
-          });
-          // ✅ Refetch queries ngay lập tức để tải lại dữ liệu mới
-          queryClient.refetchQueries({
-            queryKey: ["admin", "brands", "detail", brand.id],
-          });
-        }
+        syncBrandCaches(updatedBrand);
+        
+        // ✅ Chỉ invalidate, không refetch - syncBrandCaches đã update cache rồi
+        // Điều này tránh duplicate refetch và cải thiện hiệu năng
+        queryClient.invalidateQueries({
+          queryKey: ["admin", "brands"],
+          refetchType: "none", // ✅ Không tự động refetch
+        });
+      }
+      uploadedLogoUrlRef.current = undefined;
+    },
+    onError: async () => {
+      // ✅ Cleanup uploaded image on error
+      // Nếu có logoUrl đã upload (trong ref) nhưng update brand fail,
+      // thì cần cleanup image mới đã upload (image cũ vẫn còn trong DB)
+      if (uploadedLogoUrlRef.current) {
+        await imageManagement.cleanupImage(uploadedLogoUrlRef.current);
+        uploadedLogoUrlRef.current = undefined; // Clear ref sau khi cleanup
       }
     },
     onClose: () => {
@@ -295,6 +407,8 @@ export function BrandFormSheet({
       form.reset(DEFAULT_VALUES);
       setIsSlugEditable(false);
       setLogoFile(undefined);
+      setBrandState({});
+      uploadedLogoUrlRef.current = undefined;
     },
     successMessage: t("admin.forms.brand.updateBrandSuccess"),
   });
@@ -325,11 +439,12 @@ export function BrandFormSheet({
     }
 
     setLogoFile(file);
-    // Không set File vào logoUrl - chỉ lưu vào state riêng
-    // logoUrl sẽ được set sau khi upload File thành công
     if (!file) {
-      // Nếu xóa file, clear logoUrl (set undefined để ImageUpload biết là đã xóa)
       form.setValue("logoUrl", undefined);
+      updateBrandState(currentBrandId, {
+        latestLogoUrl: null,
+        timestampKey: Date.now(),
+      });
     }
     // Nếu có file mới, giữ nguyên logoUrl cũ (hoặc undefined) cho đến khi upload xong
   };
@@ -389,83 +504,61 @@ export function BrandFormSheet({
                     name="logoUrl"
                     control={form.control}
                     render={({ field }) => {
-                      // ✅ Ưu tiên logoFile (File mới chọn) trước, sau đó đến latestLogoUrl (URL mới cập nhật), cuối cùng là field.value
                       const effectiveValue = (() => {
-                        // 1. Ưu tiên logoFile (File mới được chọn) - để hiển thị preview ngay khi chọn
                         if (logoFile !== undefined) {
-                          return logoFile; // File object hoặc null
+                          return logoFile;
                         }
-                        // 2. Sau đó đến latestLogoUrl (URL mới cập nhật sau khi submit) - để hiển thị ngay sau khi upload thành công
-                        if (latestLogoUrl !== undefined) {
-                          return typeof latestLogoUrl === "string"
-                            ? latestLogoUrl
+                        if (currentBrandState.latestLogoUrl !== undefined) {
+                          return typeof currentBrandState.latestLogoUrl ===
+                            "string"
+                            ? currentBrandState.latestLogoUrl
                             : null;
                         }
-                        // 3. Cuối cùng là field.value (string URL từ form) - giá trị ban đầu từ database
                         if (field.value !== undefined && field.value !== null) {
-                          return field.value; // string URL
+                          return field.value;
                         }
-                        return undefined;
+                        return brandData?.logoUrl || undefined;
                       })();
+
+                      const imageKey = (() => {
+                        if (logoFile !== undefined) {
+                          if (logoFile instanceof File) {
+                            return `file-${logoFile.name}-${logoFile.size}`;
+                          }
+                          return "null";
+                        }
+                        if (currentBrandState.latestLogoUrl !== undefined) {
+                          return typeof currentBrandState.latestLogoUrl ===
+                            "string"
+                            ? currentBrandState.latestLogoUrl
+                            : "null";
+                        }
+                        if (field.value !== undefined && field.value !== null) {
+                          return typeof field.value === "string"
+                            ? field.value
+                            : "null";
+                        }
+                        return brandData?.logoUrl || "no-logo";
+                      })();
+
+                      const previewUrl =
+                        logoFile === undefined &&
+                        currentBrandState.latestLogoUrl === undefined &&
+                        field.value === undefined &&
+                        brandData?.logoUrl
+                          ? `${brandData.logoUrl}?_t=${currentBrandState.timestampKey}`
+                          : null;
 
                       return (
                         <ImageUpload
-                          key={(() => {
-                            // ✅ Key thay đổi khi logo URL thay đổi để force re-render
-                            const currentValue = (() => {
-                              // Ưu tiên logoFile (File mới chọn)
-                              if (logoFile !== undefined) {
-                                if (logoFile instanceof File) {
-                                  return `file-${logoFile.name}-${logoFile.size}`;
-                                }
-                                return "null";
-                              }
-                              // Sau đó đến latestLogoUrl (URL mới cập nhật)
-                              if (latestLogoUrl !== undefined) {
-                                return typeof latestLogoUrl === "string"
-                                  ? latestLogoUrl
-                                  : "null";
-                              }
-                              // Cuối cùng là field.value
-                              if (
-                                field.value !== undefined &&
-                                field.value !== null
-                              ) {
-                                if (typeof field.value === "string") {
-                                  return field.value;
-                                }
-                                return "null";
-                              }
-                              return brandData?.logoUrl || "no-logo";
-                            })();
-                            return `brand-logo-${
-                              brand?.id || "new"
-                            }-${currentValue}${
-                              timestampKey ? `-${timestampKey}` : ""
-                            }`;
-                          })()}
+                          key={`brand-logo-${currentBrandId}-${imageKey}-v${currentBrandState.dataVersion}-t${currentBrandState.timestampKey}`}
                           variant="rectangle"
                           folder={imageManagement.getImageFolder()}
                           size="lg"
                           value={effectiveValue}
-                          previewUrl={
-                            // Chỉ dùng previewUrl khi:
-                            // - Không có logoFile (File mới chọn)
-                            // - Không có latestLogoUrl (URL mới cập nhật)
-                            // - field.value là undefined (chưa có giá trị trong form)
-                            // - Có brandData.logoUrl (URL từ database)
-                            logoFile === undefined &&
-                            latestLogoUrl === undefined &&
-                            field.value === undefined &&
-                            brandData?.logoUrl
-                              ? brandData.logoUrl
-                              : null
-                          }
-                          onChange={(file) => {
-                            // ✅ Không set File object vào form (schema chỉ chấp nhận string)
-                            // Thay vào đó, lưu File vào state logoFile và chỉ set logoUrl khi có string URL
-                            handleLogoChange(file);
-                          }}
+                          cacheKey={currentBrandState.timestampKey}
+                          previewUrl={previewUrl}
+                          onChange={handleLogoChange}
                           disabled={
                             isSubmitting || (isEditing && isLoadingBrand)
                           }

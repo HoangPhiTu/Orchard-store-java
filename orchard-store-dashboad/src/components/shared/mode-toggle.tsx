@@ -30,15 +30,24 @@ export function ModeToggle() {
     // Apply theme change with smooth transition
     const newTheme = isDark ? "light" : "dark";
 
-    // Use requestAnimationFrame for smoother transition
+    // ✅ Tối ưu mobile: Detect mobile và sử dụng transition nhanh hơn
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const transitionDuration = isMobile ? 200 : 300;
+
+    // ✅ Tối ưu: Sử dụng double requestAnimationFrame để đảm bảo smooth transition
+    // Frame 1: Prepare for transition
     requestAnimationFrame(() => {
-      setTheme(newTheme);
+      // Frame 2: Apply theme change (sync với browser repaint)
+      requestAnimationFrame(() => {
+        setTheme(newTheme);
+      });
     });
 
     // Reset animation state after transition completes
+    // ✅ Match với CSS transition duration (200ms mobile, 300ms desktop)
     setTimeout(() => {
       setIsAnimating(false);
-    }, 200);
+    }, transitionDuration + 50);
   }, [isDark, isAnimating, setTheme]);
 
   return (
@@ -48,7 +57,7 @@ export function ModeToggle() {
       disabled={isAnimating}
       className={cn(
         "relative inline-flex h-9 w-16 items-center rounded-full border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2",
-        "transition-colors duration-200 ease-in-out",
+        "transition-colors duration-200 ease-out md:duration-300 md:ease-in-out",
         isDark ? "bg-primary/20 border-primary/40" : "bg-muted/40",
         isAnimating && "pointer-events-none"
       )}
@@ -58,7 +67,7 @@ export function ModeToggle() {
       <span
         className={cn(
           "absolute flex h-7 w-7 items-center justify-center rounded-full shadow-md",
-          "transition-transform duration-200 ease-in-out will-change-transform",
+          "transition-transform duration-200 ease-out will-change-transform md:duration-300 md:ease-in-out",
           isDark ? "translate-x-8 bg-black" : "translate-x-1 bg-white",
           isAnimating && "scale-105"
         )}
@@ -67,14 +76,14 @@ export function ModeToggle() {
         {isDark ? (
           <Moon
             className={cn(
-              "h-4 w-4 text-white transition-transform duration-200 ease-in-out",
+              "h-4 w-4 text-white transition-transform duration-200 ease-out md:duration-300 md:ease-in-out",
               isAnimating && "rotate-180 scale-110"
             )}
           />
         ) : (
           <Lightbulb
             className={cn(
-              "h-4 w-4 text-gray-800 transition-transform duration-200 ease-in-out",
+              "h-4 w-4 text-gray-800 transition-transform duration-200 ease-out md:duration-300 md:ease-in-out",
               isAnimating && "rotate-180 scale-110"
             )}
           />
@@ -85,7 +94,7 @@ export function ModeToggle() {
       <div className="absolute left-2 flex items-center justify-center">
         <Lightbulb
           className={cn(
-            "h-4 w-4 transition-all duration-200 ease-in-out",
+            "h-4 w-4 transition-all duration-200 ease-out md:duration-300 md:ease-in-out",
             isDark
               ? "scale-0 opacity-0 rotate-90"
               : "scale-100 opacity-100 rotate-0 text-foreground"
@@ -95,7 +104,7 @@ export function ModeToggle() {
       <div className="absolute right-2 flex items-center justify-center">
         <Moon
           className={cn(
-            "h-4 w-4 transition-all duration-200 ease-in-out",
+            "h-4 w-4 transition-all duration-200 ease-out md:duration-300 md:ease-in-out",
             isDark
               ? "scale-100 opacity-100 rotate-0 text-foreground"
               : "scale-0 opacity-0 -rotate-90"

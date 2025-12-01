@@ -38,6 +38,10 @@ export function ThemeProvider({
       defaultTheme={defaultTheme}
       enableSystem={false}
       disableTransitionOnChange={disableTransitionOnChange}
+      // ✅ Tối ưu: Sử dụng storageKey để persist theme preference
+      storageKey="orchard-theme"
+      // ✅ Tối ưu: Nonce để tránh FOUC (Flash of Unstyled Content)
+      nonce="theme-provider"
     >
       {children}
     </NextThemesProvider>

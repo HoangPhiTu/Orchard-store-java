@@ -156,7 +156,7 @@ export default function Page() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-sm">
         {/* Header */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-card-foreground">
               {t("admin.users.userManagement")}
@@ -165,52 +165,54 @@ export default function Page() {
               {t("admin.users.manageAllStaffMembers")}
             </p>
           </div>
-          <Button onClick={handleAddUser}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("admin.users.addUser")}
-          </Button>
-        </div>
 
-        {/* Toolbar: Search + Status Filter */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="relative flex-1 md:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("admin.users.searchByNameEmailPhone")}
-              className="pl-9"
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
-            <DataTableFilter
-              title={t("admin.users.status")}
-              options={STATUS_OPTIONS}
-              paramName="status"
-            />
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-10 min-w-[160px] justify-between rounded-lg border-border text-sm text-muted-foreground"
-                >
-                  {t("admin.users.display")}: {pageSize}
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                {[15, 30, 50, 100].map((size) => (
-                  <DropdownMenuItem
-                    key={size}
-                    onClick={() => onPaginationChange(1, size)}
-                    data-active={size === pageSize}
-                    className="cursor-pointer text-sm text-muted-foreground data-[active=true]:font-semibold"
+          {/* Toolbar: Search + Status Filter + Add Button - Đồng bộ với Brand và Category */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/90 p-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full md:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={t("admin.users.searchByNameEmailPhone")}
+                className="h-10 w-full rounded-lg border-border bg-background pl-9 text-foreground placeholder:text-muted-foreground"
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
+              <DataTableFilter
+                title={t("admin.users.status")}
+                options={STATUS_OPTIONS}
+                paramName="status"
+                className="bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground"
+                iconClassName="text-muted-foreground"
+              />
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-10 min-w-[160px] justify-between rounded-lg border-border text-sm text-muted-foreground"
                   >
-                    {size} {t("admin.users.rowsPerPage")}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    {t("admin.users.display")}: {pageSize}
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44 bg-card text-card-foreground">
+                  {[15, 30, 50, 100].map((size) => (
+                    <DropdownMenuItem
+                      key={size}
+                      onClick={() => onPaginationChange(1, size)}
+                      data-active={size === pageSize}
+                      className="cursor-pointer text-sm text-muted-foreground data-[active=true]:font-semibold data-[active=true]:text-foreground"
+                    >
+                      {size} {t("admin.users.rowsPerPage")}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={handleAddUser} className="h-10 rounded-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                {t("admin.users.addUser")}
+              </Button>
+            </div>
           </div>
         </div>
 

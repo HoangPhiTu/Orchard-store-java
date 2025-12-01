@@ -88,6 +88,7 @@ export default function Providers({ children }: { children: ReactNode }) {
 
   const antdTheme = useMemo(
     () => ({
+      hashed: false,
       algorithm:
         resolvedTheme === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
       token: {
