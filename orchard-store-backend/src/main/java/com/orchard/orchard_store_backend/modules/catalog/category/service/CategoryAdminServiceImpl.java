@@ -18,11 +18,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -35,6 +38,9 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
 
     private final CategoryRepository categoryRepository;
     private final CategoryAdminMapper categoryAdminMapper;
+    // ImageUploadService được inject để giữ tính nhất quán với các service liên quan đến image,
+    // riêng Category hiện sử dụng luồng mark-for-deletion nên không gọi trực tiếp.
+    @SuppressWarnings("unused")
     private final ImageUploadService imageUploadService;
     private final CacheService cacheService;
     
@@ -244,12 +250,257 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
     /**
      * Evict category list cache
      */
-    private void evictCategoryListCache() {
-        // Delete common category list cache keys
-        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:10");
-        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:15");
-        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:20");
-        cacheService.evict(CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:30");
+    private void updateCachedList(Category category, boolean isCreate, boolean isDelete) {
+        if (category == null || category.getId() == null) {
+            return;
+        }
+        // Chỉ áp dụng cho cache list trang đầu với filter mặc định (keyword rỗng, status ALL)
+        int[] pageSizes = {10, 15, 20, 30};
+        for (int size : pageSizes) {
+            String cacheKey = CATEGORY_LIST_CACHE_KEY_PREFIX + ":ALL:0:" + size;
+            try {
+                Optional<Page<CategoryDTO>> cachedPageOpt =
+                        cacheService.getCachedPage(cacheKey, PageRequest.of(0, size), CategoryDTO.class);
+                if (cachedPageOpt.isEmpty()) {
+                    continue;
+                }
+                Page<CategoryDTO> cachedPage = cachedPageOpt.get();
+                List<CategoryDTO> content = new ArrayList<>(cachedPage.getContent());
+                boolean modified = false;
+
+                if (isDelete) {
+                    modified = content.removeIf(dto ->
+                            dto.getId() != null && dto.getId().equals(category.getId()));
+                } else {
+                    // create or update
+                    CategoryDTO dto = categoryAdminMapper.toDTO(category);
+                    int index = -1;
+                    for (int i = 0; i < content.size(); i++) {
+                        CategoryDTO current = content.get(i);
+                        if (current.getId() != null && current.getId().equals(dto.getId())) {
+                            index = i;
+                            break;
+                        }
+                    }
+                    if (index >= 0) {
+                        content.set(index, dto);
+                        modified = true;
+                    } else {
+                        // thêm vào list rồi sort, sau đó cắt theo page size
+                        content.add(dto);
+                        modified = true;
+                    }
+                    // sort theo cùng logic với tree
+                    content.sort(this::compareCategories);
+                    if (content.size() > size) {
+                        content = new ArrayList<>(content.subList(0, size));
+                    }
+                }
+
+                if (!modified) {
+                    continue;
+                }
+
+                long totalElements = cachedPage.getTotalElements();
+                if (isCreate) {
+                    totalElements++;
+                } else if (isDelete && totalElements > 0) {
+                    totalElements--;
+                }
+
+                Page<CategoryDTO> updatedPage =
+                        new PageImpl<>(content, cachedPage.getPageable(), totalElements);
+                cacheService.cachePage(cacheKey, updatedPage, CACHE_TTL_SECONDS);
+            } catch (Exception e) {
+                log.warn("Failed to update category list cache incrementally for key {}: {}", cacheKey, e.getMessage());
+                // Fallback: evict danh sách nếu có lỗi
+                cacheService.evict(cacheKey);
+            }
+        }
+    }
+
+    private void updateCachedTree(Category category, boolean isCreate) {
+        try {
+            Optional<List<CategoryDTO>> cachedTreeOpt = cacheService.getCached(
+                CATEGORY_TREE_CACHE_KEY,
+                new TypeReference<List<CategoryDTO>>() {}
+            );
+
+            if (cachedTreeOpt.isEmpty()) {
+                return;
+            }
+
+            List<CategoryDTO> workingTree = deepCopyCategoryTree(cachedTreeOpt.get());
+            CategoryDTO dto = categoryAdminMapper.toDTO(category);
+            dto.setChildren(new ArrayList<>());
+
+            List<CategoryDTO> preservedChildren = null;
+            if (!isCreate) {
+                CategoryDTO removedNode = removeNodeFromTree(workingTree, dto.getId());
+                if (removedNode != null && removedNode.getChildren() != null) {
+                    preservedChildren = removedNode.getChildren();
+                }
+            }
+
+            if (preservedChildren != null && !preservedChildren.isEmpty()) {
+                dto.setChildren(preservedChildren);
+            }
+
+            boolean inserted = insertNodeIntoTree(
+                workingTree,
+                dto,
+                dto.getParentId()
+            );
+            if (!inserted) {
+                workingTree.add(dto);
+            }
+
+            sortCategoryTree(workingTree);
+            cacheService.cache(CATEGORY_TREE_CACHE_KEY, workingTree, CACHE_TTL_SECONDS);
+            log.debug("Incrementally updated category tree cache for category {}", category.getId());
+        } catch (Exception e) {
+            log.warn("Failed to update category tree cache incrementally: {}", e.getMessage());
+            // Fallback: evict cache so it will be rebuilt on next request
+            evictCategoryTreeCache();
+        }
+    }
+
+    private void removeCategoryFromCachedTree(Long categoryId) {
+        if (categoryId == null) {
+            return;
+        }
+        try {
+            Optional<List<CategoryDTO>> cachedTreeOpt = cacheService.getCached(
+                CATEGORY_TREE_CACHE_KEY,
+                new TypeReference<List<CategoryDTO>>() {}
+            );
+            if (cachedTreeOpt.isEmpty()) {
+                return;
+            }
+            List<CategoryDTO> workingTree = deepCopyCategoryTree(cachedTreeOpt.get());
+            CategoryDTO removed = removeNodeFromTree(workingTree, categoryId);
+            if (removed == null) {
+                return;
+            }
+            sortCategoryTree(workingTree);
+            cacheService.cache(CATEGORY_TREE_CACHE_KEY, workingTree, CACHE_TTL_SECONDS);
+            log.debug("Removed category {} from tree cache", categoryId);
+        } catch (Exception e) {
+            log.warn("Failed to remove category {} from tree cache: {}", categoryId, e.getMessage());
+            evictCategoryTreeCache();
+        }
+    }
+
+    private List<CategoryDTO> deepCopyCategoryTree(List<CategoryDTO> nodes) {
+        List<CategoryDTO> copy = new ArrayList<>();
+        if (nodes == null) {
+            return copy;
+        }
+        for (CategoryDTO node : nodes) {
+            copy.add(copyCategoryNode(node));
+        }
+        return copy;
+    }
+
+    private CategoryDTO copyCategoryNode(CategoryDTO node) {
+        if (node == null) {
+            return null;
+        }
+        CategoryDTO copy = CategoryDTO.builder()
+                .id(node.getId())
+                .name(node.getName())
+                .slug(node.getSlug())
+                .description(node.getDescription())
+                .imageUrl(node.getImageUrl())
+                .displayOrder(node.getDisplayOrder())
+                .status(node.getStatus())
+                .parentId(node.getParentId())
+                .parentName(node.getParentName())
+                .level(node.getLevel())
+                .path(node.getPath())
+                .createdAt(node.getCreatedAt())
+                .updatedAt(node.getUpdatedAt())
+                .build();
+
+        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+            copy.setChildren(deepCopyCategoryTree(node.getChildren()));
+        } else if (node.getChildren() != null) {
+            copy.setChildren(new ArrayList<>());
+        } else {
+            copy.setChildren(null);
+        }
+        return copy;
+    }
+
+    private CategoryDTO removeNodeFromTree(List<CategoryDTO> nodes, Long targetId) {
+        if (nodes == null || targetId == null) {
+            return null;
+        }
+        for (int i = 0; i < nodes.size(); i++) {
+            CategoryDTO node = nodes.get(i);
+            if (node.getId() != null && node.getId().equals(targetId)) {
+                return nodes.remove(i);
+            }
+            if (node.getChildren() != null) {
+                CategoryDTO removed = removeNodeFromTree(node.getChildren(), targetId);
+                if (removed != null) {
+                    return removed;
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean insertNodeIntoTree(
+            List<CategoryDTO> nodes,
+            CategoryDTO node,
+            Long parentId
+    ) {
+        if (parentId == null) {
+            nodes.add(node);
+            return true;
+        }
+        if (nodes == null) {
+            return false;
+        }
+        for (CategoryDTO current : nodes) {
+            if (current.getId() != null && current.getId().equals(parentId)) {
+                if (current.getChildren() == null) {
+                    current.setChildren(new ArrayList<>());
+                }
+                current.getChildren().add(node);
+                return true;
+            }
+            if (current.getChildren() != null &&
+                insertNodeIntoTree(current.getChildren(), node, parentId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void sortCategoryTree(List<CategoryDTO> nodes) {
+        if (nodes == null) {
+            return;
+        }
+        nodes.sort(this::compareCategories);
+        for (CategoryDTO node : nodes) {
+            if (node.getChildren() != null) {
+                sortCategoryTree(node.getChildren());
+            }
+        }
+    }
+
+    private int compareCategories(CategoryDTO a, CategoryDTO b) {
+        int orderA = a.getDisplayOrder() != null ? a.getDisplayOrder() : 0;
+        int orderB = b.getDisplayOrder() != null ? b.getDisplayOrder() : 0;
+        int orderDiff = Integer.compare(orderA, orderB);
+        if (orderDiff != 0) {
+            return orderDiff;
+        }
+        String nameA = a.getName() != null ? a.getName() : "";
+        String nameB = b.getName() != null ? b.getName() : "";
+        return nameA.compareToIgnoreCase(nameB);
     }
 
     @Override
@@ -303,13 +554,13 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         saved.setPath(path);
         saved = categoryRepository.save(saved);
 
-        log.info("Created category: {} with slug: {}, level: {}, path: {}", 
+        log.info("Created category: {} with slug: {}, level: {}, path: {}",
                 saved.getName(), saved.getSlug(), saved.getLevel(), saved.getPath());
-        
-        // Evict caches
-        evictCategoryTreeCache();
-        evictCategoryListCache();
-        
+
+        // Update caches (tree + list incremental)
+        updateCachedTree(saved, true);
+        updateCachedList(saved, true, false);
+
         CategoryDTO dto = categoryAdminMapper.toDTO(saved);
         // Clear children để tránh circular reference khi serialize
         return clearChildren(dto);
@@ -321,9 +572,10 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
         Category category = categoryRepository.findByIdWithParent(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));
 
-        // Lưu image cũ để xóa sau nếu có thay đổi
+        // Lưu image cũ để các service khác xử lý xóa soft-delete nếu cần
         String oldImageUrl = category.getImageUrl();
         String newImageUrl = request.getImageUrl();
+        // ✅ Image change detection (dùng cho soft-delete / mark-for-deletion ở layer khác)
         boolean isImageChanged = (newImageUrl == null && oldImageUrl != null)
                 || (newImageUrl != null && !newImageUrl.equals(oldImageUrl));
 
@@ -408,8 +660,22 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
             category.setDescription(request.getDescription());
         }
 
+        // ✅ Xử lý imageUrl:
+        // - request.imageUrl == null        => không gửi field này từ client, KHÔNG thay đổi imageUrl
+        // - request.imageUrl == "" (rỗng)  => xóa ảnh (set imageUrl = null)
+        // - request.imageUrl là URL hợp lệ  => cập nhật ảnh mới
         if (request.getImageUrl() != null) {
-            category.setImageUrl(request.getImageUrl());
+            String trimmedImage = request.getImageUrl().trim();
+            if (trimmedImage.isEmpty()) {
+                // Client chủ động xoá ảnh
+                category.setImageUrl(null);
+            } else {
+                // Cập nhật URL ảnh mới
+                category.setImageUrl(trimmedImage);
+            }
+        } else if (isImageChanged) {
+            // ✅ Client gửi imageUrl=null và image trước đó != null => xoá ảnh
+            category.setImageUrl(null);
         }
 
         if (request.getDisplayOrder() != null) {
@@ -427,21 +693,11 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
 
         Category updated = categoryRepository.save(category);
 
-        // Xóa image cũ trên MinIO nếu có thay đổi
-        if (isImageChanged && oldImageUrl != null && !oldImageUrl.trim().isEmpty()) {
-            try {
-                imageUploadService.deleteImage(oldImageUrl);
-                log.info("Deleted image for category {}: {}", id, oldImageUrl);
-            } catch (Exception e) {
-                log.warn("Không thể xóa image của category {} sau khi cập nhật: {}", id, e.getMessage());
-            }
-        }
-
         log.info("Updated category: {}", id);
         
-        // Evict caches
-        evictCategoryTreeCache();
-        evictCategoryListCache();
+        // Update caches (tree + list incremental)
+        updateCachedTree(updated, false);
+        updateCachedList(updated, false, false);
         
         CategoryDTO dto = categoryAdminMapper.toDTO(updated);
         // Clear children để tránh circular reference khi serialize
@@ -466,25 +722,12 @@ public class CategoryAdminServiceImpl implements CategoryAdminService {
             throw new IllegalStateException("Không thể xóa category vì đang có sản phẩm thuộc về nó");
         }
 
-        // Lưu imageUrl trước khi xóa
-        String imageUrl = category.getImageUrl();
-
         // Xóa category khỏi database
         categoryRepository.delete(category);
-
-        // Xóa image trên MinIO nếu có
-        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
-            try {
-                imageUploadService.deleteImage(imageUrl);
-                log.info("Deleted image for category {}: {}", id, imageUrl);
-            } catch (Exception e) {
-                log.warn("Không thể xóa image của category {} sau khi xóa: {}", id, e.getMessage());
-            }
-        }
         
-        // Evict caches
-        evictCategoryTreeCache();
-        evictCategoryListCache();
+        // Update caches (tree + list incremental)
+        removeCategoryFromCachedTree(id);
+        updateCachedList(category, false, true);
         
         log.info("Deleted category: {}", id);
     }

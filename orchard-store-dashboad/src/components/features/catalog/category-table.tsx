@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Pencil,
   Trash2,
@@ -69,6 +69,135 @@ const sortCategoriesByHierarchy = (categories: Category[]): Category[] => {
   });
 };
 
+/**
+ * Category Row Component
+ * Tách riêng để có thể sử dụng useEffect và tối ưu re-render
+ */
+interface CategoryRowProps {
+  category: Category;
+  rowKey: string;
+  onEdit?: (category: Category) => void;
+  onDelete?: (category: Category) => void;
+}
+
+function CategoryRow({ category, rowKey, onEdit, onDelete }: CategoryRowProps) {
+  const { t } = useI18n();
+  const [imageError, setImageError] = useState(false);
+  const level = category.level ?? 0;
+  const isChild = level > 0;
+  const paddingLeft = level * 16;
+  const displayName =
+    category.name?.trim() || category.slug || "Unknown Category";
+  const slug = category.slug || "no-slug";
+  const parentName = category.parentName || "Root";
+  const imageUrl = category.imageUrl?.trim();
+  const shouldShowImage = Boolean(imageUrl) && !imageError;
+
+  // ✅ Reset image error khi imageUrl thay đổi (giống brand-row)
+  useEffect(() => {
+    if (imageUrl) {
+      setImageError(false);
+    }
+  }, [imageUrl]);
+
+  return (
+    <TableRow className="hover:bg-muted/40">
+      <TableCell>
+        <div
+          className="flex items-center gap-2"
+          style={{ paddingLeft: `${paddingLeft}px` }}
+        >
+          {isChild && (
+            <CornerDownRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="font-semibold text-foreground">{displayName}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <span className="font-mono text-sm text-muted-foreground">{slug}</span>
+      </TableCell>
+      <TableCell>
+        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
+          {shouldShowImage ? (
+            <Image
+              key={`category-image-${category.id}-${imageUrl}-${category.updatedAt || ""}`}
+              src={
+                getImageUrlWithTimestamp(
+                  imageUrl!,
+                  category.updatedAt
+                    ? new Date(category.updatedAt).getTime()
+                    : undefined
+                ) || imageUrl!
+              }
+              alt={displayName}
+              fill
+              className="object-cover"
+              sizes="40px"
+              unoptimized
+              onLoadingComplete={() => setImageError(false)}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted">
+              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        {category.parentName ? (
+          <Badge variant="secondary" className="text-muted-foreground">
+            {parentName}
+          </Badge>
+        ) : (
+          <Badge
+            variant="secondary"
+            className="border border-dashed border-border/60 bg-transparent text-muted-foreground"
+          >
+            Root
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        <StatusBadge status={category.status || "INACTIVE"} />
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 p-0 text-muted-foreground data-[state=open]:bg-muted/40"
+            >
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[160px]">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            {onEdit && (
+              <DropdownMenuItem onClick={() => onEdit(category)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            {onDelete && (
+              <DropdownMenuItem
+                onClick={() => onDelete(category)}
+                className="text-red-600 focus:bg-red-50 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function CategoryTable({
   categories,
   onEdit,
@@ -76,7 +205,6 @@ export function CategoryTable({
   isLoading,
 }: CategoryTableProps) {
   const { t } = useI18n();
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const sortedCategories = useMemo(
     () => sortCategoriesByHierarchy(categories ?? []),
     [categories]
@@ -178,124 +306,14 @@ export function CategoryTable({
           <TableBody>
             {sortedCategories.map((category, index) => {
               const rowKey = buildKey(category, index);
-              const level = category.level ?? 0;
-              const isChild = level > 0;
-              const paddingLeft = level * 16;
-              const displayName =
-                category.name?.trim() || category.slug || "Unknown Category";
-              const slug = category.slug || "no-slug";
-              const parentName = category.parentName || "Root";
-              const imageUrl = category.imageUrl?.trim();
-              const shouldShowImage = Boolean(imageUrl) && !imageErrors[rowKey];
-
-              const handleImageError = () => {
-                setImageErrors((prev) => ({ ...prev, [rowKey]: true }));
-              };
-
-              const handleImageLoad = () => {
-                if (imageErrors[rowKey]) {
-                  setImageErrors((prev) => {
-                    const next = { ...prev };
-                    delete next[rowKey];
-                    return next;
-                  });
-                }
-              };
-
               return (
-                <TableRow key={rowKey} className="hover:bg-muted/40">
-                  <TableCell>
-                    <div
-                      className="flex items-center gap-2"
-                      style={{ paddingLeft: `${paddingLeft}px` }}
-                    >
-                      {isChild && (
-                        <CornerDownRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="font-semibold text-foreground">
-                        {displayName}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-mono text-sm text-muted-foreground">
-                      {slug}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
-                      {shouldShowImage ? (
-                        <Image
-                          src={getImageUrlWithTimestamp(imageUrl!) || imageUrl!}
-                          alt={displayName}
-                          fill
-                          className="object-cover"
-                          sizes="40px"
-                          unoptimized
-                          onError={handleImageError}
-                          onLoad={handleImageLoad}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-muted">
-                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {category.parentName ? (
-                      <Badge
-                        variant="secondary"
-                        className="text-muted-foreground"
-                      >
-                        {parentName}
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className="border border-dashed border-border/60 bg-transparent text-muted-foreground"
-                      >
-                        Root
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={category.status || "INACTIVE"} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 p-0 text-muted-foreground data-[state=open]:bg-muted/40"
-                        >
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[160px]">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        {onEdit && (
-                          <DropdownMenuItem onClick={() => onEdit(category)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        {onDelete && (
-                          <DropdownMenuItem
-                            onClick={() => onDelete(category)}
-                            className="text-red-600 focus:bg-red-50 focus:text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                <CategoryRow
+                  key={rowKey}
+                  category={category}
+                  rowKey={rowKey}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
               );
             })}
           </TableBody>

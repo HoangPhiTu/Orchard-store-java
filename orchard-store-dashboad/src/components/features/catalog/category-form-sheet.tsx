@@ -8,6 +8,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
 } from "react";
 import {
   useForm,
@@ -47,11 +48,14 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/hooks/use-i18n";
+import { toast } from "sonner";
+import type { Page } from "@/types/user.types";
 
 interface CategoryFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category?: Category | null;
+  onCategoryMutated?: (category: Category, action: "create" | "update") => void;
 }
 
 const DEFAULT_VALUES: CategoryFormData = {
@@ -110,6 +114,7 @@ export function CategoryFormSheet({
   open,
   onOpenChange,
   category,
+  onCategoryMutated,
 }: CategoryFormSheetProps) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -118,6 +123,21 @@ export function CategoryFormSheet({
   const [parentSearch, setParentSearch] = useState("");
   // Use state instead of ref for better React integration and to avoid race conditions
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
+  
+  // ✅ Category state management (giống brand) để tránh conflict khi update category khác
+  type CategoryLocalState = {
+    latestImageUrl?: string | null;
+    imageFile?: File | null | undefined; // ✅ Quản lý imageFile theo từng category ID
+    timestampKey: number;
+    dataVersion: number;
+  };
+
+  const [categoryState, setCategoryState] = useState<Record<string, CategoryLocalState>>(
+    {}
+  );
+  const defaultCategoryStateRef = useRef<Record<string, CategoryLocalState>>({});
+  // ✅ Ref để track latestImageUrl đã được set chưa, tránh vòng lặp vô hạn
+  const lastSyncedImageUrlRef = useRef<Record<string, string | null | undefined>>({});
   
   // Image management hook (reusable, implements best practices)
   const imageManagement = useImageManagement("categories");
@@ -133,17 +153,69 @@ export function CategoryFormSheet({
   const [categoryData, setCategoryData] = useState<Category | null>(
     categoryDataFromQuery ?? null
   );
-  // ✅ State để hiển thị image ngay lập tức sau khi update/create
-  const [latestImageUrl, setLatestImageUrl] = useState<string | null | undefined>(undefined);
+
+  // ✅ Helper functions để quản lý category state (giống brand)
+  const getDefaultCategoryState = useCallback(
+    (categoryId: string): CategoryLocalState => {
+      if (!defaultCategoryStateRef.current[categoryId]) {
+        defaultCategoryStateRef.current[categoryId] = {
+          latestImageUrl: undefined,
+          imageFile: undefined, // ✅ Khởi tạo imageFile cho mỗi category
+          timestampKey: Date.now(),
+          dataVersion: 0,
+        };
+      }
+      return defaultCategoryStateRef.current[categoryId];
+    },
+    []
+  );
+
+  const updateCategoryState = useCallback(
+    (categoryId: string, updates: Partial<CategoryLocalState>) => {
+      // ✅ Cập nhật lastSyncedImageUrlRef khi latestImageUrl thay đổi
+      if (updates.latestImageUrl !== undefined) {
+        lastSyncedImageUrlRef.current[categoryId] = updates.latestImageUrl;
+      }
+      // ✅ Cập nhật currentImageFileRef khi imageFile thay đổi
+      if (updates.imageFile !== undefined) {
+        currentImageFileRef.current[categoryId] = updates.imageFile;
+      }
+      setCategoryState((prev) => ({
+        ...prev,
+        [categoryId]: {
+          ...(prev[categoryId] ?? getDefaultCategoryState(categoryId)),
+          ...updates,
+        },
+      }));
+    },
+    [getDefaultCategoryState]
+  );
+
+  const currentCategoryId = category?.id?.toString() || "new";
+  const currentCategoryState =
+    categoryState[currentCategoryId] ?? getDefaultCategoryState(currentCategoryId);
+  
+  // ✅ Lấy imageFile từ state của category hiện tại
+  const imageFile = currentCategoryState.imageFile;
 
   // Update local state khi categoryDataFromQuery thay đổi
+  // ✅ Chỉ sync khi categoryDataFromQuery thay đổi và không phải từ mutation (tránh override giá trị mới)
   useEffect(() => {
     if (categoryDataFromQuery) {
-      setCategoryData(categoryDataFromQuery);
-          // ✅ Clear latestImageUrl khi categoryData được load
-          setLatestImageUrl(undefined);
+      // ✅ Chỉ update nếu categoryData chưa có hoặc ID khác (tránh override khi vừa update)
+      setCategoryData((prev) => {
+        // Nếu prev đã có và ID giống nhau, giữ nguyên prev (đã được update từ mutation)
+        if (prev && prev.id === categoryDataFromQuery.id) {
+          return prev;
+        }
+        return categoryDataFromQuery;
+      });
+      // ✅ Clear latestImageUrl khi categoryData được load từ query (không phải từ mutation)
+      updateCategoryState(currentCategoryId, {
+        latestImageUrl: undefined,
+      });
     }
-  }, [categoryDataFromQuery]);
+  }, [categoryDataFromQuery?.id, currentCategoryId, updateCategoryState]);
 
   // Sử dụng categories tree thay vì fetch all với size 1000
   // Tree API nhanh hơn vì đã có cache ở backend và trả về flat list
@@ -183,30 +255,154 @@ export function CategoryFormSheet({
   });
   const mutationForm = form as unknown as UseFormReturn<FieldValues>;
 
+  // ✅ Sync category caches để update realtime trong table (giống brand)
+  // ✅ Cập nhật tất cả queries có pagination/filters để đảm bảo table update đúng
+  const syncCategoryCaches = useCallback(
+    (categoryToSync: Category | null | undefined) => {
+      if (!categoryToSync?.id) {
+        return;
+      }
+
+      // Update detail cache
+      queryClient.setQueryData<Category>(
+        ["admin", "categories", "detail", categoryToSync.id],
+        (existing) =>
+          existing
+            ? {
+                ...existing,
+                ...categoryToSync,
+              }
+            : categoryToSync
+      );
+
+      // ✅ Update ALL list caches (với bất kỳ filters/pagination nào)
+      // Sử dụng queryKey prefix để match tất cả queries có ["admin", "categories", "list", ...]
+      queryClient.getQueriesData<Page<Category>>({
+        predicate: (query) => {
+          const key = query.queryKey;
+          // Match ["admin", "categories", "list", ...] hoặc ["admin", "categories", "all", ...]
+          return (
+            Array.isArray(key) &&
+            key.length >= 3 &&
+            key[0] === "admin" &&
+            key[1] === "categories" &&
+            (key[2] === "list" || key[2] === "all")
+          );
+        },
+      }).forEach(([queryKey, data]) => {
+        if (data && typeof data === "object" && "content" in data) {
+          const pageData = data as Page<Category>;
+          if (pageData.content) {
+            queryClient.setQueryData<Page<Category>>(queryKey, {
+              ...pageData,
+              content: pageData.content.map((item) =>
+                item.id === categoryToSync.id
+                  ? { ...item, ...categoryToSync }
+                  : item
+              ),
+            });
+          }
+        }
+      });
+    },
+    [queryClient]
+  );
+
   const resetParentSearch = useCallback(() => {
     startTransition(() => {
       setParentSearch("");
     });
   }, []);
 
-  // Reset form when category data is loaded or when opening/closing
+  // ✅ Track categoryId trước đó để detect khi chuyển category
+  const prevCategoryIdRef = useRef<string | null>(null);
+  // ✅ Ref để track xem đã reset form chưa, tránh vòng lặp vô hạn
+  const lastResetDataRef = useRef<{ categoryId?: number; imageUrl?: string | null } | null>(null);
+  // ✅ Ref để track imageFile của category hiện tại, tránh stale closure
+  const currentImageFileRef = useRef<Record<string, File | null | undefined>>({});
+  
+  // ✅ Sync currentImageFileRef với categoryState khi categoryState thay đổi
+  useEffect(() => {
+    Object.keys(categoryState).forEach((categoryId) => {
+      if (categoryState[categoryId]?.imageFile !== undefined) {
+        currentImageFileRef.current[categoryId] = categoryState[categoryId].imageFile;
+      }
+    });
+  }, [categoryState]);
+  
+  // Reset form when category data is loaded or when opening/closing (giống brand form)
   useEffect(() => {
     if (!open) {
       form.reset(DEFAULT_VALUES);
       setCategoryData(null); // Clear local state when closing
+      setCategoryState({});
+      defaultCategoryStateRef.current = {};
+      lastSyncedImageUrlRef.current = {};
+      prevCategoryIdRef.current = null;
+      lastResetDataRef.current = null;
+      currentImageFileRef.current = {};
       return;
     }
+    
+    // ✅ Khi chuyển sang category khác, clear imageFile của category cũ
+    if (prevCategoryIdRef.current && prevCategoryIdRef.current !== currentCategoryId) {
+      updateCategoryState(prevCategoryIdRef.current, {
+        imageFile: undefined,
+      });
+      currentImageFileRef.current[prevCategoryIdRef.current] = undefined;
+      lastResetDataRef.current = null; // ✅ Reset tracking khi chuyển category
+    }
+    prevCategoryIdRef.current = currentCategoryId;
+    
     if (isEditing && categoryData) {
-      // Reset form khi categoryData thay đổi (bao gồm sau khi update)
+      // ✅ Check xem đã reset form với data này chưa (tránh reset lại không cần thiết)
+      const lastReset = lastResetDataRef.current;
+      const hasResetForThisData = 
+        lastReset?.categoryId === categoryData.id &&
+        lastReset?.imageUrl === categoryData.imageUrl;
+      
+      // ✅ Nếu đã reset form với data này rồi (từ onSuccess), không reset lại
+      if (hasResetForThisData) {
+        return;
+      }
+      
+      // ✅ Nếu imageFile đang được set (user đang chọn/xóa ảnh), không reset form
+      // Sử dụng ref để tránh stale closure
+      const categoryId = categoryData.id.toString();
+      const currentImageFile = currentImageFileRef.current[categoryId];
+      if (currentImageFile !== undefined) {
+        return; // ✅ Giữ nguyên form value khi user đang thao tác với ảnh
+      }
+      
+      // ✅ Reset form khi categoryData thay đổi (từ query, không phải từ mutation)
+      // Convert null thành undefined cho form (form không chấp nhận null)
+      const normalizedImageUrl =
+        categoryData.imageUrl === null ? undefined : categoryData.imageUrl ?? undefined;
+      
+      const lastSynced = lastSyncedImageUrlRef.current[categoryId];
+      
+      // ✅ Chỉ update categoryState nếu imageUrl thực sự thay đổi (tránh vòng lặp vô hạn)
+      if (lastSynced !== normalizedImageUrl) {
+        lastSyncedImageUrlRef.current[categoryId] = normalizedImageUrl;
+        updateCategoryState(categoryId, {
+          latestImageUrl: normalizedImageUrl,
+          imageFile: undefined, // ✅ Clear imageFile khi load data mới từ server
+          timestampKey: Date.now(),
+        });
+        currentImageFileRef.current[categoryId] = undefined;
+      }
+      
+      // ✅ Đánh dấu đã reset form với data này
+      lastResetDataRef.current = {
+        categoryId: categoryData.id,
+        imageUrl: categoryData.imageUrl,
+      };
+      
       form.reset({
         name: categoryData.name,
         slug: categoryData.slug ?? undefined,
         description: categoryData.description ?? undefined,
-        // Convert null thành undefined cho form (form không chấp nhận null)
-        imageUrl:
-          categoryData.imageUrl === null
-            ? undefined
-            : categoryData.imageUrl ?? undefined,
+        imageUrl: normalizedImageUrl, // ✅ undefined khi xóa, string khi có ảnh
         parentId: categoryData.parentId ?? null,
         displayOrder: categoryData.displayOrder ?? undefined,
         status: categoryData.status,
@@ -216,12 +412,20 @@ export function CategoryFormSheet({
     if (!isEditing) {
       form.reset(DEFAULT_VALUES);
       setCategoryData(null);
+      // ✅ Clear imageFile khi tạo category mới
+      updateCategoryState(currentCategoryId, {
+        imageFile: undefined,
+      });
+      currentImageFileRef.current[currentCategoryId] = undefined;
     }
-  }, [categoryData?.id, categoryData?.imageUrl, isEditing, open, form]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isEditing, categoryData, categoryData?.id, categoryData?.imageUrl, currentCategoryId]);
 
   useEffect(() => {
     resetParentSearch();
   }, [open, resetParentSearch]);
+
+  // ✅ Cleanup không cần thiết nữa vì imageFile được quản lý trong categoryState
 
   // Reset slug edit flag when form opens/closes
   // Use startTransition to avoid cascading renders
@@ -330,19 +534,52 @@ export function CategoryFormSheet({
     []
   );
 
+  const handleImageChange = async (file: File | null) => {
+    if (file) {
+      // Use centralized file validation with magic bytes check
+      const { validateFile } = await import("@/lib/validation/file-validation");
+
+      const result = await validateFile(file, {
+        validateContent: true, // Include magic bytes validation for security
+      });
+
+      if (!result.valid) {
+        toast.error(result.error || t("admin.forms.category.invalidFile"));
+        return;
+      }
+    }
+
+    // ✅ Update imageFile trong state của category hiện tại (giống brand form)
+    updateCategoryState(currentCategoryId, {
+      imageFile: file, // ✅ File mới hoặc null khi xóa
+    });
+    
+    if (!file) {
+      // ✅ User xóa ảnh - clear form field (giống brand form)
+      // Không cần update categoryData vì mutation sẽ xử lý
+      form.setValue("imageUrl", undefined, { shouldDirty: true });
+      
+      // ✅ Update categoryState để UI update ngay lập tức
+      updateCategoryState(currentCategoryId, {
+        latestImageUrl: null, // ✅ Set null để effectiveValue trả về null
+        timestampKey: Date.now(), // ✅ Update timestamp để force re-render
+        dataVersion: currentCategoryState.dataVersion + 1, // ✅ Increment version
+      });
+    }
+    // Nếu có file mới, giữ nguyên imageUrl cũ (hoặc undefined) cho đến khi upload xong
+  };
+
   // Create mutation
   const createMutation = useAppMutation<Category, Error, CategoryFormData>({
     mutationFn: async (data) => {
       // Upload image if there's a new File
-      // Note: data.imageUrl can be File | string | null | undefined from form field
       let imageUrl: string | undefined = undefined;
-      const imageValue = data.imageUrl as File | string | null | undefined;
-      if (isFile(imageValue)) {
+      if (imageFile) {
         // Upload new file with date partitioning (flat structure)
-        imageUrl = await imageManagement.uploadImage(imageValue);
-      } else if (imageValue && typeof imageValue === "string") {
+        imageUrl = await imageManagement.uploadImage(imageFile);
+      } else if (data.imageUrl && typeof data.imageUrl === "string") {
         // Keep existing URL if no new file
-        imageUrl = imageValue;
+        imageUrl = data.imageUrl;
       }
 
       const payload: CategoryFormData = {
@@ -357,15 +594,44 @@ export function CategoryFormSheet({
     queryKey: ["admin", "categories"],
     form: mutationForm,
     onSuccess: (createdCategory) => {
-      // ✅ Cập nhật latestImageUrl để hiển thị ngay lập tức (nếu form vẫn mở)
+      // ✅ Cập nhật categoryState để hiển thị ngay lập tức (nếu form vẫn mở)
       if (createdCategory) {
-        setLatestImageUrl(createdCategory.imageUrl ?? undefined);
+        // ✅ GIỮ NGUYÊN null khi xóa ảnh (không normalize) để logic hiển thị hoạt động đúng
+        updateCategoryState(currentCategoryId, {
+          latestImageUrl: createdCategory.imageUrl !== undefined ? createdCategory.imageUrl : undefined, // ✅ Giữ null nếu null, undefined nếu undefined
+          imageFile: undefined, // ✅ Clear imageFile sau khi upload thành công
+          timestampKey: Date.now(),
+        });
+        currentImageFileRef.current[currentCategoryId] = undefined;
+        
+        // ✅ Reset form với data mới (giống brand form)
+        const normalizedImageUrl =
+          createdCategory.imageUrl === null ? undefined : createdCategory.imageUrl ?? undefined;
+        form.reset({
+          name: createdCategory.name,
+          slug: createdCategory.slug ?? undefined,
+          description: createdCategory.description ?? undefined,
+          imageUrl: normalizedImageUrl,
+          parentId: createdCategory.parentId ?? null,
+          displayOrder: createdCategory.displayOrder ?? undefined,
+          status: createdCategory.status,
+        });
+        
+        // ✅ Sync cache để table update realtime
+        syncCategoryCaches(createdCategory);
+        onCategoryMutated?.(createdCategory, "create");
+        // ✅ Tree cần refresh để hiển thị node mới
+        queryClient.invalidateQueries({
+          queryKey: ["admin", "categories", "tree"],
+        });
       }
     },
     onClose: () => {
       onOpenChange(false);
       form.reset(DEFAULT_VALUES);
-      setLatestImageUrl(undefined);
+      setCategoryState({});
+      defaultCategoryStateRef.current = {};
+      lastSyncedImageUrlRef.current = {};
     },
     successMessage: t("admin.forms.category.createCategorySuccess"),
   });
@@ -377,54 +643,89 @@ export function CategoryFormSheet({
     { id: number; data: Partial<CategoryFormData> }
   >({
     mutationFn: async ({ id, data }) => {
-      // Upload image if there's a new File
-      // Note: data.imageUrl can be File | string | null | undefined from form field
+      // Upload image if there's a new File (giống brand form)
       let imageUrl: string | undefined | null = undefined;
-      const imageValue = data.imageUrl as File | string | null | undefined;
       const previousImageUrl = category?.imageUrl || null;
 
-      if (isFile(imageValue)) {
+      if (imageFile) {
         // Upload new file with date partitioning (flat structure)
-        imageUrl = await imageManagement.uploadImage(imageValue);
-      } else if (imageValue === null) {
-        // User explicitly wants to remove image
+        imageUrl = await imageManagement.uploadImage(imageFile);
+      } else if (imageFile === null) {
+        // ✅ User explicitly wants to remove image - set to null để backend xóa
         imageUrl = null;
-      } else if (imageValue && typeof imageValue === "string") {
-        // Keep existing URL if no new file and not explicitly removed
-        imageUrl = imageValue;
+      } else if (data.imageUrl && typeof data.imageUrl === "string") {
+        // ✅ Keep existing URL if no new file and not explicitly removed
+        imageUrl = data.imageUrl;
       }
-      // If data.imageUrl is undefined, imageUrl will be undefined (keep existing)
+      // ✅ If imageFile is undefined and no existing imageUrl, imageUrl will be undefined (keep existing)
 
-      // Tạo payload với imageUrl có thể là null để xóa ảnh
-      const payload = {
+      // Tạo payload với imageUrl có thể là null để xóa ảnh (giống brand form)
+      const payload: Record<string, unknown> = {
         ...data,
-        // Giữ nguyên null nếu muốn xóa ảnh để service gửi null lên backend
-        // undefined nếu không thay đổi (service sẽ không gửi field này)
-        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        // ✅ Gửi null nếu user xóa ảnh, undefined nếu không thay đổi, string nếu có URL mới
+        imageUrl:
+          imageUrl !== undefined
+            ? imageUrl === null
+              ? null // ✅ Gửi null để backend xóa ảnh
+              : imageUrl
+            : undefined,
         // Ensure parentId is null if not selected
         parentId: data.parentId ?? null,
-      } as Partial<CategoryFormData>;
+      };
 
       return categoryService.updateCategory(id, payload);
     },
     queryKey: ["admin", "categories"],
     form: mutationForm,
     onSuccess: (updatedCategory) => {
-      // ✅ Cập nhật latestImageUrl để hiển thị ngay lập tức
-      if (updatedCategory) {
-        setLatestImageUrl(updatedCategory.imageUrl ?? undefined);
-      }
-
       // Update cache immediately với data mới để UI update ngay lập tức (realtime)
       if (updatedCategory && category?.id) {
-        // Update detail cache trước - điều này sẽ trigger re-render của useCategory hook
-        queryClient.setQueryData(
+        // ✅ Sync cache TRƯỚC để đảm bảo query cache được cập nhật
+        syncCategoryCaches(updatedCategory);
+        
+        // ✅ Update query cache để categoryDataFromQuery cũng được cập nhật
+        queryClient.setQueryData<Category>(
           ["admin", "categories", "detail", category.id],
           updatedCategory
         );
-
-        // Update local state ngay lập tức - điều này sẽ trigger re-render và reset form trong useEffect
+        
+        // ✅ Cập nhật categoryState ngay lập tức để form hiển thị đúng (bao gồm khi xóa ảnh)
+        // ✅ GIỮ NGUYÊN null khi xóa ảnh (không normalize) để logic hiển thị hoạt động đúng
+        updateCategoryState(currentCategoryId, {
+          latestImageUrl: updatedCategory.imageUrl !== undefined ? updatedCategory.imageUrl : undefined, // ✅ Giữ null nếu null, undefined nếu undefined
+          imageFile: undefined, // ✅ Clear imageFile sau khi update thành công
+          timestampKey: Date.now(),
+          dataVersion: currentCategoryState.dataVersion + 1, // ✅ Increment để force re-render
+        });
+        currentImageFileRef.current[currentCategoryId] = undefined;
+        
+        // ✅ Update local state ngay lập tức
         setCategoryData(updatedCategory);
+        onCategoryMutated?.(updatedCategory, "update");
+        // ✅ Tree có thể thay đổi (đổi tên/cha), refresh nhẹ
+        queryClient.invalidateQueries({
+          queryKey: ["admin", "categories", "tree"],
+        });
+        
+        // ✅ Reset form ngay lập tức với data mới (giống brand form)
+        // ✅ Normalize null thành undefined cho form (form không chấp nhận null)
+        const normalizedImageUrl =
+          updatedCategory.imageUrl === null ? undefined : updatedCategory.imageUrl ?? undefined;
+        form.reset({
+          name: updatedCategory.name,
+          slug: updatedCategory.slug ?? undefined,
+          description: updatedCategory.description ?? undefined,
+          imageUrl: normalizedImageUrl, // ✅ undefined khi xóa, string khi có ảnh
+          parentId: updatedCategory.parentId ?? null,
+          displayOrder: updatedCategory.displayOrder ?? undefined,
+          status: updatedCategory.status,
+        });
+        
+        // ✅ Đánh dấu đã reset form với data mới
+        lastResetDataRef.current = {
+          categoryId: updatedCategory.id,
+          imageUrl: updatedCategory.imageUrl,
+        };
 
         // Mark old image for deletion (soft delete) AFTER DB update success
         const previousImageUrl = category?.imageUrl || null;
@@ -440,29 +741,18 @@ export function CategoryFormSheet({
           imageManagement.markImageForDeletion(previousImageUrl, {
             entityId: category.id,
             reason: "removed",
-        });
+          });
         }
       }
 
-      // Invalidate và refetch để đảm bảo tất cả queries liên quan được refresh
-      // refetchType: "active" sẽ refetch các queries đang active (đang được sử dụng)
-      queryClient.invalidateQueries({
-        queryKey: ["admin", "categories", "detail", category?.id],
-        refetchType: "active", // Chỉ refetch queries đang active
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["admin", "categories"],
-      });
-
-      // Refetch category detail để đảm bảo useCategory hook có data mới nhất
-      if (category?.id) {
-        refetchCategory();
-      }
+      // ✅ Không invalidate toàn bộ - syncCategoryCaches đã cập nhật list/detail cache
     },
     onClose: () => {
       onOpenChange(false);
       form.reset(DEFAULT_VALUES);
-      setLatestImageUrl(undefined);
+      setCategoryState({});
+      defaultCategoryStateRef.current = {};
+      lastSyncedImageUrlRef.current = {};
     },
     successMessage: t("admin.forms.category.updateCategorySuccess"),
   });
@@ -528,59 +818,84 @@ export function CategoryFormSheet({
                     name="imageUrl"
                     control={form.control}
                     render={({ field }) => {
-                      // ✅ Ưu tiên latestImageUrl để hiển thị ngay sau khi update/create
                       const effectiveValue = (() => {
-                        if (field.value !== undefined) {
-                          return field.value; // File hoặc null
+                        // ✅ Ưu tiên imageFile (File hoặc null khi user xóa)
+                        if (imageFile !== undefined) {
+                          return imageFile; // File hoặc null (khi user xóa)
                         }
-                        if (latestImageUrl !== undefined) {
-                          return typeof latestImageUrl === "string" ? latestImageUrl : null;
+                        // ✅ Nếu latestImageUrl là null (đã xóa từ server), trả về null ngay lập tức
+                        if (currentCategoryState.latestImageUrl === null) {
+                          return null;
                         }
-                        return field.value;
+                        // ✅ Nếu latestImageUrl là string (có ảnh), trả về string
+                        if (
+                          currentCategoryState.latestImageUrl !== undefined &&
+                          typeof currentCategoryState.latestImageUrl === "string"
+                        ) {
+                          return currentCategoryState.latestImageUrl;
+                        }
+                        // ✅ Nếu categoryData.imageUrl là null (đã xóa từ server), trả về null
+                        if (categoryData?.imageUrl === null) {
+                          return null;
+                        }
+                        // ✅ Nếu field.value là null (user đã xóa trong form), trả về null
+                        if (field.value === null) {
+                          return null;
+                        }
+                        // ✅ Nếu field.value là string (có ảnh trong form), trả về string
+                        if (field.value !== undefined && field.value !== null) {
+                          return field.value;
+                        }
+                        // ✅ Fallback: trả về từ categoryData hoặc undefined
+                        return categoryData?.imageUrl || undefined;
                       })();
 
+                      const imageKey = (() => {
+                        if (imageFile !== undefined) {
+                          if (imageFile instanceof File) {
+                            return `file-${imageFile.name}-${imageFile.size}`;
+                          }
+                          return "null";
+                        }
+                        if (currentCategoryState.latestImageUrl !== undefined) {
+                          return typeof currentCategoryState.latestImageUrl ===
+                            "string"
+                            ? currentCategoryState.latestImageUrl
+                            : "null";
+                        }
+                        if (field.value !== undefined && field.value !== null) {
+                          return typeof field.value === "string"
+                            ? field.value
+                            : "null";
+                        }
+                        return categoryData?.imageUrl || "no-image";
+                      })();
+
+                      const previewUrl =
+                        imageFile === undefined &&
+                        currentCategoryState.latestImageUrl === undefined &&
+                        field.value === undefined &&
+                        field.value !== null && // ✅ Không dùng previewUrl nếu field.value là null (user đã xóa)
+                        categoryData?.imageUrl &&
+                        categoryData.imageUrl !== null && // ✅ Không dùng previewUrl nếu imageUrl là null (đã xóa)
+                        currentCategoryState.latestImageUrl !== null // ✅ Không dùng previewUrl nếu user đã xóa (latestImageUrl = null)
+                          ? `${categoryData.imageUrl}?_t=${currentCategoryState.timestampKey}`
+                          : null;
+
                       return (
-                      <ImageUpload
-                          key={(() => {
-                            // ✅ Key thay đổi khi image URL thay đổi để force re-render
-                            const currentValue = (() => {
-                              if (field.value !== undefined) {
-                                return field.value instanceof File 
-                                  ? `file-${field.value.name}-${field.value.size}` 
-                                  : field.value === null ? "null" : String(field.value);
-                              }
-                              if (latestImageUrl !== undefined) {
-                                return typeof latestImageUrl === "string" ? latestImageUrl : "null";
-                              }
-                              return categoryData?.imageUrl || category?.imageUrl || "no-image";
-                            })();
-                            return `image-upload-${categoryData?.id || category?.id || "new"}-${currentValue}`;
-                          })()}
-                        variant="rectangle"
-                        folder={uploadFolder}
-                        size="lg"
+                        <ImageUpload
+                          key={`category-image-${currentCategoryId}-${imageKey}-v${currentCategoryState.dataVersion}-t${currentCategoryState.timestampKey}`}
+                          variant="rectangle"
+                          folder={uploadFolder}
+                          size="lg"
                           value={effectiveValue}
-                        previewUrl={
-                            // Chỉ dùng previewUrl khi field.value là undefined và không có latestImageUrl
-                            // Nếu field.value === null (user đã xóa), không dùng previewUrl
-                            field.value === undefined && latestImageUrl === undefined
-                              ? (categoryData?.imageUrl &&
-                            typeof categoryData.imageUrl === "string"
-                            ? categoryData.imageUrl
-                            : category?.imageUrl &&
-                              typeof category.imageUrl === "string"
-                            ? category.imageUrl
-                                  : null)
-                            : null
-                        }
-                        onChange={(file) => {
-                            field.onChange(file || null);
-                            form.trigger("imageUrl");
-                        }}
-                        disabled={
-                          isSubmitting || (isEditing && isLoadingCategory)
-                        }
-                      />
+                          cacheKey={currentCategoryState.timestampKey}
+                          previewUrl={previewUrl}
+                          onChange={handleImageChange}
+                          disabled={
+                            isSubmitting || (isEditing && isLoadingCategory)
+                          }
+                        />
                       );
                     }}
                   />

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-
+import { useCallback, useMemo, useState } from "react";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useCategories } from "@/hooks/use-categories";
@@ -20,6 +20,77 @@ import { STATUS_OPTIONS } from "@/config/options";
 import { CategoryTable } from "@/components/features/catalog/category-table";
 import { DeleteCategoryDialog } from "@/components/features/catalog/delete-category-dialog";
 import dynamic from "next/dynamic";
+
+const ORDER_CATEGORIES = (a: Category, b: Category) => {
+  const orderDiff =
+    (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+  if (orderDiff !== 0) {
+    return orderDiff;
+  }
+  return a.name.localeCompare(b.name);
+};
+
+const cloneCategoryTree = (nodes: Category[] | undefined): Category[] => {
+  if (!nodes) return [];
+  return nodes.map((node) => ({
+    ...node,
+    children: cloneCategoryTree(node.children ?? undefined),
+  }));
+};
+
+const sortCategoryTree = (nodes: Category[] | undefined) => {
+  if (!nodes) return;
+  nodes.sort(ORDER_CATEGORIES);
+  nodes.forEach((node) => sortCategoryTree(node.children));
+};
+
+const removeNodeFromTree = (
+  nodes: Category[],
+  targetId: number
+): Category | undefined => {
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    if (node.id === targetId) {
+      const [removed] = nodes.splice(i, 1);
+      return removed;
+    }
+    if (node.children) {
+      const removedChild = removeNodeFromTree(node.children, targetId);
+      if (removedChild) {
+        return removedChild;
+      }
+    }
+  }
+  return undefined;
+};
+
+const insertNodeIntoTree = (
+  nodes: Category[],
+  node: Category,
+  parentId: number | null
+): boolean => {
+  if (parentId === null) {
+    nodes.push(node);
+    return true;
+  }
+
+  for (const current of nodes) {
+    if (current.id === parentId) {
+      current.children = current.children ?? [];
+      current.children.push(node);
+      return true;
+    }
+    if (current.children && insertNodeIntoTree(current.children, node, parentId)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const createTreeNode = (category: Category, children?: Category[]): Category => ({
+  ...category,
+  children: children ? cloneCategoryTree(children) : [],
+});
 
 // Lazy load form component để giảm initial bundle size
 const CategoryFormSheet = dynamic(
@@ -38,6 +109,7 @@ import { useI18n } from "@/hooks/use-i18n";
 
 export default function CategoryManagementPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CatalogStatus | "ALL">(
     "ALL"
@@ -83,6 +155,40 @@ export default function CategoryManagementPage() {
   const totalPages = categoryPage?.totalPages ?? 0;
 
   const queryClient = useQueryClient();
+  const syncTreeCache = useCallback(
+    (category: Category, action: "create" | "update") => {
+      queryClient.setQueryData<Category[]>(
+        ["admin", "categories", "tree"],
+        (current) => {
+          if (!current) return current;
+          const treeClone = cloneCategoryTree(current);
+          let nodeToInsert: Category;
+
+          if (action === "create") {
+            nodeToInsert = createTreeNode(category);
+          } else {
+            const removedNode = removeNodeFromTree(treeClone, category.id);
+            nodeToInsert = createTreeNode(
+              category,
+              removedNode?.children
+            );
+          }
+
+          const inserted = insertNodeIntoTree(
+            treeClone,
+            nodeToInsert,
+            category.parentId ?? null
+          );
+          if (!inserted) {
+            treeClone.push(nodeToInsert);
+          }
+          sortCategoryTree(treeClone);
+          return treeClone;
+        }
+      );
+    },
+    [queryClient]
+  );
 
   // Cancel queries when component unmounts to prevent memory leaks
   useCancelQueriesOnUnmount(queryClient, ["admin", "categories"]);
@@ -207,6 +313,7 @@ export default function CategoryManagementPage() {
           }
         }}
         category={selectedCategory}
+        onCategoryMutated={syncTreeCache}
       />
 
       {/* Delete Category Dialog */}

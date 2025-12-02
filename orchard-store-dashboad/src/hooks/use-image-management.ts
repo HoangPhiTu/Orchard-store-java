@@ -1,28 +1,32 @@
 import { useCallback } from "react";
 import { uploadService } from "@/services/upload.service";
 import { markImageForDeletion } from "@/services/image-deletion.service";
-import { getImageFolder, generateImageFileName, type ImageEntityType } from "@/lib/image/image-utils";
+import {
+  getImageFolder,
+  generateImageFileName,
+  type ImageEntityType,
+} from "@/lib/image/image-utils";
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 
 /**
  * Image Management Hook
- * 
+ *
  * Reusable hook for handling image upload and deletion across all entities
  * Implements best practices from IMAGE_MANAGEMENT_STRATEGY.md
- * 
+ *
  * Features:
  * - Date partitioning for folder structure
  * - Soft delete (mark for deletion)
  * - Error handling and cleanup
- * 
+ *
  * @param entityType - Entity type (users, brands, categories, etc.)
  * @returns Image management functions
  */
 export function useImageManagement(entityType: ImageEntityType) {
   /**
    * Upload image with date partitioning
-   * 
+   *
    * @param file - File to upload
    * @returns Image URL
    */
@@ -31,11 +35,14 @@ export function useImageManagement(entityType: ImageEntityType) {
       try {
         // Generate folder with date partitioning
         const folder = getImageFolder(entityType);
-        
+
         // Upload image
         const imageUrl = await uploadService.uploadImage(file, folder);
-        
-        logger.debug(`Image uploaded successfully for ${entityType}:`, imageUrl);
+
+        logger.debug(
+          `Image uploaded successfully for ${entityType}:`,
+          imageUrl
+        );
         return imageUrl;
       } catch (error) {
         logger.error(`Failed to upload image for ${entityType}:`, error);
@@ -48,7 +55,7 @@ export function useImageManagement(entityType: ImageEntityType) {
   /**
    * Mark image for deletion (soft delete)
    * Image will be deleted later by cleanup job
-   * 
+   *
    * @param imageUrl - Image URL to mark for deletion
    * @param entityId - Optional entity ID
    * @param reason - Reason for deletion
@@ -70,7 +77,7 @@ export function useImageManagement(entityType: ImageEntityType) {
           entityId: options?.entityId,
           reason: options?.reason || "replaced",
         });
-        
+
         logger.debug(`Image marked for deletion: ${imageUrl}`);
       } catch (error) {
         // Don't throw - just log warning
@@ -85,7 +92,7 @@ export function useImageManagement(entityType: ImageEntityType) {
 
   /**
    * Handle image update with soft delete
-   * 
+   *
    * @param newImageUrl - New image URL (or File)
    * @param previousImageUrl - Previous image URL
    * @param entityId - Entity ID
@@ -108,20 +115,21 @@ export function useImageManagement(entityType: ImageEntityType) {
         finalImageUrl = null;
       }
 
-      // Mark old image for deletion if changed
+      // Mark old image for deletion (single call)
       if (previousImageUrl && finalImageUrl !== previousImageUrl) {
-        await markImageForDeletionSafe(previousImageUrl, {
-          entityId,
-          reason: "replaced",
-        });
-      }
-
-      // Mark for deletion if image removed
-      if (previousImageUrl && !finalImageUrl) {
-        await markImageForDeletionSafe(previousImageUrl, {
-          entityId,
-          reason: "removed",
-        });
+        // Có ảnh mới khác ảnh cũ -> REPLACED
+        if (finalImageUrl) {
+          await markImageForDeletionSafe(previousImageUrl, {
+            entityId,
+            reason: "replaced",
+          });
+        } else {
+          // finalImageUrl null/undefined -> ảnh bị xóa hoàn toàn -> REMOVED
+          await markImageForDeletionSafe(previousImageUrl, {
+            entityId,
+            reason: "removed",
+          });
+        }
       }
 
       return finalImageUrl;
@@ -131,7 +139,7 @@ export function useImageManagement(entityType: ImageEntityType) {
 
   /**
    * Cleanup uploaded image if operation fails
-   * 
+   *
    * @param imageUrl - Image URL to cleanup
    */
   const cleanupImage = useCallback(
@@ -158,4 +166,3 @@ export function useImageManagement(entityType: ImageEntityType) {
     getImageFolder: () => getImageFolder(entityType),
   };
 }
-

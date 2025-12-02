@@ -114,7 +114,8 @@ export function TableToolbar({
               <DropdownMenuItem
                 key={size}
                 onClick={() => onPageSizeChange(size)}
-                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                data-active={size === pageSize}
+                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground data-[active=true]:font-semibold data-[active=true]:text-foreground"
               >
                 <span className="flex-1">
                   {size} {t("admin.users.rowsPerPage")}

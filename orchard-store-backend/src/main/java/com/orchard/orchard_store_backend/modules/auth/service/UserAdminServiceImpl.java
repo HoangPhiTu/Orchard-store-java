@@ -51,17 +51,40 @@ public class UserAdminServiceImpl implements UserAdminService {
     private final CacheService cacheService;
     
     private static final String USER_LIST_CACHE_KEY_PREFIX = "user:list:";
-    private static final long USER_LIST_CACHE_TTL_SECONDS = 300; // 5 minutes (legacy - no longer used for admin list)
+    private static final long USER_LIST_CACHE_TTL_SECONDS = 300; // 5 minutes
 
     @Override
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> getUsers(String keyword, String status, Pageable pageable) {
-        // NOTE: Admin list is not cached to avoid issues with pagination and realtime updates.
-        // For simplicity and reliability, always use Specification with LIKE filters
-        // instead of native full-text search (which can cause transaction issues).
+        // ✅ Cache nhẹ cho danh sách mặc định (không filter, trang 0) để tăng tốc lần load đầu
+        boolean isDefaultList =
+                (keyword == null || keyword.trim().isEmpty()) &&
+                (status == null || status.trim().isEmpty() || "ALL".equalsIgnoreCase(status)) &&
+                pageable.getPageNumber() == 0;
+
+        String cacheKey = null;
+        if (isDefaultList) {
+            cacheKey = USER_LIST_CACHE_KEY_PREFIX + "ALL:" +
+                    pageable.getPageNumber() + ":" + pageable.getPageSize();
+            Optional<Page<UserResponseDTO>> cached =
+                    cacheService.getCachedPage(cacheKey, pageable, UserResponseDTO.class);
+            if (cached.isPresent()) {
+                log.debug("User list cache hit for key: {}", cacheKey);
+                return cached.get();
+            }
+        }
+
+        // Luôn dùng Specification với LIKE filters để đảm bảo độ ổn định
         Specification<User> spec = buildUserSpecification(keyword, status);
-        return userRepository.findAll(spec, pageable)
+        Page<UserResponseDTO> result = userRepository.findAll(spec, pageable)
                 .map(userAdminMapper::toResponseDTO);
+
+        if (isDefaultList && cacheKey != null) {
+            cacheService.cachePage(cacheKey, result, USER_LIST_CACHE_TTL_SECONDS);
+            log.debug("Cached user list for key: {} (TTL: {}s)", cacheKey, USER_LIST_CACHE_TTL_SECONDS);
+        }
+
+        return result;
     }
 
     @Override
@@ -305,15 +328,9 @@ public class UserAdminServiceImpl implements UserAdminService {
         boolean isAvatarChanged = (newAvatarUrl == null && oldAvatarUrl != null)
                 || (newAvatarUrl != null && !newAvatarUrl.equals(oldAvatarUrl));
 
-        if (isAvatarChanged && oldAvatarUrl != null) {
-            try {
-                imageUploadService.deleteImage(oldAvatarUrl);
-            } catch (Exception e) {
-                log.warn("Không thể xóa avatar cũ của user {}: {}", targetUser.getId(), e.getMessage());
-            }
-        }
-
         if (isAvatarChanged) {
+            // Avatar sẽ được xử lý soft-delete qua image-deletion service (mark-for-deletion),
+            // không xóa trực tiếp tại đây để tránh chặn luồng người dùng.
             targetUser.setAvatarUrl(newAvatarUrl);
         }
         // Chỉ cho phép update status nếu không phải tự sửa
@@ -509,8 +526,6 @@ public class UserAdminServiceImpl implements UserAdminService {
         // Gác cổng: Kiểm tra quyền phân cấp trước khi xóa
         checkHierarchyPermission(user, currentUser);
 
-        String avatarUrl = user.getAvatarUrl();
-
         // Xóa user (cascade delete sẽ xóa các bản ghi liên quan như UserRole, LoginHistory)
         userRepository.delete(user);
         log.info("Deleted user: {} with email: {} by user: {}", 
@@ -519,14 +534,6 @@ public class UserAdminServiceImpl implements UserAdminService {
         
         // Evict user list cache
         evictUserListCache();
-
-        if (avatarUrl != null && !avatarUrl.trim().isEmpty()) {
-            try {
-                imageUploadService.deleteImage(avatarUrl);
-            } catch (Exception e) {
-                log.warn("Không thể xóa avatar của user {} sau khi xóa: {}", userId, e.getMessage());
-            }
-        }
     }
 
     @Override
@@ -574,8 +581,13 @@ public class UserAdminServiceImpl implements UserAdminService {
      * Evict user list cache
      */
     private void evictUserListCache() {
-        // User admin list is no longer cached, keep this method for future use.
-        log.debug("evictUserListCache called (no-op - user admin list is not cached)");
+        // Xóa cache các trang mặc định của danh sách user
+        int[] pageSizes = {10, 15, 20, 30};
+        for (int size : pageSizes) {
+            String cacheKey = USER_LIST_CACHE_KEY_PREFIX + "ALL:0:" + size;
+            cacheService.evict(cacheKey);
+        }
+        log.debug("User list cache evicted");
     }
 }
 
