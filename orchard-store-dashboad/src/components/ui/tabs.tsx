@@ -59,13 +59,18 @@ export function TabsTrigger({ value, children, className }: TabsTriggerProps) {
     <button
       type="button"
       onClick={() => context.onValueChange(value)}
+      data-state={isActive ? "active" : "inactive"}
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:opacity-50",
-        isActive
-          ? "bg-card text-foreground shadow-sm"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+        // Default styles only if no custom className with data-[state] selectors
+        !className?.includes("data-[state=")
+          ? isActive
+            ? "bg-card text-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          : "",
+        // Custom className from props (highest priority)
         className
       )}
     >

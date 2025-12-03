@@ -77,6 +77,18 @@ public class ProductAttribute {
     @Column(name = "help_text", columnDefinition = "TEXT")
     private String helpText;
 
+    @Column(name = "unit", length = 50)
+    private String unit;
+
+    /**
+     * Phạm vi sử dụng của thuộc tính:
+     * - PERFUME: Thuộc tính dùng cho Nước hoa
+     * - COSMETICS: Thuộc tính dùng cho Mỹ phẩm
+     * - COMMON: Dùng chung cho nhiều domain
+     */
+    @Column(name = "domain", length = 50)
+    private String domain;
+
     @Column(length = 20)
     @Builder.Default
     private String status = "ACTIVE";

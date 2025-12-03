@@ -102,6 +102,9 @@ export interface Translations {
       dashboard: string;
       brands: string;
       categories: string;
+      concentrations: string;
+      attributes: string;
+      warehouses: string;
       users: string;
     };
     layout: {
@@ -212,6 +215,19 @@ export interface Translations {
       brandName: string;
       loadingBrands: string;
       noBrandsFound: string;
+    };
+    attributes: {
+      title: string;
+      description: string;
+      attributeManagement: string;
+      manageAttributes: string;
+      addAttribute: string;
+      searchAttributes: string;
+      attributeName: string;
+      loadingAttributes: string;
+      noAttributes: string;
+      deleteConfirmTitle: string;
+      deleteConfirmMessage: string;
     };
     profile: {
       profile: string;
@@ -333,6 +349,62 @@ export interface Translations {
         invalidFile: string;
         createBrandSuccess: string;
         updateBrandSuccess: string;
+      };
+      attribute: {
+        addNewAttribute: string;
+        editAttribute: string;
+        updateAttributeInfo: string;
+        createNewAttribute: string;
+        basicInfo: string;
+        domainLabel: string;
+        domainDescription: string;
+        perfumeTab: string;
+        cosmeticsTab: string;
+        attributeNamePlaceholder: string;
+        attributeNameDescription: string;
+        attributeTypeDescription: string;
+        unitLabel: string;
+        unitDescription: string;
+        variantSpecificLabel: string;
+        variantSpecificDescription: string;
+        valuesTitle: string;
+        noValues: string;
+        addValue: string;
+        valuePlaceholder: string;
+        defaultLabel: string;
+        createAttributeSuccess: string;
+        updateAttributeSuccess: string;
+      };
+      concentration: {
+        addNewConcentration: string;
+        editConcentration: string;
+        updateConcentrationInfo: string;
+        createNewConcentration: string;
+        nameLabel: string;
+        nameDescription: string;
+        namePlaceholder: string;
+        slugLabel: string;
+        slugDescription: string;
+        slugPlaceholder: string;
+        descriptionLabel: string;
+        descriptionPlaceholder: string;
+        uiGroupTitle: string;
+        acronymLabel: string;
+        acronymDescription: string;
+        technicalGroupTitle: string;
+        minOilLabel: string;
+        minOilDescription: string;
+        maxOilLabel: string;
+        maxOilDescription: string;
+        longevityLabel: string;
+        longevityDescription: string;
+        intensityLabel: string;
+        intensityDescription: string;
+        displayOrderLabel: string;
+        displayOrderDescription: string;
+        statusLabel: string;
+        createConcentrationSuccess: string;
+        updateConcentrationSuccess: string;
       };
       common: {
         save: string;
@@ -456,6 +528,9 @@ export const translations: Record<Locale, Translations> = {
         dashboard: "Bảng điều khiển",
         brands: "Thương hiệu",
         categories: "Danh mục",
+        concentrations: "Nồng độ",
+        attributes: "Thuộc tính",
+        warehouses: "Kho hàng",
         users: "Người dùng",
       },
       layout: {
@@ -568,6 +643,20 @@ export const translations: Record<Locale, Translations> = {
         brandName: "Tên thương hiệu",
         loadingBrands: "Đang tải thương hiệu...",
         noBrandsFound: "Không tìm thấy thương hiệu",
+      },
+      attributes: {
+        title: "Quản lý thuộc tính",
+        description: "Quản lý tất cả thuộc tính sản phẩm trong hệ thống.",
+        attributeManagement: "Quản lý thuộc tính",
+        manageAttributes: "Quản lý tất cả thuộc tính sản phẩm trong hệ thống.",
+        addAttribute: "Thêm thuộc tính",
+        searchAttributes: "Tìm kiếm thuộc tính...",
+        attributeName: "Tên thuộc tính",
+        loadingAttributes: "Đang tải thuộc tính...",
+        noAttributes: "Không tìm thấy thuộc tính",
+        deleteConfirmTitle: "Xóa thuộc tính",
+        deleteConfirmMessage:
+          "Bạn có chắc chắn muốn xóa thuộc tính '{name}'? Hành động này không thể hoàn tác.",
       },
       profile: {
         profile: "Hồ sơ",
@@ -699,6 +788,74 @@ export const translations: Record<Locale, Translations> = {
           createBrandSuccess: "Tạo thương hiệu thành công!",
           updateBrandSuccess: "Cập nhật thương hiệu thành công!",
         },
+        attribute: {
+          addNewAttribute: "Thêm thuộc tính sản phẩm",
+          editAttribute: "Chỉnh sửa thuộc tính sản phẩm",
+          updateAttributeInfo: "Điều chỉnh thông tin của thuộc tính sản phẩm.",
+          createNewAttribute:
+            "Điền các thông tin bên dưới để tạo ra một thuộc tính sản phẩm dễ hiểu và có thể tái sử dụng.",
+          basicInfo: "Thông tin hiển thị",
+          domainLabel: "Thuộc nhóm sản phẩm",
+          domainDescription:
+            "Chọn nhóm sản phẩm mà thuộc tính này áp dụng. Ví dụ: Thuộc tính mô tả mùi hương nước hoa hay đặc tính của mỹ phẩm.",
+          perfumeTab: "Nước hoa",
+          cosmeticsTab: "Mỹ phẩm",
+          attributeNamePlaceholder: "Ví dụ: Màu sắc, Dung tích, Nhóm hương",
+          attributeNameDescription:
+            "Tên mà Admin và khách hàng sẽ nhìn thấy, ví dụ: Màu sắc, Dung tích, Nhóm hương, Loại da, Vấn đề da...",
+          attributeTypeLabel: "Kiểu dữ liệu thuộc tính",
+          attributeTypeDescription:
+            "Chọn cách người dùng nhập hoặc chọn giá trị: một lựa chọn (Select), nhiều lựa chọn (Multi-Select), dạng Bật/Tắt (Boolean) hoặc văn bản tự do (Text).",
+          unitLabel: "Đơn vị hiển thị (nếu có)",
+          unitDescription:
+            "Chỉ nhập khi thuộc tính có đơn vị đo lường, ví dụ: ml, g, %, giờ... Đơn vị sẽ được hiển thị bên cạnh giá trị (ví dụ: 50 ml, 8 giờ).",
+          variantSpecificLabel: "Dùng để tạo biến thể sản phẩm",
+          variantSpecificDescription:
+            "Bật khi thuộc tính này dùng để phân tách các biến thể khác nhau của cùng một sản phẩm (ví dụ: Dung tích 50ml, 100ml). Chỉ nên dùng với loại SELECT.",
+          valuesTitle: "Danh sách giá trị có thể chọn",
+          noValues:
+            'Chưa có giá trị nào. Nhấn "Thêm giá trị" và nhập các lựa chọn mà Admin có thể chọn cho thuộc tính này (ví dụ: Đỏ, Xanh, 50ml, 100ml).',
+          addValue: "Thêm giá trị mới",
+          valuePlaceholder: "Ví dụ: Đỏ, Xanh, 50ml, 8 giờ",
+          defaultLabel: "Giá trị mặc định",
+          createAttributeSuccess: "Tạo thuộc tính thành công!",
+          updateAttributeSuccess: "Cập nhật thuộc tính thành công!",
+        },
+        concentration: {
+          addNewConcentration: "Thêm nồng độ mới",
+          editConcentration: "Chỉnh sửa nồng độ",
+          updateConcentrationInfo: "Cập nhật thông tin nồng độ nước hoa.",
+          createNewConcentration: "Điền thông tin để tạo nồng độ nước hoa mới.",
+          nameLabel: "Tên nồng độ",
+          nameDescription: "Tên hiển thị của nồng độ nước hoa",
+          namePlaceholder: "Ví dụ: Eau de Parfum",
+          slugLabel: "Slug",
+          slugDescription: "Mã định danh URL (tự động tạo từ tên nếu để trống)",
+          slugPlaceholder: "eau-de-parfum",
+          descriptionLabel: "Mô tả",
+          descriptionPlaceholder: "Nhập mô tả...",
+          uiGroupTitle: "Hiển thị & Giao diện",
+          acronymLabel: "Tên viết tắt",
+          acronymDescription:
+            "Mã hiển thị ngắn gọn (ví dụ: EDP, EDT, EDC) - Tự động tạo từ tên nếu để trống",
+          technicalGroupTitle: "Thông số kỹ thuật",
+          minOilLabel: "Tỷ lệ tinh dầu tối thiểu (%)",
+          minOilDescription: "Tỷ lệ tinh dầu tối thiểu (0-100%)",
+          maxOilLabel: "Tỷ lệ tinh dầu tối đa (%)",
+          maxOilDescription: "Tỷ lệ tinh dầu tối đa (0-100%)",
+          longevityLabel: "Độ lưu hương (giờ)",
+          longevityDescription:
+            "Thời gian lưu hương trung bình (ví dụ: 6-8 giờ)",
+          intensityLabel: "Độ đậm đặc / Cường độ",
+          intensityDescription:
+            "Gợi ý cường độ mùi (nhẹ, vừa, mạnh) để hiển thị cho khách hàng",
+          displayOrderLabel: "Thứ tự hiển thị",
+          displayOrderDescription:
+            "Số thứ tự để sắp xếp nồng độ trong danh sách",
+          statusLabel: "Trạng thái",
+          createConcentrationSuccess: "Tạo nồng độ thành công!",
+          updateConcentrationSuccess: "Cập nhật nồng độ thành công!",
+        },
         common: {
           save: "Lưu",
           cancel: "Hủy",
@@ -818,6 +975,9 @@ export const translations: Record<Locale, Translations> = {
         dashboard: "Dashboard",
         brands: "Brands",
         categories: "Categories",
+        concentrations: "Concentrations",
+        attributes: "Attributes",
+        warehouses: "Warehouses",
         users: "Users",
       },
       layout: {
@@ -929,6 +1089,20 @@ export const translations: Record<Locale, Translations> = {
         brandName: "Brand Name",
         loadingBrands: "Loading brands...",
         noBrandsFound: "No brands found",
+      },
+      attributes: {
+        title: "Attribute Management",
+        description: "Manage all product attributes in the system.",
+        attributeManagement: "Attribute Management",
+        manageAttributes: "Manage all product attributes in the system.",
+        addAttribute: "Add Attribute",
+        searchAttributes: "Search attributes...",
+        attributeName: "Attribute Name",
+        loadingAttributes: "Loading attributes...",
+        noAttributes: "No attributes found",
+        deleteConfirmTitle: "Delete Attribute",
+        deleteConfirmMessage:
+          "Are you sure you want to delete attribute '{name}'? This action cannot be undone.",
       },
       profile: {
         profile: "Profile",
@@ -1066,6 +1240,76 @@ export const translations: Record<Locale, Translations> = {
           invalidFile: "Invalid file",
           createBrandSuccess: "Brand created successfully!",
           updateBrandSuccess: "Brand updated successfully!",
+        },
+        attribute: {
+          addNewAttribute: "Add product attribute",
+          editAttribute: "Edit product attribute",
+          updateAttributeInfo: "Adjust product attribute information.",
+          createNewAttribute:
+            "Fill in the fields below to create a clear and reusable product attribute.",
+          basicInfo: "Display information",
+          domainLabel: "Applies to product group",
+          domainDescription:
+            "Choose which product group this attribute belongs to. For example, fragrance attributes for Perfume or skin-related attributes for Cosmetics.",
+          perfumeTab: "Perfume",
+          cosmeticsTab: "Cosmetics",
+          attributeNamePlaceholder: "Example: Color, Volume, Fragrance family",
+          attributeNameDescription:
+            "Name shown to Admin and customers, e.g. Color, Volume, Fragrance family, Skin type, Skin concern...",
+          attributeTypeLabel: "Attribute value type",
+          attributeTypeDescription:
+            "Choose how values are selected: single choice (Select), multiple choice (Multi-Select), On/Off (Boolean), or free text (Text).",
+          unitLabel: "Display unit (optional)",
+          unitDescription:
+            "Only fill in when the attribute has a measurement unit, e.g. ml, g, %, hours... The unit will be shown next to the value (e.g. 50 ml, 8 hours).",
+          variantSpecificLabel: "Used for product variants",
+          variantSpecificDescription:
+            "Enable when this attribute is used to differentiate variants of the same product (e.g. Volume 50ml, 100ml). Should only be used with SELECT type.",
+          valuesTitle: "Selectable values",
+          noValues:
+            'No values yet. Click "Add value" and enter the options Admin can choose for this attribute (e.g. Red, Blue, 50ml, 8 hours).',
+          addValue: "Add new value",
+          valuePlaceholder: "Example: Red, Blue, 50ml, 8 hours",
+          defaultLabel: "Default value",
+          createAttributeSuccess: "Attribute created successfully!",
+          updateAttributeSuccess: "Attribute updated successfully!",
+        },
+        concentration: {
+          addNewConcentration: "Add new concentration",
+          editConcentration: "Edit concentration",
+          updateConcentrationInfo: "Update perfume concentration information.",
+          createNewConcentration:
+            "Fill in the information to create a new perfume concentration.",
+          nameLabel: "Concentration name",
+          nameDescription: "Display name of the perfume concentration",
+          namePlaceholder: "Example: Eau de Parfum",
+          slugLabel: "Slug",
+          slugDescription:
+            "URL identifier (auto generated from name if left blank)",
+          slugPlaceholder: "eau-de-parfum",
+          descriptionLabel: "Description",
+          descriptionPlaceholder: "Enter description...",
+          uiGroupTitle: "Display & UI",
+          acronymLabel: "Short code",
+          acronymDescription:
+            "Short display code (e.g. EDP, EDT, EDC) - Auto generated from name if left blank",
+          technicalGroupTitle: "Technical details",
+          minOilLabel: "Minimum oil concentration (%)",
+          minOilDescription: "Minimum oil percentage (0-100%)",
+          maxOilLabel: "Maximum oil concentration (%)",
+          maxOilDescription: "Maximum oil percentage (0-100%)",
+          longevityLabel: "Longevity (hours)",
+          longevityDescription:
+            "Average longevity range (e.g. 6-8 hours) for display",
+          intensityLabel: "Intensity",
+          intensityDescription:
+            "Suggested intensity level (soft, moderate, strong) for customers",
+          displayOrderLabel: "Display order",
+          displayOrderDescription:
+            "Order number to sort this concentration in lists",
+          statusLabel: "Status",
+          createConcentrationSuccess: "Concentration created successfully!",
+          updateConcentrationSuccess: "Concentration updated successfully!",
         },
         common: {
           save: "Save",

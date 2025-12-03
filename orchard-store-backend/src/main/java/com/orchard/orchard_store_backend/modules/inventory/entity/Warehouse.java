@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -35,14 +36,22 @@ public class Warehouse {
 
     @Column(name = "is_default")
     @Builder.Default
-    private Boolean isDefault = false;
+    private Boolean isDefault = Boolean.FALSE;
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
     @Builder.Default
-    private String status = "ACTIVE";
+    private Status status = Status.ACTIVE;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-}
 
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public enum Status {
+        ACTIVE, INACTIVE
+    }
+}

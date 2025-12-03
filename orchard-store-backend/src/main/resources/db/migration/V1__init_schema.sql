@@ -177,17 +177,35 @@ CREATE TABLE concentrations (
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
+    acronym VARCHAR(20),
+    color_code VARCHAR(7),
+    min_oil_percentage INTEGER CHECK (min_oil_percentage IS NULL OR (min_oil_percentage >= 0 AND min_oil_percentage <= 100)),
+    max_oil_percentage INTEGER CHECK (max_oil_percentage IS NULL OR (max_oil_percentage >= 0 AND max_oil_percentage <= 100)),
+    longevity VARCHAR(100),
     intensity_level INTEGER DEFAULT 1 CHECK (intensity_level BETWEEN 1 AND 10),
     display_order INTEGER DEFAULT 0,
     status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (
+        min_oil_percentage IS NULL 
+        OR max_oil_percentage IS NULL 
+        OR min_oil_percentage <= max_oil_percentage
+    )
 );
 
 CREATE INDEX idx_concentrations_slug ON concentrations(slug);
 CREATE INDEX idx_concentrations_status ON concentrations(status) WHERE status = 'ACTIVE';
 CREATE INDEX idx_concentrations_intensity ON concentrations(intensity_level);
 CREATE INDEX idx_concentrations_display_order ON concentrations(display_order);
+CREATE INDEX idx_concentrations_acronym ON concentrations(acronym) WHERE acronym IS NOT NULL;
+CREATE INDEX idx_concentrations_color_code ON concentrations(color_code) WHERE color_code IS NOT NULL;
+
+COMMENT ON COLUMN concentrations.acronym IS 'Tên viết tắt của nồng độ (ví dụ: EDP, EDT, EDC) - dùng để hiển thị trên Product Card';
+COMMENT ON COLUMN concentrations.color_code IS 'Mã màu hex đại diện cho nồng độ (ví dụ: #FF5733) - dùng để phân biệt trực quan';
+COMMENT ON COLUMN concentrations.min_oil_percentage IS 'Tỷ lệ tinh dầu tối thiểu (0-100%) - dùng trong bảng thông số kỹ thuật';
+COMMENT ON COLUMN concentrations.max_oil_percentage IS 'Tỷ lệ tinh dầu tối đa (0-100%) - dùng trong bảng thông số kỹ thuật';
+COMMENT ON COLUMN concentrations.longevity IS 'Độ lưu hương ước tính (ví dụ: "6 - 8 tiếng" hoặc "Trên 12 tiếng") - thông tin khách hàng quan tâm';
 
 -- ============================================================================
 -- PHẦN 3: PRODUCTS & VARIANTS
@@ -298,6 +316,7 @@ CREATE TABLE product_attributes (
     validation_rules JSONB,
     description TEXT,
     help_text TEXT,
+    unit VARCHAR(50),
     status VARCHAR(20) DEFAULT 'ACTIVE',
     created_by BIGINT,
     updated_by BIGINT,

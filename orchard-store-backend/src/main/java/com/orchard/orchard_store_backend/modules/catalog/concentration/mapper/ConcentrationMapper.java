@@ -9,6 +9,7 @@ import org.mapstruct.Mapping;
 public interface ConcentrationMapper {
 
     @Mapping(target = "status", expression = "java(concentration.getStatus().name())")
+    @Mapping(target = "displayName", expression = "java(concentration.getDisplayName())")
     ConcentrationDTO toDTO(Concentration concentration);
 
     @Mapping(target = "status", expression = "java(dto.getStatus() != null ? Concentration.Status.valueOf(dto.getStatus().toUpperCase()) : Concentration.Status.ACTIVE)")

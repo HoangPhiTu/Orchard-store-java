@@ -31,6 +31,21 @@ public class Concentration {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(length = 20)
+    private String acronym;
+
+    @Column(name = "color_code", length = 7)
+    private String colorCode;
+
+    @Column(name = "min_oil_percentage")
+    private Integer minOilPercentage;
+
+    @Column(name = "max_oil_percentage")
+    private Integer maxOilPercentage;
+
+    @Column(length = 100)
+    private String longevity;
+
     @Column(name = "intensity_level")
     @Builder.Default
     private Integer intensityLevel = 1;
@@ -51,6 +66,29 @@ public class Concentration {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * Virtual attribute: Display name kết hợp name và acronym
+     * Format: {name} ({acronym})
+     * Ví dụ: "Eau de Toilette (EDT)"
+     * 
+     * Xử lý ngoại lệ:
+     * - Nếu acronym rỗng hoặc null -> chỉ trả về name
+     * - Nếu acronym giống hệt name -> chỉ trả về name (tránh "Parfum (Parfum)")
+     */
+    @Transient
+    public String getDisplayName() {
+        if (acronym == null || acronym.trim().isEmpty()) {
+            return name;
+        }
+        
+        // Kiểm tra nếu acronym giống hệt name (case-insensitive)
+        if (acronym.trim().equalsIgnoreCase(name.trim())) {
+            return name;
+        }
+        
+        return name + " (" + acronym.trim() + ")";
+    }
 
     public enum Status {
         ACTIVE, INACTIVE

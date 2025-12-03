@@ -1,21 +1,22 @@
 # User Management - Documentation
 
-**Module:** User Management  
+**Module:** User Management (Quản lý Người dùng)  
 **Version:** 1.0  
-**Last Updated:** $(date)
+**Last Updated:** 2025-12-03
 
 ---
 
 ## 📋 Mục Lục
 
 1. [Tổng Quan](#tổng-quan)
-2. [Backend Implementation](#backend-implementation)
-3. [Frontend Implementation](#frontend-implementation)
-4. [API Documentation](#api-documentation)
-5. [Caching Strategy](#caching-strategy)
-6. [Internationalization (i18n)](#internationalization-i18n)
-7. [Performance Optimizations](#performance-optimizations)
+2. [Database Schema](#database-schema)
+3. [Backend Implementation](#backend-implementation)
+4. [Frontend Implementation](#frontend-implementation)
+5. [API Documentation](#api-documentation)
+6. [Tính Năng Đặc Biệt](#tính-năng-đặc-biệt)
+7. [Caching Strategy](#caching-strategy)
 8. [Code Examples](#code-examples)
+9. [Testing Guide](#testing-guide)
 
 ---
 
@@ -23,7 +24,7 @@
 
 Module **User Management** cung cấp đầy đủ các chức năng quản lý người dùng trong hệ thống admin, bao gồm:
 
-- ✅ Xem danh sách users với tìm kiếm và phân trang
+- ✅ Xem danh sách users với tìm kiếm, lọc và phân trang
 - ✅ Xem chi tiết user
 - ✅ Tạo user mới
 - ✅ Cập nhật thông tin user
@@ -31,6 +32,7 @@ Module **User Management** cung cấp đầy đủ các chức năng quản lý 
 - ✅ Reset password cho user
 - ✅ Xóa user
 - ✅ Xem lịch sử đăng nhập
+- ✅ Quản lý roles và permissions (RBAC)
 
 ### Tech Stack
 
@@ -40,6 +42,8 @@ Module **User Management** cung cấp đầy đủ các chức năng quản lý 
 - Spring Data JPA
 - Spring Cache (Redis)
 - Spring Security
+- MapStruct (DTO Mapping)
+- Flyway (Database Migration)
 
 **Frontend:**
 
@@ -48,100 +52,256 @@ Module **User Management** cung cấp đầy đủ các chức năng quản lý 
 - TypeScript
 - Tailwind CSS
 - shadcn/ui
+- React Hook Form + Zod
+
+---
+
+## 🗄️ Database Schema
+
+### Bảng `users`
+
+```sql
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255),
+    phone VARCHAR(20),
+    avatar_url VARCHAR(500),
+    role VARCHAR(20) DEFAULT 'ADMIN',
+    primary_role_id BIGINT,
+    additional_permissions JSONB DEFAULT '{}'::jsonb,
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'BANNED', 'SUSPENDED')),
+    failed_login_attempts INTEGER DEFAULT 0,
+    locked_until TIMESTAMP,
+    password_changed_at TIMESTAMP,
+    last_password_reset_request TIMESTAMP,
+    last_login TIMESTAMP,
+    last_login_ip VARCHAR(45),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (failed_login_attempts >= 0)
+);
+```
+
+### Indexes
+
+```sql
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_primary_role ON users(primary_role_id) WHERE primary_role_id IS NOT NULL;
+CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_additional_permissions ON users USING GIN (additional_permissions);
+CREATE INDEX idx_users_locked ON users(locked_until) WHERE locked_until IS NOT NULL;
+```
+
+### Mô Tả Các Trường
+
+| Trường                        | Kiểu         | Mô Tả                                         | Ví Dụ                 |
+| ----------------------------- | ------------ | --------------------------------------------- | --------------------- |
+| `id`                          | BIGSERIAL    | Primary key tự động tăng                      | `1`                   |
+| `email`                       | VARCHAR(255) | Email đăng nhập (unique)                      | `"admin@example.com"` |
+| `password`                    | VARCHAR(255) | Mật khẩu đã hash (BCrypt)                     | `"$2a$10$..."`        |
+| `full_name`                   | VARCHAR(255) | Họ và tên đầy đủ                              | `"Nguyễn Văn A"`      |
+| `phone`                       | VARCHAR(20)  | Số điện thoại                                 | `"0123456789"`        |
+| `avatar_url`                  | VARCHAR(500) | URL ảnh đại diện                              | `"https://..."`       |
+| `role`                        | VARCHAR(20)  | Role cũ (legacy, backward compatibility)      | `"ADMIN"`             |
+| `primary_role_id`             | BIGINT       | ID role chính (RBAC)                          | `1`                   |
+| `additional_permissions`      | JSONB        | Permissions bổ sung (override từ roles)       | `{"products": ["*"]}` |
+| `status`                      | VARCHAR(20)  | Trạng thái (ACTIVE/INACTIVE/BANNED/SUSPENDED) | `"ACTIVE"`            |
+| `failed_login_attempts`       | INTEGER      | Số lần đăng nhập sai                          | `0`                   |
+| `locked_until`                | TIMESTAMP    | Thời gian khóa đến khi nào                    | `2025-12-03 10:00:00` |
+| `password_changed_at`         | TIMESTAMP    | Thời gian đổi mật khẩu lần cuối               | `2025-12-03 10:00:00` |
+| `last_password_reset_request` | TIMESTAMP    | Thời gian yêu cầu reset password lần cuối     | `2025-12-03 10:00:00` |
+| `last_login`                  | TIMESTAMP    | Thời gian đăng nhập lần cuối                  | `2025-12-03 10:00:00` |
+| `last_login_ip`               | VARCHAR(45)  | IP đăng nhập lần cuối                         | `"192.168.1.1"`       |
+| `notes`                       | TEXT         | Ghi chú về user                               | `"User VIP"`          |
+| `created_at`                  | TIMESTAMP    | Thời gian tạo                                 | `2025-12-03 10:00:00` |
+| `updated_at`                  | TIMESTAMP    | Thời gian cập nhật                            | `2025-12-03 10:00:00` |
+
+### Bảng `user_roles` (Many-to-Many)
+
+```sql
+CREATE TABLE user_roles (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    role_id BIGINT NOT NULL,
+    assigned_by BIGINT,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    UNIQUE(user_id, role_id)
+);
+
+CREATE INDEX idx_user_roles_user ON user_roles(user_id);
+CREATE INDEX idx_user_roles_role ON user_roles(role_id);
+CREATE INDEX idx_user_roles_active ON user_roles(user_id, is_active) WHERE is_active = true;
+```
+
+### Bảng `login_history`
+
+```sql
+CREATE TABLE login_history (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    device_type VARCHAR(50),
+    browser VARCHAR(100),
+    os VARCHAR(100),
+    location VARCHAR(255),
+    login_status VARCHAR(20) NOT NULL CHECK (login_status IN ('SUCCESS', 'FAILED', 'LOCKED')),
+    failure_reason VARCHAR(255),
+    login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_login_history_user ON login_history(user_id);
+CREATE INDEX idx_login_history_email ON login_history(email);
+CREATE INDEX idx_login_history_time ON login_history(login_at DESC);
+CREATE INDEX idx_login_history_status ON login_history(login_status);
+```
+
+### Constraints
+
+- **Unique Constraint:** `email` phải unique
+- **Check Constraint:**
+  - `status` chỉ được là `ACTIVE`, `INACTIVE`, `BANNED`, hoặc `SUSPENDED`
+  - `failed_login_attempts >= 0`
+  - `login_status` chỉ được là `SUCCESS`, `FAILED`, hoặc `LOCKED`
+- **Foreign Keys:**
+  - `users.primary_role_id` → `roles.id`
+  - `user_roles.user_id` → `users.id` (ON DELETE CASCADE)
+  - `user_roles.role_id` → `roles.id` (ON DELETE CASCADE)
+  - `login_history.user_id` → `users.id` (ON DELETE SET NULL)
 
 ---
 
 ## 🔧 Backend Implementation
 
-### 1. Controller
+### Package Structure
 
-**File:** `UserAdminController.java`  
-**Path:** `orchard-store-backend/src/main/java/com/orchard/orchard_store_backend/modules/auth/controller/UserAdminController.java`
+```
+com.orchard.orchard_store_backend.modules.auth
+├── controller/
+│   └── UserAdminController.java
+├── service/
+│   ├── UserAdminService.java
+│   └── UserAdminServiceImpl.java
+├── repository/
+│   └── UserRepository.java
+├── entity/
+│   └── User.java
+├── dto/
+│   ├── UserResponseDTO.java
+│   ├── UserCreateRequestDTO.java
+│   └── UserUpdateRequestDTO.java
+└── mapper/
+    └── UserAdminMapper.java
+```
 
-#### Security
-
-- Tất cả endpoints yêu cầu role `ADMIN`
-- Sử dụng `@PreAuthorize("hasRole('ADMIN')")`
-
-#### Endpoints
-
-| Method | Endpoint                               | Mô tả                                         |
-| ------ | -------------------------------------- | --------------------------------------------- |
-| GET    | `/api/admin/users`                     | Lấy danh sách users với pagination và filters |
-| GET    | `/api/admin/users/{id}`                | Lấy chi tiết user theo ID                     |
-| POST   | `/api/admin/users`                     | Tạo user mới                                  |
-| PUT    | `/api/admin/users/{id}`                | Cập nhật thông tin user                       |
-| PUT    | `/api/admin/users/{id}/toggle-status`  | Khóa/Mở khóa user                             |
-| PUT    | `/api/admin/users/{id}/reset-password` | Reset password cho user                       |
-| DELETE | `/api/admin/users/{id}`                | Xóa user                                      |
-| GET    | `/api/admin/users/{id}/login-history`  | Lấy lịch sử đăng nhập của user                |
-
-### 2. Service
-
-**File:** `UserAdminServiceImpl.java`  
-**Path:** `orchard-store-backend/src/main/java/com/orchard/orchard_store_backend/modules/auth/service/UserAdminServiceImpl.java`
-
-#### Key Methods
-
-##### `getUserById(Long id)`
-
-- **Caching:** `@Cacheable(value = "users", key = "#id")`
-- **Optimization:** Sử dụng `findByIdWithRoles()` với EntityGraph để tránh N+1 query
-- **Return:** `UserResponseDTO` với đầy đủ thông tin user và roles
+### Entity: `User.java`
 
 ```java
-@Override
-@Transactional(readOnly = true)
-@Cacheable(value = "users", key = "#id", unless = "#result == null")
-public UserResponseDTO getUserById(Long id) {
-    log.info("Getting user by ID: {} (cache miss)", id);
-    User user = userRepository.findByIdWithRoles(id)
-            .orElseThrow(() -> new ResourceNotFoundException("User", id));
-    return userAdminMapper.toDTO(user);
+@Entity
+@Table(name = "users")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, length = 255)
+    private String email;
+
+    @Column(nullable = false, length = 255)
+    private String password;
+
+    @Column(name = "full_name", length = 255)
+    private String fullName;
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
+    // Legacy role field (backward compatibility)
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private LegacyRole role = LegacyRole.ADMIN;
+
+    // Enhanced role management (RBAC ready)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "primary_role_id")
+    private Role primaryRole;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "additional_permissions", columnDefinition = "jsonb")
+    @Builder.Default
+    private Map<String, Object> additionalPermissions = Map.of();
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private Status status = Status.ACTIVE;
+
+    @Column(name = "failed_login_attempts")
+    @Builder.Default
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
+    @Column(name = "last_login")
+    private LocalDateTime lastLogin;
+
+    @Column(name = "last_login_ip", length = 45)
+    private String lastLoginIp;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "user_roles",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    @Builder.Default
+    private List<Role> roles = new ArrayList<>();
+
+    public enum Status {
+        ACTIVE, INACTIVE, BANNED, SUSPENDED
+    }
 }
 ```
 
-##### `getUsers(String keyword, String status, Pageable pageable)`
+**Đặc điểm:**
 
-- **Pagination:** Hỗ trợ phân trang với Spring Data JPA
-- **Search:** Tìm kiếm theo email, tên, số điện thoại
-- **Filter:** Lọc theo status (ACTIVE, INACTIVE)
-- **Sort:** Mặc định sort theo `createdAt DESC`
+- Hỗ trợ RBAC (Role-Based Access Control) với bảng `user_roles`
+- Legacy role field để backward compatibility
+- Additional permissions (JSONB) để override permissions từ roles
+- Security fields: `failed_login_attempts`, `locked_until`
+- Audit fields: `last_login`, `last_login_ip`
 
-##### `updateUser(Long id, UserUpdateRequestDTO request)`
-
-- **Cache Eviction:** `@CacheEvict(value = "users", key = "#id")`
-- **Validation:** Validate email unique, phone unique
-- **Roles:** Cập nhật roles của user
-
-##### `toggleUserStatus(Long id)`
-
-- **Cache Eviction:** `@CacheEvict(value = "users", key = "#id")`
-- **Logic:** Chuyển đổi giữa ACTIVE và INACTIVE
-
-##### `deleteUser(Long id)`
-
-- **Cache Eviction:** `@CacheEvict(value = "users", allEntries = true)`
-- **Validation:** Không cho phép xóa chính mình
-
-### 3. Repository
-
-**File:** `UserRepository.java`
-
-#### Custom Methods
+### DTO: `UserResponseDTO.java`
 
 ```java
-@Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.id = :id")
-Optional<User> findByIdWithRoles(@Param("id") Long id);
-```
-
-- Sử dụng `LEFT JOIN FETCH` để load roles cùng lúc, tránh N+1 query
-
-### 4. DTOs
-
-#### `UserResponseDTO`
-
-```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class UserResponseDTO {
     private Long id;
     private String email;
@@ -152,77 +312,154 @@ public class UserResponseDTO {
     private List<RoleDTO> roles;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime lastLogin;
+    private String lastLoginIp;
 }
 ```
 
-#### `UserCreateRequestDTO`
+### Service: `UserAdminServiceImpl.java`
 
-```java
-public class UserCreateRequestDTO {
-    @NotBlank
-    @Email
-    private String email;
+**Các phương thức chính:**
 
-    @NotBlank
-    private String password;
+1. **`getUserById(Long id)`**
 
-    @NotBlank
-    private String fullName;
+   - **Caching:** `@Cacheable(value = "users", key = "#id")`
+   - **Optimization:** Sử dụng `findByIdWithRoles()` với EntityGraph để tránh N+1 query
+   - **Return:** `UserResponseDTO` với đầy đủ thông tin user và roles
 
-    private String phone;
-    private List<Long> roleIds;
-}
-```
+2. **`getUsers(keyword, status, pageable)`**
 
-#### `UserUpdateRequestDTO`
+   - Tìm kiếm theo keyword (email, tên, số điện thoại)
+   - Lọc theo status
+   - Phân trang và sắp xếp
 
-```java
-public class UserUpdateRequestDTO {
-    private String fullName;
-    private String phone;
-    private String avatar;
-    private List<Long> roleIds;
-}
-```
+3. **`createUser(UserCreateRequestDTO request)`**
+
+   - Validate email unique
+   - Hash password với BCrypt
+   - Assign roles
+   - Cache eviction
+
+4. **`updateUser(Long id, UserUpdateRequestDTO request)`**
+
+   - **Cache Eviction:** `@CacheEvict(value = "users", key = "#id")`
+   - Validate email unique (trừ chính nó)
+   - Cập nhật roles
+
+5. **`toggleUserStatus(Long id)`**
+
+   - **Cache Eviction:** `@CacheEvict(value = "users", key = "#id")`
+   - Chuyển đổi giữa ACTIVE và INACTIVE
+
+6. **`resetPassword(Long id, String newPassword)`**
+
+   - Hash password mới
+   - Cache eviction
+
+7. **`deleteUser(Long id)`**
+
+   - **Cache Eviction:** `@CacheEvict(value = "users", allEntries = true)`
+   - Validation: Không cho phép xóa chính mình
+
+8. **`getLoginHistory(Long userId, Pageable pageable)`**
+
+   - Lấy lịch sử đăng nhập của user
+   - Phân trang
+
+### Controller: `UserAdminController.java`
+
+**Endpoints:**
+
+- `GET /api/admin/users` - Lấy danh sách với phân trang
+- `GET /api/admin/users/{id}` - Lấy chi tiết theo ID
+- `POST /api/admin/users` - Tạo mới
+- `PUT /api/admin/users/{id}` - Cập nhật
+- `PUT /api/admin/users/{id}/toggle-status` - Khóa/Mở khóa
+- `PUT /api/admin/users/{id}/reset-password` - Reset password
+- `DELETE /api/admin/users/{id}` - Xóa
+- `GET /api/admin/users/{id}/login-history` - Lịch sử đăng nhập
+
+**Security:**
+
+- Tất cả endpoints yêu cầu role `ADMIN`
+- Sử dụng `@PreAuthorize("hasRole('ADMIN')")`
 
 ---
 
 ## 🎨 Frontend Implementation
 
-### 1. Service Layer
+### Package Structure
 
-**File:** `user.service.ts`  
-**Path:** `orchard-store-dashboad/src/services/user.service.ts`
+```
+orchard-store-dashboad/src
+├── components/
+│   └── features/
+│       └── user/
+│           ├── user-form-sheet.tsx
+│           ├── user-row.tsx
+│           ├── user-table.tsx
+│           └── dialogs/
+│               ├── reset-password-dialog.tsx
+│               ├── delete-user-dialog.tsx
+│               └── toggle-status-dialog.tsx
+├── hooks/
+│   └── use-users.ts
+├── services/
+│   └── user.service.ts
+└── types/
+    └── user.types.ts
+```
 
-#### Key Methods
-
-##### `getUser(id: number)`
+### TypeScript Types: `user.types.ts`
 
 ```typescript
-getUser: (id: number): Promise<User> => {
-  return http
-    .get<ApiResponse<User>>(`${API_ROUTES.ADMIN_USERS}/${id}`)
-    .then((res) => unwrapItem(res));
+export type UserStatus = "ACTIVE" | "INACTIVE" | "BANNED" | "SUSPENDED";
+
+export interface User {
+  id: number;
+  email: string;
+  fullName?: string | null;
+  phone?: string | null;
+  avatar?: string | null;
+  status: UserStatus;
+  roles: Role[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  lastLogin?: string | null;
+  lastLoginIp?: string | null;
+}
+
+export interface UserFilter {
+  keyword?: string;
+  status?: UserStatus;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  direction?: "ASC" | "DESC";
+}
+```
+
+### Service: `user.service.ts`
+
+```typescript
+export const userService = {
+  getUsers: (params?: UserFilter) => ...,
+  getUser: (id: number) => ...,
+  createUser: (data: UserFormData) => ...,
+  updateUser: (id: number, data: Partial<UserFormData>) => ...,
+  toggleUserStatus: (id: number) => ...,
+  resetPassword: (id: number, newPassword: string) => ...,
+  deleteUser: (id: number) => ...,
+  getLoginHistory: (userId: number, params?: { page?: number; size?: number }) => ...,
 };
 ```
 
-- **Optimization:** Sử dụng endpoint trực tiếp `GET /api/admin/users/{id}` thay vì fetch 1000 users và filter
-- **Performance:** Giảm 99% data transfer
+### React Hooks: `use-users.ts`
 
-##### `getUsers(filters?: UserFilters)`
-
-- Hỗ trợ pagination, search, filter theo status
-- Return `Page<User>`
-
-### 2. React Hooks
-
-**File:** `use-users.ts`  
-**Path:** `orchard-store-dashboad/src/hooks/use-users.ts`
-
-#### `useUsers(filters?: UserFilters)`
+#### `useUsers(filters?: UserFilter)`
 
 ```typescript
-export const useUsers = (filters?: UserFilters) => {
+export const useUsers = (filters?: UserFilter) => {
   const normalizedFilters = useMemo(
     () => normalizeUserFilters(filters),
     [filters]
@@ -242,9 +479,9 @@ export const useUsers = (filters?: UserFilters) => {
 
 **Features:**
 
-- ✅ Normalize filters để đảm bảo consistent query keys
-- ✅ `keepPreviousData` để tránh flash khi pagination
-- ✅ Caching với staleTime và gcTime
+- Normalize filters để đảm bảo consistent query keys
+- `keepPreviousData` để tránh flash khi pagination
+- Caching với staleTime và gcTime
 
 #### `useUser(id: number | null)`
 
@@ -269,126 +506,58 @@ export const useUser = (id: number | null) => {
 
 **Features:**
 
-- ✅ Chỉ query khi có ID
-- ✅ Caching lâu hơn (5 phút staleTime) vì user data ít thay đổi
-- ✅ Không refetch khi mount lại hoặc window focus
+- Chỉ query khi có ID
+- Caching lâu hơn (5 phút staleTime) vì user data ít thay đổi
+- Không refetch khi mount lại hoặc window focus
 
-#### Mutation Hooks
+### Components
 
-##### `useCreateUser()`
+#### `UserFormSheet`
 
-```typescript
-export const useCreateUser = () => {
-  return useAppMutation<User, Error, UserFormData>({
-    mutationFn: (data) => userService.createUser(data),
-    queryKey: USERS_QUERY_KEY,
-    successMessage: "Tạo user thành công",
-  });
-};
-```
+**Tính năng:**
 
-##### `useUpdateUser()`
+- Form validation với react-hook-form và zod
+- Role selection với multi-select
+- Avatar upload
+- i18n đầy đủ
+- Optimized với `useCallback` và `useMemo`
+- Lazy loaded để giảm initial bundle size
 
-```typescript
-export const useUpdateUser = () => {
-  return useAppMutation<
-    User,
-    Error,
-    { id: number; data: Partial<UserFormData> }
-  >({
-    mutationFn: ({ id, data }) => userService.updateUser(id, data),
-    queryKey: USERS_QUERY_KEY,
-    successMessage: "Cập nhật user thành công",
-  });
-};
-```
+#### `UserTable`
 
-### 3. Components
+**Tính năng:**
 
-#### Main Page
-
-**File:** `page.tsx`  
-**Path:** `orchard-store-dashboad/src/app/admin/users/page.tsx`
-
-**Features:**
-
-- ✅ Search với debounce
-- ✅ Filter theo status
-- ✅ Pagination
-- ✅ Lazy load `UserFormSheet` để giảm initial bundle size
-- ✅ i18n đầy đủ
-
-**Code Splitting:**
-
-```typescript
-const UserFormSheet = dynamic(
-  () =>
-    import("@/components/features/user/user-form-sheet").then(
-      (mod) => mod.UserFormSheet
-    ),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
-```
-
-#### User Form Sheet
-
-**File:** `user-form-sheet.tsx`  
-**Path:** `orchard-store-dashboad/src/components/features/user/user-form-sheet.tsx`
-
-**Features:**
-
-- ✅ Form validation với react-hook-form và zod
-- ✅ Role selection với multi-select
-- ✅ Avatar upload
-- ✅ i18n đầy đủ
-- ✅ Optimized với `useCallback` và `useMemo`
-
-#### User Table
-
-**File:** `user-table.tsx`  
-**Path:** `orchard-store-dashboad/src/components/features/user/user-table.tsx`
-
-**Features:**
-
-- ✅ Virtual scrolling cho performance tốt với large datasets
-- ✅ Sortable columns
-- ✅ Action buttons (Edit, Delete, Toggle Status, Reset Password)
-- ✅ i18n đầy đủ
+- Virtual scrolling cho performance tốt với large datasets
+- Sortable columns
+- Action buttons (Edit, Delete, Toggle Status, Reset Password)
+- i18n đầy đủ
 
 #### Dialogs
 
-##### `ResetPasswordDialog`
-
-- Reset password cho user
-- Validation password mới
-
-##### `DeleteUserDialog`
-
-- Xác nhận trước khi xóa
-- Hiển thị thông tin user sẽ bị xóa
-
-##### `ToggleStatusDialog`
-
-- Xác nhận trước khi khóa/mở khóa
-- Hiển thị status hiện tại và status mới
+- **`ResetPasswordDialog`**: Reset password cho user
+- **`DeleteUserDialog`**: Xác nhận trước khi xóa
+- **`ToggleStatusDialog`**: Xác nhận trước khi khóa/mở khóa
 
 ---
 
 ## 📡 API Documentation
 
-### GET /api/admin/users
+### Base URL
 
-**Description:** Lấy danh sách users với pagination và filters
+```
+/api/admin/users
+```
+
+### 1. GET /api/admin/users
+
+Lấy danh sách users với phân trang và tìm kiếm.
 
 **Query Parameters:**
 
-- `keyword` (optional): Từ khóa tìm kiếm (email, tên, số điện thoại)
-- `status` (optional): Filter theo status (ACTIVE, INACTIVE)
-- `page` (default: 0): Số trang
-- `size` (default: 20): Số lượng items mỗi trang
+- `page` (int, default: 0) - Số trang
+- `size` (int, default: 20) - Số lượng mỗi trang
+- `keyword` (string, optional) - Từ khóa tìm kiếm (email, tên, số điện thoại)
+- `status` (string, optional) - Lọc theo status (ACTIVE/INACTIVE/BANNED/SUSPENDED)
 
 **Response:**
 
@@ -404,7 +573,13 @@ const UserFormSheet = dynamic(
         "fullName": "John Doe",
         "phone": "0123456789",
         "status": "ACTIVE",
-        "roles": [...]
+        "roles": [
+          {
+            "id": 1,
+            "name": "ADMIN",
+            "description": "Administrator"
+          }
+        ]
       }
     ],
     "totalElements": 100,
@@ -415,13 +590,9 @@ const UserFormSheet = dynamic(
 }
 ```
 
-### GET /api/admin/users/{id}
+### 2. GET /api/admin/users/{id}
 
-**Description:** Lấy chi tiết user theo ID
-
-**Path Parameters:**
-
-- `id`: ID của user
+Lấy chi tiết user theo ID.
 
 **Response:**
 
@@ -436,22 +607,18 @@ const UserFormSheet = dynamic(
     "phone": "0123456789",
     "avatar": "https://...",
     "status": "ACTIVE",
-    "roles": [
-      {
-        "id": 1,
-        "name": "ADMIN",
-        "description": "Administrator"
-      }
-    ],
+    "roles": [...],
     "createdAt": "2024-01-01T00:00:00",
-    "updatedAt": "2024-01-01T00:00:00"
+    "updatedAt": "2024-01-01T00:00:00",
+    "lastLogin": "2024-01-01T00:00:00",
+    "lastLoginIp": "192.168.1.1"
   }
 }
 ```
 
-### POST /api/admin/users
+### 3. POST /api/admin/users
 
-**Description:** Tạo user mới
+Tạo user mới.
 
 **Request Body:**
 
@@ -479,13 +646,15 @@ const UserFormSheet = dynamic(
 }
 ```
 
-### PUT /api/admin/users/{id}
+**Status Codes:**
 
-**Description:** Cập nhật thông tin user
+- `201 Created` - Tạo thành công
+- `400 Bad Request` - Validation error
+- `409 Conflict` - Email đã tồn tại
 
-**Path Parameters:**
+### 4. PUT /api/admin/users/{id}
 
-- `id`: ID của user
+Cập nhật thông tin user.
 
 **Request Body:**
 
@@ -498,13 +667,16 @@ const UserFormSheet = dynamic(
 }
 ```
 
-### PUT /api/admin/users/{id}/toggle-status
+**Status Codes:**
 
-**Description:** Khóa/Mở khóa user
+- `200 OK` - Cập nhật thành công
+- `404 Not Found` - Không tìm thấy
+- `400 Bad Request` - Validation error
+- `409 Conflict` - Email đã tồn tại
 
-**Path Parameters:**
+### 5. PUT /api/admin/users/{id}/toggle-status
 
-- `id`: ID của user
+Khóa/Mở khóa user.
 
 **Response:**
 
@@ -519,13 +691,9 @@ const UserFormSheet = dynamic(
 }
 ```
 
-### PUT /api/admin/users/{id}/reset-password
+### 6. PUT /api/admin/users/{id}/reset-password
 
-**Description:** Reset password cho user
-
-**Path Parameters:**
-
-- `id`: ID của user
+Reset password cho user.
 
 **Request Body:**
 
@@ -535,13 +703,19 @@ const UserFormSheet = dynamic(
 }
 ```
 
-### DELETE /api/admin/users/{id}
+**Response:**
 
-**Description:** Xóa user
+```json
+{
+  "success": true,
+  "message": "Reset password thành công",
+  "data": null
+}
+```
 
-**Path Parameters:**
+### 7. DELETE /api/admin/users/{id}
 
-- `id`: ID của user
+Xóa user.
 
 **Response:**
 
@@ -551,6 +725,88 @@ const UserFormSheet = dynamic(
   "message": "Xóa user thành công",
   "data": null
 }
+```
+
+**Status Codes:**
+
+- `200 OK` - Xóa thành công
+- `404 Not Found` - Không tìm thấy
+- `400 Bad Request` - Không thể xóa (ví dụ: đang là chính mình)
+
+### 8. GET /api/admin/users/{id}/login-history
+
+Lấy lịch sử đăng nhập của user.
+
+**Query Parameters:**
+
+- `page` (int, default: 0) - Số trang
+- `size` (int, default: 20) - Số lượng mỗi trang
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Lấy lịch sử đăng nhập thành công",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "email": "user@example.com",
+        "ipAddress": "192.168.1.1",
+        "loginStatus": "SUCCESS",
+        "loginAt": "2024-01-01T00:00:00",
+        "deviceType": "Desktop",
+        "browser": "Chrome",
+        "os": "Windows"
+      }
+    ],
+    "totalElements": 50,
+    "totalPages": 3
+  }
+}
+```
+
+---
+
+## ⚡ Tính Năng Đặc Biệt
+
+### 1. RBAC (Role-Based Access Control)
+
+**Backend:**
+
+- Hỗ trợ multiple roles per user qua bảng `user_roles`
+- Primary role và additional roles
+- Additional permissions (JSONB) để override permissions từ roles
+- Hierarchy levels cho roles
+
+**Frontend:**
+
+- Multi-select cho role assignment
+- Hiển thị roles của user trong table và detail view
+
+### 2. Security Features
+
+- **Password Hashing:** Sử dụng BCrypt
+- **Account Locking:** Tự động khóa sau N lần đăng nhập sai
+- **Login History:** Ghi lại tất cả lần đăng nhập (success/failed/locked)
+- **IP Tracking:** Lưu IP đăng nhập lần cuối
+
+### 3. Code Splitting
+
+Form component được lazy load để giảm initial bundle size:
+
+```typescript
+const UserFormSheet = dynamic(
+  () =>
+    import("@/components/features/user/user-form-sheet").then(
+      (mod) => mod.UserFormSheet
+    ),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 ```
 
 ---
@@ -617,108 +873,6 @@ Tự động invalidate khi:
 
 ---
 
-## 🌐 Internationalization (i18n)
-
-### Translation Keys
-
-**File:** `translations.ts`  
-**Path:** `orchard-store-dashboad/src/lib/i18n/translations.ts`
-
-#### User Management Keys
-
-```typescript
-admin: {
-  users: {
-    title: "Quản lý người dùng",
-    description: "...",
-    searchPlaceholder: "Tìm kiếm...",
-    status: {
-      active: "Hoạt động",
-      inactive: "Không hoạt động",
-    },
-    // ... more keys
-  },
-  forms: {
-    user: {
-      create: {
-        title: "Tạo người dùng mới",
-        // ...
-      },
-      edit: {
-        title: "Chỉnh sửa người dùng",
-        // ...
-      },
-      // ... more keys
-    },
-  },
-}
-```
-
-### Supported Languages
-
-- ✅ **Vietnamese (vi)**: 100% coverage
-- ✅ **English (en)**: 100% coverage
-
-### Usage Example
-
-```typescript
-const { t } = useI18n();
-
-// In component
-<h1>{t("admin.users.title")}</h1>
-<Button>{t("admin.forms.user.create.title")}</Button>
-```
-
----
-
-## ⚡ Performance Optimizations
-
-### Backend
-
-1. **EntityGraph để tránh N+1 Query**
-
-   ```java
-   @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.id = :id")
-   Optional<User> findByIdWithRoles(@Param("id") Long id);
-   ```
-
-2. **Caching với Spring Cache**
-
-   - Giảm database queries
-   - Tăng response time
-
-3. **Pagination**
-   - Mặc định 20 items/page
-   - Tránh load quá nhiều data
-
-### Frontend
-
-1. **Code Splitting**
-
-   - Lazy load `UserFormSheet`
-   - Giảm initial bundle size ~30%
-
-2. **React Query Caching**
-
-   - Giảm API calls ~50-70%
-   - Better UX với instant data
-
-3. **Debounced Search**
-
-   - Giảm API calls khi user typing
-   - 300ms debounce delay
-
-4. **Virtual Scrolling**
-
-   - Cho large datasets
-   - Better performance với 1000+ users
-
-5. **Memoization**
-   - `useMemo` cho normalized filters
-   - `useCallback` cho event handlers
-
----
-
 ## 💻 Code Examples
 
 ### Backend: Get User with Caching
@@ -748,6 +902,12 @@ function UserDetailPage({ userId }: { userId: number }) {
     <div>
       <h1>{user.fullName}</h1>
       <p>{user.email}</p>
+      <div>
+        <h2>Roles:</h2>
+        {user.roles.map((role) => (
+          <span key={role.id}>{role.name}</span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -779,14 +939,122 @@ function CreateUserForm() {
 
 ---
 
-## 📝 Notes
+## 🧪 Testing Guide
 
-- **Security:** Tất cả endpoints yêu cầu ADMIN role
-- **Validation:** Email và phone phải unique
-- **Password:** Không lưu plain text, sử dụng BCrypt
-- **Cache:** Cache tự động invalidate khi update/delete
-- **Performance:** Optimized cho large datasets với pagination và virtual scrolling
+### Backend Testing
+
+1. **Unit Tests:**
+
+   - Test validation rules
+   - Test business logic (trùng email, không xóa chính mình)
+   - Test password hashing
+
+2. **Integration Tests:**
+
+   - Test API endpoints
+   - Test database constraints
+   - Test pagination và filtering
+   - Test caching
+
+### Frontend Testing
+
+1. **Component Tests:**
+
+   - Test form validation
+   - Test role selection
+   - Test dialogs
+
+2. **E2E Tests:**
+
+   - Test CRUD operations
+   - Test search và filter
+   - Test toggle status
+   - Test reset password
+
+### Test Cases
+
+**Backend:**
+
+- ✅ Tạo user với email và password hợp lệ
+- ✅ Tạo user trùng email → throw exception
+- ✅ Cập nhật user → validate không trùng email (trừ chính nó)
+- ✅ Xóa user đang là chính mình → throw exception
+- ✅ Toggle status → chuyển đổi ACTIVE/INACTIVE
+- ✅ Reset password → hash password mới
+
+**Frontend:**
+
+- ✅ Validate form với Zod schema
+- ✅ Hiển thị error messages
+- ✅ Multi-select roles
+- ✅ Avatar upload
 
 ---
 
-**Cập nhật lần cuối:** $(date)
+## 📝 Notes & Best Practices
+
+### Backend
+
+1. **Security:**
+
+   - Sử dụng BCrypt cho password hashing
+   - Validate email unique
+   - Account locking sau N lần đăng nhập sai
+
+2. **Performance:**
+
+   - Sử dụng EntityGraph để tránh N+1 query
+   - Caching với Spring Cache
+   - Pagination cho danh sách lớn
+
+3. **RBAC:**
+
+   - Hỗ trợ multiple roles per user
+   - Additional permissions để override
+
+### Frontend
+
+1. **State Management:**
+
+   - Sử dụng React Query cho server state
+   - Local state cho form với React Hook Form
+
+2. **UX:**
+
+   - Real-time validation
+   - Loading states
+   - Error handling với user-friendly messages
+   - Debounced search
+
+3. **Performance:**
+
+   - Code splitting với lazy loading
+   - Virtual scrolling cho large datasets
+   - Memoization với useMemo và useCallback
+
+---
+
+## 🚀 Future Enhancements
+
+1. **Soft Delete:** Thêm `deleted_at` thay vì hard delete
+2. **Audit Log:** Ghi lại lịch sử thay đổi
+3. **Bulk Operations:** Import/Export CSV
+4. **Advanced Search:** Tìm kiếm theo nhiều tiêu chí
+5. **Two-Factor Authentication:** 2FA cho security
+6. **Email Verification:** Xác thực email khi tạo user
+
+---
+
+## 📚 References
+
+- [Spring Data JPA Documentation](https://spring.io/projects/spring-data-jpa)
+- [Spring Security Documentation](https://spring.io/projects/spring-security)
+- [React Query Documentation](https://tanstack.com/query/latest)
+- [React Hook Form Documentation](https://react-hook-form.com/)
+- [Zod Documentation](https://zod.dev/)
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** 2025-12-03  
+**Author:** Development Team

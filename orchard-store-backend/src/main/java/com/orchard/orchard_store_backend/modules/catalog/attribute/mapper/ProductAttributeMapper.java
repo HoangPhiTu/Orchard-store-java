@@ -9,7 +9,7 @@ import org.mapstruct.MappingTarget;
 
 import java.util.Collections;
 
-@Mapper(componentModel = "spring", uses = AttributeValueMapper.class)
+@Mapper(componentModel = "spring", uses = AttributeValueMapper.class, unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface ProductAttributeMapper {
 
     @Mapping(target = "attributeType", source = "attributeType")

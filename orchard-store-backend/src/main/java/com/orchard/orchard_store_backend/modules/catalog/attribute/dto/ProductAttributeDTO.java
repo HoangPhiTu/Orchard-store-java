@@ -28,6 +28,11 @@ public class ProductAttributeDTO {
     private String validationRules;
     private String description;
     private String helpText;
+    private String unit;
+    /**
+     * Phạm vi sử dụng của thuộc tính (PERFUME, COSMETICS, COMMON, ...)
+     */
+    private String domain;
     private String status;
     private List<AttributeValueDTO> values;
 }

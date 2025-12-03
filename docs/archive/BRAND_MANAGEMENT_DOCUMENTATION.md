@@ -1,28 +1,30 @@
 # Brand Management - Documentation
 
-**Module:** Brand Management  
+**Module:** Brand Management (Quản lý Thương hiệu)  
 **Version:** 1.0  
-**Last Updated:** $(date)
+**Last Updated:** 2025-12-03
 
 ---
 
 ## 📋 Mục Lục
 
 1. [Tổng Quan](#tổng-quan)
-2. [Backend Implementation](#backend-implementation)
-3. [Frontend Implementation](#frontend-implementation)
-4. [API Documentation](#api-documentation)
-5. [Caching Strategy](#caching-strategy)
-6. [Internationalization (i18n)](#internationalization-i18n)
-7. [Performance Optimizations](#performance-optimizations)
+2. [Database Schema](#database-schema)
+3. [Backend Implementation](#backend-implementation)
+4. [Frontend Implementation](#frontend-implementation)
+5. [API Documentation](#api-documentation)
+6. [Tính Năng Đặc Biệt](#tính-năng-đặc-biệt)
+7. [Caching Strategy](#caching-strategy)
 8. [Code Examples](#code-examples)
+9. [Testing Guide](#testing-guide)
 
 ---
 
 ## 📊 Tổng Quan
 
 Module **Brand Management** cung cấp đầy đủ các chức năng quản lý thương hiệu trong hệ thống admin, bao gồm:
-- ✅ Xem danh sách brands với tìm kiếm và phân trang
+
+- ✅ Xem danh sách brands với tìm kiếm, lọc và phân trang
 - ✅ Xem chi tiết brand
 - ✅ Tạo brand mới
 - ✅ Cập nhật thông tin brand
@@ -33,118 +35,168 @@ Module **Brand Management** cung cấp đầy đủ các chức năng quản lý
 ### Tech Stack
 
 **Backend:**
+
 - Spring Boot 3.x
 - Spring Data JPA
 - Redis Cache (CacheService)
 - Spring Security
+- MapStruct (DTO Mapping)
+- Flyway (Database Migration)
 
 **Frontend:**
+
 - Next.js 14 (App Router)
 - React Query (TanStack Query)
 - TypeScript
 - Tailwind CSS
 - shadcn/ui
+- React Hook Form + Zod
+
+---
+
+## 🗄️ Database Schema
+
+### Bảng `brands`
+
+```sql
+CREATE TABLE brands (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    logo_url VARCHAR(500),
+    country VARCHAR(100),
+    website_url VARCHAR(500),
+    display_order INTEGER DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Indexes
+
+```sql
+CREATE INDEX idx_brands_slug ON brands(slug);
+CREATE INDEX idx_brands_status ON brands(status);
+CREATE INDEX idx_brands_display_order ON brands(display_order);
+```
+
+### Mô Tả Các Trường
+
+| Trường          | Kiểu         | Mô Tả                         | Ví Dụ                            |
+| --------------- | ------------ | ----------------------------- | -------------------------------- |
+| `id`            | BIGSERIAL    | Primary key tự động tăng      | `1`                              |
+| `name`          | VARCHAR(255) | Tên thương hiệu               | `"Chanel"`                       |
+| `slug`          | VARCHAR(255) | Mã định danh URL (unique)     | `"chanel"`                       |
+| `description`   | TEXT         | Mô tả chi tiết về thương hiệu | `"Thương hiệu nước hoa cao cấp"` |
+| `logo_url`      | VARCHAR(500) | URL logo thương hiệu          | `"https://..."`                  |
+| `country`       | VARCHAR(100) | Quốc gia                      | `"France"`                       |
+| `website_url`   | VARCHAR(500) | Website chính thức            | `"https://www.chanel.com"`       |
+| `display_order` | INTEGER      | Thứ tự hiển thị               | `0`                              |
+| `status`        | VARCHAR(20)  | Trạng thái (ACTIVE/INACTIVE)  | `"ACTIVE"`                       |
+| `created_at`    | TIMESTAMP    | Thời gian tạo                 | `2025-12-03 10:00:00`            |
+| `updated_at`    | TIMESTAMP    | Thời gian cập nhật            | `2025-12-03 10:00:00`            |
+
+### Constraints
+
+- **Unique Constraint:** `slug` phải unique
+- **Check Constraint:** `status` chỉ được là `ACTIVE` hoặc `INACTIVE`
 
 ---
 
 ## 🔧 Backend Implementation
 
-### 1. Controller
+### Package Structure
 
-**File:** `BrandAdminController.java`  
-**Path:** `orchard-store-backend/src/main/java/com/orchard/orchard_store_backend/modules/catalog/brand/controller/BrandAdminController.java`
+```
+com.orchard.orchard_store_backend.modules.catalog.brand
+├── controller/
+│   └── BrandAdminController.java
+├── service/
+│   ├── BrandAdminService.java
+│   └── BrandAdminServiceImpl.java
+├── repository/
+│   └── BrandRepository.java
+├── entity/
+│   └── Brand.java
+├── dto/
+│   ├── BrandDTO.java
+│   ├── BrandCreateRequest.java
+│   └── BrandUpdateRequest.java
+└── mapper/
+    └── BrandAdminMapper.java
+```
 
-#### Security
-- Endpoints yêu cầu role `ADMIN` hoặc `MANAGER`
-- Sử dụng `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")`
-
-#### Endpoints
-
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| GET | `/api/admin/brands` | Lấy danh sách brands với pagination và filters |
-| GET | `/api/admin/brands/{id}` | Lấy chi tiết brand theo ID |
-| POST | `/api/admin/brands` | Tạo brand mới |
-| PUT | `/api/admin/brands/{id}` | Cập nhật thông tin brand |
-| DELETE | `/api/admin/brands/{id}` | Xóa brand |
-
-### 2. Service
-
-**File:** `BrandAdminServiceImpl.java`  
-**Path:** `orchard-store-backend/src/main/java/com/orchard/orchard_store_backend/modules/catalog/brand/service/BrandAdminServiceImpl.java`
-
-#### Key Methods
-
-##### `getBrandById(Long id)`
-- **Caching:** Sử dụng `CacheService` với Redis
-- **Cache Key:** `"brand:detail:" + id`
-- **TTL:** 10 phút (CACHE_TTL_SECONDS)
-- **Optimization:** Cache hit rate cao cho brand detail queries
+### Entity: `Brand.java`
 
 ```java
-@Override
-@Transactional(readOnly = true)
-public BrandDTO getBrandById(Long id) {
-    String cacheKey = BRAND_DETAIL_CACHE_KEY_PREFIX + id;
-    
-    // Try to get from cache
-    Optional<BrandDTO> cached = cacheService.getCached(cacheKey, BrandDTO.class);
-    if (cached.isPresent()) {
-        log.debug("Brand detail cache hit for ID: {}", id);
-        return cached.get();
+@Entity
+@Table(name = "brands")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Brand {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 255)
+    private String name;
+
+    @Column(nullable = false, unique = true, length = 255)
+    private String slug;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "logo_url", length = 500)
+    private String logoUrl;
+
+    @Column(length = 100)
+    private String country;
+
+    @Column(name = "website_url", length = 500)
+    private String websiteUrl;
+
+    @Column(name = "display_order")
+    @Builder.Default
+    private Integer displayOrder = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private Status status = Status.ACTIVE;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public enum Status {
+        ACTIVE, INACTIVE
     }
-    
-    Brand brand = brandRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Brand", id));
-    
-    BrandDTO result = brandAdminMapper.toDTO(brand);
-    
-    // Cache the result
-    cacheService.cache(cacheKey, result, CACHE_TTL_SECONDS);
-    
-    return result;
 }
 ```
 
-##### `getBrands(String keyword, String status, Pageable pageable)`
-- **Pagination:** Hỗ trợ phân trang với Spring Data JPA
-- **Search:** Tìm kiếm theo tên brand
-- **Filter:** Lọc theo status (ACTIVE, INACTIVE)
-- **Sort:** Mặc định sort theo `displayOrder ASC`, có thể tùy chỉnh
+**Đặc điểm:**
 
-##### `createBrand(BrandCreateRequest request)`
-- **Slug Generation:** Tự động tạo slug từ name nếu không có
-- **Logo Upload:** Hỗ trợ upload logo
-- **Cache Eviction:** Xóa cache list sau khi tạo
+- Slug unique để SEO-friendly URLs
+- Logo URL để hiển thị logo brand
+- Display order để sắp xếp thứ tự hiển thị
+- Status để quản lý active/inactive
 
-##### `updateBrand(Long id, BrandUpdateRequest request)`
-- **Cache Eviction:** 
-  - Xóa cache detail: `evictBrandDetailCache(id)`
-  - Xóa cache list: `evictBrandListCache()`
-- **Logo Management:** Xóa logo cũ nếu có thay đổi
-- **Slug Update:** Có thể cập nhật slug
+### DTO: `BrandDTO.java`
 
-##### `deleteBrand(Long id)`
-- **Cache Eviction:**
-  - Xóa cache detail: `evictBrandDetailCache(id)`
-  - Xóa cache list: `evictBrandListCache()`
-- **Logo Cleanup:** Xóa logo file khỏi storage
-- **Validation:** Kiểm tra ràng buộc trước khi xóa
-
-### 3. Repository
-
-**File:** `BrandRepository.java`
-
-#### Standard JPA Methods
-- `findById(Long id)`
-- `findByName(String name)`
-- `existsByName(String name)`
-- `findAll(Specification<Brand> spec, Pageable pageable)`
-
-### 4. DTOs
-
-#### `BrandDTO`
 ```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class BrandDTO {
     private Long id;
     private String name;
@@ -160,347 +212,398 @@ public class BrandDTO {
 }
 ```
 
-#### `BrandCreateRequest`
+**Validation Rules:**
+
+- `name`: Required, 2-255 ký tự
+- `slug`: Required, 2-255 ký tự, chỉ chứa chữ thường, số và dấu gạch ngang
+- `logoUrl`: Optional, URL hợp lệ
+- `websiteUrl`: Optional, URL hợp lệ
+- `displayOrder`: 0-9999
+
+### Repository: `BrandRepository.java`
+
 ```java
-public class BrandCreateRequest {
-    @NotBlank
-    private String name;
-    
-    private String slug; // Optional - auto-generated if not provided
-    private String description;
-    private String logoUrl;
-    private String country;
-    private String websiteUrl;
+@Repository
+public interface BrandRepository extends JpaRepository<Brand, Long>, JpaSpecificationExecutor<Brand> {
+
+    boolean existsByName(String name);
+
+    boolean existsBySlug(String slug);
+
+    Optional<Brand> findBySlug(String slug);
+
+    @Query("SELECT b FROM Brand b WHERE b.status = 'ACTIVE' ORDER BY b.displayOrder ASC, b.name ASC")
+    List<Brand> findAllActiveBrands();
 }
 ```
 
-#### `BrandUpdateRequest`
-```java
-public class BrandUpdateRequest {
-    private String name;
-    private String slug;
-    private String description;
-    private String logoUrl;
-    private String country;
-    private String websiteUrl;
-    private Integer displayOrder;
-    private CatalogStatus status;
-}
-```
+**Đặc điểm:**
+
+- Extends `JpaSpecificationExecutor` để hỗ trợ dynamic queries
+- Custom query để lấy danh sách active brands
+
+### Service: `BrandAdminServiceImpl.java`
+
+**Các phương thức chính:**
+
+1. **`getBrands(keyword, status, pageable)`**
+
+   - Tìm kiếm theo keyword (name hoặc slug)
+   - Lọc theo status
+   - Phân trang và sắp xếp
+
+2. **`getBrandById(Long id)`**
+
+   - **Caching:** Sử dụng `CacheService` với Redis
+   - **Cache Key:** `"brand:detail:" + id`
+   - **TTL:** 10 phút
+
+3. **`createBrand(BrandCreateRequest request)`**
+
+   - Kiểm tra trùng name và slug
+   - Tự động tạo slug nếu chưa có
+   - Logo upload (nếu có)
+
+4. **`updateBrand(Long id, BrandUpdateRequest request)`**
+
+   - Kiểm tra tồn tại
+   - Kiểm tra trùng name/slug (trừ chính nó)
+   - Logo management (xóa logo cũ nếu có thay đổi)
+   - Cache eviction
+
+5. **`deleteBrand(Long id)`**
+
+   - Kiểm tra có đang được sử dụng trong products không
+   - Xóa logo file khỏi storage
+   - Xóa nếu không có ràng buộc
+
+### Controller: `BrandAdminController.java`
+
+**Endpoints:**
+
+- `GET /api/admin/brands` - Lấy danh sách với phân trang
+- `GET /api/admin/brands/all` - Lấy tất cả (cho dropdown)
+- `GET /api/admin/brands/{id}` - Lấy chi tiết theo ID
+- `GET /api/admin/brands/slug/{slug}` - Lấy chi tiết theo slug
+- `POST /api/admin/brands` - Tạo mới
+- `PUT /api/admin/brands/{id}` - Cập nhật
+- `DELETE /api/admin/brands/{id}` - Xóa
+
+**Security:**
+
+- Tất cả endpoints yêu cầu role `ADMIN` hoặc `MANAGER`
+- Sử dụng `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")`
 
 ---
 
 ## 🎨 Frontend Implementation
 
-### 1. Service Layer
+### Package Structure
 
-**File:** `brand.service.ts`  
-**Path:** `orchard-store-dashboad/src/services/brand.service.ts`
+```
+orchard-store-dashboad/src
+├── components/
+│   └── features/
+│       └── catalog/
+│           ├── brand-form-sheet.tsx
+│           ├── brand-row.tsx
+│           └── brand-table.tsx
+├── hooks/
+│   └── use-brands.ts
+├── services/
+│   └── brand.service.ts
+└── types/
+    └── brand.types.ts
+```
 
-#### Key Methods
+### TypeScript Types: `brand.types.ts`
 
-##### `getBrand(id: number)`
 ```typescript
-getBrand: (id: number): Promise<Brand> => {
-  return http
-    .get<ApiResponse<Brand>>(`${API_ROUTES.ADMIN_BRANDS}/${id}`)
-    .then((res) => unwrapItem(res));
+export type BrandStatus = "ACTIVE" | "INACTIVE";
+
+export interface Brand {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  country?: string | null;
+  websiteUrl?: string | null;
+  displayOrder?: number | null;
+  status: BrandStatus;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface BrandFilter {
+  keyword?: string;
+  status?: BrandStatus;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  direction?: "ASC" | "DESC";
 }
 ```
 
-- Sử dụng endpoint trực tiếp `GET /api/admin/brands/{id}`
-- Unwrap `ApiResponse<Brand>` thành `Brand`
+### Service: `brand.service.ts`
 
-##### `getBrands(filters?: BrandFilter)`
-- Hỗ trợ pagination, search, filter theo status
-- Sort theo `displayOrder` mặc định
-- Return `Page<Brand>`
-
-### 2. React Hooks
-
-**File:** `use-brands.ts`  
-**Path:** `orchard-store-dashboad/src/hooks/use-brands.ts`
-
-#### `useBrands(filters?: BrandFilter)`
 ```typescript
-export const useBrands = (filters?: BrandFilter) => {
-  const normalizedFilters = useMemo(
-    () => normalizeBrandFilters(filters),
-    [filters]
-  );
+export const brandService = {
+  // Public API (Store Frontend)
+  getAll: (params?: { activeOnly?: boolean }) => ...,
+  getById: (id: number) => ...,
 
-  return useQuery<Page<Brand>, Error>({
-    queryKey: [...BRANDS_QUERY_KEY, "list", normalizedFilters] as const,
-    queryFn: async () => {
-      const result = await brandService.getBrands(normalizedFilters);
-      return result as Page<Brand>;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
+  // Admin API
+  getBrands: (params?: BrandFilter) => ...,
+  getAllBrands: (params?: { activeOnly?: boolean }) => ...,
+  getBrand: (id: number) => ...,
+  createBrand: (data: BrandFormData) => ...,
+  updateBrand: (id: number, data: Partial<BrandFormData>) => ...,
+  deleteBrand: (id: number) => ...,
 };
 ```
 
-**Features:**
-- ✅ Normalize filters để đảm bảo consistent query keys
-- ✅ `keepPreviousData` để tránh flash khi pagination
-- ✅ Caching lâu hơn (10 phút) vì brand data ít thay đổi
+### Component: `brand-form-sheet.tsx`
 
-#### `useBrand(id: number | null)`
-```typescript
-export const useBrand = (id: number | null) => {
-  return useQuery<Brand, Error>({
-    queryKey: [...BRANDS_QUERY_KEY, "detail", id] as const,
-    queryFn: () => {
-      if (!id) {
-        throw new Error("Brand ID is required");
-      }
-      return brandService.getBrand(id);
-    },
-    enabled: !!id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-};
-```
+**Tính năng:**
 
-**Features:**
-- ✅ Chỉ query khi có ID
-- ✅ Caching lâu hơn (10 phút staleTime) vì brand data ít thay đổi
-- ✅ Không refetch khi mount lại hoặc window focus
+- Form validation với react-hook-form và zod
+- Logo upload với preview
+- Auto-generate slug từ name
+- Loading states và error handling
+- Sticky header và footer khi scroll
 
-#### Mutation Hooks
+**Form Fields:**
 
-##### `useCreateBrand()`
-```typescript
-export const useCreateBrand = () => {
-  return useAppMutation<Brand, Error, BrandFormData>({
-    mutationFn: (data) => brandService.createBrand(data),
-    queryKey: BRANDS_QUERY_KEY,
-    successMessage: "Tạo thương hiệu thành công",
-  });
-};
-```
-
-##### `useUpdateBrand()`
-```typescript
-export const useUpdateBrand = () => {
-  return useAppMutation<Brand, Error, { id: number; data: Partial<BrandFormData> }>({
-    mutationFn: ({ id, data }) => brandService.updateBrand(id, data),
-    queryKey: BRANDS_QUERY_KEY,
-    successMessage: "Cập nhật thương hiệu thành công",
-  });
-};
-```
-
-##### `useDeleteBrand()`
-```typescript
-export const useDeleteBrand = () => {
-  return useAppMutation<void, Error, number>({
-    mutationFn: (id) => brandService.deleteBrand(id),
-    queryKey: BRANDS_QUERY_KEY,
-    successMessage: "Xóa thương hiệu thành công",
-  });
-};
-```
-
-### 3. Components
-
-#### Main Page
-
-**File:** `page.tsx`  
-**Path:** `orchard-store-dashboad/src/app/admin/brands/page.tsx`
-
-**Features:**
-- ✅ Search với debounce
-- ✅ Filter theo status
-- ✅ Pagination
-- ✅ Lazy load `BrandFormSheet` để giảm initial bundle size
-- ✅ i18n đầy đủ
-
-**Code Splitting:**
-```typescript
-const BrandFormSheet = dynamic(
-  () =>
-    import("@/components/features/catalog/brand-form-sheet").then(
-      (mod) => mod.BrandFormSheet
-    ),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
-```
-
-#### Brand Form Sheet
-
-**File:** `brand-form-sheet.tsx`  
-**Path:** `orchard-store-dashboad/src/components/features/catalog/brand-form-sheet.tsx`
-
-**Features:**
-- ✅ Form validation với react-hook-form và zod
-- ✅ Logo upload với ImageUpload component
-- ✅ Slug auto-generation từ name
-- ✅ Website URL validation
-- ✅ Display order input
-- ✅ i18n đầy đủ
-
-#### Brand Table
-
-**File:** `brand-table.tsx`  
-**Path:** `orchard-store-dashboad/src/components/features/catalog/brand-table.tsx`
-
-**Features:**
-- ✅ Hiển thị logo brand
-- ✅ Sortable columns
-- ✅ Action buttons (Edit, Delete)
-- ✅ Status badge
-- ✅ i18n đầy đủ
-
-#### Dialogs
-
-##### `DeleteBrandDialog`
-- Xác nhận trước khi xóa
-- Hiển thị thông tin brand sẽ bị xóa
-- i18n đầy đủ
+1. **Tên thương hiệu\*** (required)
+2. **Slug** (auto-generated, có thể chỉnh sửa)
+3. **Mô tả**
+4. **Logo** (upload)
+5. **Quốc gia**
+6. **Website**
+7. **Thứ tự hiển thị**
+8. **Trạng thái** (ACTIVE/INACTIVE)
 
 ---
 
 ## 📡 API Documentation
 
-### GET /api/admin/brands
+### Base URL
 
-**Description:** Lấy danh sách brands với pagination và filters
+```
+/api/admin/brands
+```
+
+### 1. GET /api/admin/brands
+
+Lấy danh sách brands với phân trang và tìm kiếm.
 
 **Query Parameters:**
-- `keyword` (optional): Từ khóa tìm kiếm (tên brand)
-- `status` (optional): Filter theo status (ACTIVE, INACTIVE)
-- `page` (default: 0): Số trang
-- `size` (default: 10): Số lượng items mỗi trang
-- `sortBy` (default: "displayOrder"): Field để sort
-- `direction` (default: "ASC"): Sort direction (ASC, DESC)
+
+- `page` (int, default: 0) - Số trang
+- `size` (int, default: 10) - Số lượng mỗi trang
+- `sortBy` (string, default: "displayOrder") - Trường sắp xếp
+- `direction` (string, default: "ASC") - Hướng sắp xếp (ASC/DESC)
+- `keyword` (string, optional) - Từ khóa tìm kiếm (name hoặc slug)
+- `status` (string, optional) - Lọc theo status (ACTIVE/INACTIVE)
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Lấy danh sách thương hiệu thành công",
+  "message": "Lấy danh sách brands thành công",
   "data": {
     "content": [
       {
         "id": 1,
-        "name": "Apple",
-        "slug": "apple",
-        "description": "Technology company",
+        "name": "Chanel",
+        "slug": "chanel",
         "logoUrl": "https://...",
-        "country": "USA",
-        "websiteUrl": "https://apple.com",
-        "displayOrder": 1,
+        "country": "France",
+        "displayOrder": 0,
         "status": "ACTIVE"
       }
     ],
-    "totalElements": 50,
-    "totalPages": 5,
+    "totalElements": 10,
+    "totalPages": 1,
     "size": 10,
     "number": 0
   }
 }
 ```
 
-### GET /api/admin/brands/{id}
+### 2. GET /api/admin/brands/all
 
-**Description:** Lấy chi tiết brand theo ID
+Lấy tất cả brands (không phân trang - dành cho dropdown).
 
-**Path Parameters:**
-- `id`: ID của brand
+**Query Parameters:**
+
+- `activeOnly` (boolean, default: false) - Chỉ lấy ACTIVE
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Lấy thông tin thương hiệu thành công",
+  "message": "Lấy danh sách brands thành công",
+  "data": [
+    {
+      "id": 1,
+      "name": "Chanel",
+      "slug": "chanel",
+      "status": "ACTIVE"
+    }
+  ]
+}
+```
+
+### 3. GET /api/admin/brands/{id}
+
+Lấy chi tiết brand theo ID.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Lấy thông tin brand thành công",
   "data": {
     "id": 1,
-    "name": "Apple",
-    "slug": "apple",
-    "description": "Technology company",
+    "name": "Chanel",
+    "slug": "chanel",
+    "description": "Thương hiệu nước hoa cao cấp",
     "logoUrl": "https://...",
-    "country": "USA",
-    "websiteUrl": "https://apple.com",
-    "displayOrder": 1,
+    "country": "France",
+    "websiteUrl": "https://www.chanel.com",
+    "displayOrder": 0,
     "status": "ACTIVE",
-    "createdAt": "2024-01-01T00:00:00",
-    "updatedAt": "2024-01-01T00:00:00"
+    "createdAt": "2025-12-03T10:00:00",
+    "updatedAt": "2025-12-03T10:00:00"
   }
 }
 ```
 
-### POST /api/admin/brands
+### 4. POST /api/admin/brands
 
-**Description:** Tạo brand mới
+Tạo brand mới.
 
 **Request Body:**
+
 ```json
 {
-  "name": "Samsung",
-  "slug": "samsung",
-  "description": "Electronics company",
+  "name": "Chanel",
+  "slug": "chanel",
+  "description": "Thương hiệu nước hoa cao cấp",
   "logoUrl": "https://...",
-  "country": "South Korea",
-  "websiteUrl": "https://samsung.com"
+  "country": "France",
+  "websiteUrl": "https://www.chanel.com",
+  "displayOrder": 0,
+  "status": "ACTIVE"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Tạo thương hiệu thành công",
+  "message": "Tạo brand thành công",
   "data": {
-    "id": 2,
-    "name": "Samsung",
+    "id": 1,
+    "name": "Chanel",
     ...
   }
 }
 ```
 
-### PUT /api/admin/brands/{id}
+**Status Codes:**
 
-**Description:** Cập nhật thông tin brand
+- `201 Created` - Tạo thành công
+- `400 Bad Request` - Validation error
+- `409 Conflict` - Trùng name hoặc slug
 
-**Path Parameters:**
-- `id`: ID của brand
+### 5. PUT /api/admin/brands/{id}
 
-**Request Body:**
-```json
-{
-  "name": "Samsung Electronics",
-  "description": "Updated description",
-  "displayOrder": 2,
-  "status": "ACTIVE"
-}
-```
+Cập nhật brand.
 
-### DELETE /api/admin/brands/{id}
-
-**Description:** Xóa brand
-
-**Path Parameters:**
-- `id`: ID của brand
+**Request Body:** Tương tự như POST (tất cả fields optional)
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Xóa thương hiệu thành công",
+  "message": "Cập nhật brand thành công",
+  "data": { ... }
+}
+```
+
+**Status Codes:**
+
+- `200 OK` - Cập nhật thành công
+- `404 Not Found` - Không tìm thấy
+- `400 Bad Request` - Validation error
+- `409 Conflict` - Trùng name hoặc slug
+
+### 6. DELETE /api/admin/brands/{id}
+
+Xóa brand.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Xóa brand thành công",
   "data": null
 }
 ```
+
+**Status Codes:**
+
+- `200 OK` - Xóa thành công
+- `404 Not Found` - Không tìm thấy
+- `400 Bad Request` - Đang được sử dụng trong products
+
+---
+
+## ⚡ Tính Năng Đặc Biệt
+
+### 1. Logo Upload
+
+**Backend:**
+
+- Hỗ trợ upload logo qua MinIO hoặc local storage
+- Xóa logo cũ khi cập nhật hoặc xóa brand
+- Validate file type và size
+
+**Frontend:**
+
+- Image preview trước khi upload
+- Drag & drop upload
+- Progress indicator
+- Error handling
+
+### 2. Auto-Generate Slug
+
+**Backend:**
+
+- Tự động tạo slug từ name nếu chưa có
+- Sử dụng thư viện `Slugify` hoặc custom logic
+
+**Frontend:**
+
+- Real-time auto-fill khi nhập tên
+- Chỉ auto-fill nếu field đang rỗng hoặc chưa được chỉnh sửa thủ công
+
+### 3. Sticky Header và Footer
+
+Form có header và footer cố định khi scroll:
+
+- Header: Title và Description
+- Body: Form fields (scroll được)
+- Footer: Buttons (Hủy, Tạo mới/Cập nhật)
 
 ---
 
@@ -509,28 +612,32 @@ const BrandFormSheet = dynamic(
 ### Backend Caching
 
 #### Cache Configuration
+
 - **Cache Provider:** Redis (CacheService)
-- **Cache Key Pattern:** `"brand:detail:" + id`
-- **TTL:** 10 phút (600 seconds)
+- **Cache Key:** `"brand:detail:" + id`
+- **TTL:** 10 phút (CACHE_TTL_SECONDS)
 
 #### Cached Methods
 
 1. **`getBrandById(Long id)`**
-   - Cache brand data khi fetch
-   - Cache hit rate cao cho brand detail queries
+
+   ```java
+   String cacheKey = BRAND_DETAIL_CACHE_KEY_PREFIX + id;
+   Optional<BrandDTO> cached = cacheService.getCached(cacheKey, BrandDTO.class);
+   if (cached.isPresent()) {
+       return cached.get();
+   }
+   // ... fetch from database
+   cacheService.cache(cacheKey, result, CACHE_TTL_SECONDS);
+   ```
 
 2. **Cache Eviction**
 
-   - **`updateBrand()`**: 
-     - Xóa cache detail: `evictBrandDetailCache(id)`
-     - Xóa cache list: `evictBrandListCache()`
-   - **`deleteBrand()`**: 
-     - Xóa cache detail: `evictBrandDetailCache(id)`
-     - Xóa cache list: `evictBrandListCache()`
-   - **`createBrand()`**: 
-     - Xóa cache list: `evictBrandListCache()`
+   - **`updateBrand()`**: `evictBrandDetailCache(id)` và `evictBrandListCache()`
+   - **`deleteBrand()`**: `evictBrandDetailCache(id)` và `evictBrandListCache()`
 
 #### Cache Hit Rate
+
 - **Expected:** ~80-90% cho brand detail queries
 - **Performance:** Giảm database load đáng kể
 
@@ -539,12 +646,14 @@ const BrandFormSheet = dynamic(
 #### React Query Configuration
 
 **List Query (`useBrands`):**
+
 - `staleTime`: 10 phút
 - `gcTime`: 30 phút
 - `refetchOnMount`: false
 - `refetchOnWindowFocus`: false
 
 **Detail Query (`useBrand`):**
+
 - `staleTime`: 10 phút
 - `gcTime`: 30 phút
 - `refetchOnMount`: false
@@ -553,108 +662,10 @@ const BrandFormSheet = dynamic(
 #### Cache Invalidation
 
 Tự động invalidate khi:
+
 - Create brand → Invalidate list queries
 - Update brand → Invalidate detail query và list queries
 - Delete brand → Invalidate list queries
-
----
-
-## 🌐 Internationalization (i18n)
-
-### Translation Keys
-
-**File:** `translations.ts`  
-**Path:** `orchard-store-dashboad/src/lib/i18n/translations.ts`
-
-#### Brand Management Keys
-
-```typescript
-admin: {
-  brands: {
-    title: "Quản lý thương hiệu",
-    description: "...",
-    searchPlaceholder: "Tìm kiếm thương hiệu...",
-    addBrand: "Thêm thương hiệu",
-    // ... more keys
-  },
-  forms: {
-    brand: {
-      create: {
-        title: "Tạo thương hiệu mới",
-        // ...
-      },
-      edit: {
-        title: "Chỉnh sửa thương hiệu",
-        // ...
-      },
-      fields: {
-        name: "Tên thương hiệu",
-        slug: "Slug",
-        description: "Mô tả",
-        logoUrl: "Logo",
-        country: "Quốc gia",
-        websiteUrl: "Website",
-        displayOrder: "Thứ tự hiển thị",
-        status: "Trạng thái",
-      },
-      // ... more keys
-    },
-  },
-}
-```
-
-### Supported Languages
-
-- ✅ **Vietnamese (vi)**: 100% coverage
-- ✅ **English (en)**: 100% coverage
-
-### Usage Example
-
-```typescript
-const { t } = useI18n();
-
-// In component
-<h1>{t("admin.brands.title")}</h1>
-<Button>{t("admin.brands.addBrand")}</Button>
-<Label>{t("admin.forms.brand.fields.name")}</Label>
-```
-
----
-
-## ⚡ Performance Optimizations
-
-### Backend
-
-1. **Caching với Redis (CacheService)**
-   - Giảm database queries
-   - Tăng response time
-   - Cache hit rate ~80-90%
-
-2. **Pagination**
-   - Mặc định 10 items/page
-   - Tránh load quá nhiều data
-
-3. **Specification Pattern**
-   - Dynamic query building
-   - Flexible filtering
-
-### Frontend
-
-1. **Code Splitting**
-   - Lazy load `BrandFormSheet`
-   - Giảm initial bundle size ~25%
-
-2. **React Query Caching**
-   - Giảm API calls ~70%
-   - Better UX với instant data
-
-3. **Debounced Search**
-   - Giảm API calls khi user typing
-   - 300ms debounce delay
-
-4. **Memoization**
-   - `useMemo` cho normalized filters
-   - `useCallback` cho event handlers
 
 ---
 
@@ -667,19 +678,19 @@ const { t } = useI18n();
 @Transactional(readOnly = true)
 public BrandDTO getBrandById(Long id) {
     String cacheKey = BRAND_DETAIL_CACHE_KEY_PREFIX + id;
-    
+
     Optional<BrandDTO> cached = cacheService.getCached(cacheKey, BrandDTO.class);
     if (cached.isPresent()) {
         log.debug("Brand detail cache hit for ID: {}", id);
         return cached.get();
     }
-    
+
     Brand brand = brandRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Brand", id));
-    
+
     BrandDTO result = brandAdminMapper.toDTO(brand);
     cacheService.cache(cacheKey, result, CACHE_TTL_SECONDS);
-    
+
     return result;
 }
 ```
@@ -687,17 +698,25 @@ public BrandDTO getBrandById(Long id) {
 ### Frontend: Use Brand Hook
 
 ```typescript
-function BrandDetailPage({ brandId }: { brandId: number }) {
-  const { data: brand, isLoading, error } = useBrand(brandId);
+function BrandList() {
+  const { data, isLoading, error } = useBrands({
+    page: 0,
+    size: 10,
+    keyword: "chanel",
+    status: "ACTIVE",
+  });
 
-  if (isLoading) return <Loading />;
-  if (error) return <Error message={error.message} />;
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div>
-      <img src={brand.logoUrl} alt={brand.name} />
-      <h1>{brand.name}</h1>
-      <p>{brand.description}</p>
+      {data?.content.map((brand) => (
+        <div key={brand.id}>
+          <img src={brand.logoUrl} alt={brand.name} />
+          <h2>{brand.name}</h2>
+        </div>
+      ))}
     </div>
   );
 }
@@ -707,37 +726,148 @@ function BrandDetailPage({ brandId }: { brandId: number }) {
 
 ```typescript
 function CreateBrandForm() {
-  const createBrand = useCreateBrand();
-  const { t } = useI18n();
+  const { createMutation } = useBrands();
 
-  const onSubmit = async (data: BrandFormData) => {
-    await createBrand.mutateAsync(data);
+  const handleSubmit = (data: BrandFormData) => {
+    createMutation.mutate(data, {
+      onSuccess: () => {
+        console.log("Tạo thành công!");
+      },
+      onError: (error) => {
+        console.error("Lỗi:", error);
+      },
+    });
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <Input name="name" label={t("admin.forms.brand.fields.name")} />
-      <Input name="description" label={t("admin.forms.brand.fields.description")} />
-      <Button type="submit" disabled={createBrand.isPending}>
-        {createBrand.isPending ? t("common.loading") : t("admin.forms.brand.create.submit")}
-      </Button>
-    </form>
+    <BrandFormSheet
+      open={true}
+      onOpenChange={(open) => console.log(open)}
+      onSubmit={handleSubmit}
+    />
   );
 }
 ```
 
 ---
 
-## 📝 Notes
+## 🧪 Testing Guide
 
-- **Security:** Endpoints yêu cầu ADMIN hoặc MANAGER role
-- **Validation:** Name phải unique
-- **Slug:** Tự động generate từ name nếu không có
-- **Logo:** Hỗ trợ upload và quản lý logo files
-- **Cache:** Cache tự động invalidate khi update/delete
-- **Performance:** Optimized với caching và pagination
+### Backend Testing
+
+1. **Unit Tests:**
+
+   - Test validation rules
+   - Test business logic (trùng name/slug)
+   - Test slug generation
+
+2. **Integration Tests:**
+
+   - Test API endpoints
+   - Test database constraints
+   - Test pagination và filtering
+   - Test caching
+
+### Frontend Testing
+
+1. **Component Tests:**
+
+   - Test form validation
+   - Test logo upload
+   - Test auto-generate slug
+
+2. **E2E Tests:**
+
+   - Test CRUD operations
+   - Test search và filter
+   - Test logo upload và deletion
+
+### Test Cases
+
+**Backend:**
+
+- ✅ Tạo brand với name và slug hợp lệ
+- ✅ Tạo brand không có slug → tự động tạo
+- ✅ Tạo brand trùng name → throw exception
+- ✅ Cập nhật brand → validate không trùng (trừ chính nó)
+- ✅ Xóa brand đang được sử dụng → throw exception
+- ✅ Logo upload và deletion
+
+**Frontend:**
+
+- ✅ Validate form với Zod schema
+- ✅ Hiển thị error messages
+- ✅ Logo upload với preview
+- ✅ Auto-generate slug
 
 ---
 
-**Cập nhật lần cuối:** $(date)
+## 📝 Notes & Best Practices
 
+### Backend
+
+1. **Validation:**
+
+   - Sử dụng Jakarta Validation annotations
+   - Custom validation cho business rules
+
+2. **Error Handling:**
+
+   - Sử dụng custom exceptions: `ResourceNotFoundException`, `ResourceAlreadyExistsException`
+   - Consistent error responses
+
+3. **Performance:**
+
+   - Sử dụng indexes cho các trường thường query
+   - Caching với CacheService
+   - Pagination cho danh sách lớn
+
+4. **Logo Management:**
+
+   - Xóa logo cũ khi cập nhật hoặc xóa brand
+   - Validate file type và size
+
+### Frontend
+
+1. **State Management:**
+
+   - Sử dụng React Query cho server state
+   - Local state cho form với React Hook Form
+
+2. **UX:**
+
+   - Real-time validation
+   - Loading states
+   - Error handling với user-friendly messages
+   - Image preview cho logo
+
+3. **Code Reusability:**
+
+   - Shared components cho form fields
+   - Helper functions tách riêng
+
+---
+
+## 🚀 Future Enhancements
+
+1. **Soft Delete:** Thêm `deleted_at` thay vì hard delete
+2. **Audit Log:** Ghi lại lịch sử thay đổi
+3. **Bulk Operations:** Import/Export CSV
+4. **Advanced Search:** Tìm kiếm theo nhiều tiêu chí
+5. **Brand Statistics:** Thống kê số lượng sản phẩm theo brand
+6. **Multi-language:** Hỗ trợ đa ngôn ngữ cho name và description
+
+---
+
+## 📚 References
+
+- [Spring Data JPA Documentation](https://spring.io/projects/spring-data-jpa)
+- [React Query Documentation](https://tanstack.com/query/latest)
+- [React Hook Form Documentation](https://react-hook-form.com/)
+- [Zod Documentation](https://zod.dev/)
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** 2025-12-03  
+**Author:** Development Team

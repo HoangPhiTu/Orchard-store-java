@@ -5,7 +5,7 @@ import com.orchard.orchard_store_backend.modules.catalog.attribute.entity.Attrib
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface AttributeValueMapper {
 
     @Mapping(target = "attributeId", source = "attribute.id")

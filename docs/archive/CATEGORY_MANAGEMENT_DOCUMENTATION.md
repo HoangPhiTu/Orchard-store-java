@@ -1,29 +1,31 @@
 # Category Management - Documentation
 
-**Module:** Category Management  
+**Module:** Category Management (Quản lý Danh mục Sản phẩm)  
 **Version:** 1.0  
-**Last Updated:** $(date)
+**Last Updated:** 2025-12-03
 
 ---
 
 ## 📋 Mục Lục
 
 1. [Tổng Quan](#tổng-quan)
-2. [Backend Implementation](#backend-implementation)
-3. [Frontend Implementation](#frontend-implementation)
-4. [API Documentation](#api-documentation)
-5. [Caching Strategy](#caching-strategy)
-6. [Internationalization (i18n)](#internationalization-i18n)
-7. [Performance Optimizations](#performance-optimizations)
-8. [Tree Structure](#tree-structure)
+2. [Database Schema](#database-schema)
+3. [Backend Implementation](#backend-implementation)
+4. [Frontend Implementation](#frontend-implementation)
+5. [API Documentation](#api-documentation)
+6. [Tính Năng Đặc Biệt](#tính-năng-đặc-biệt)
+7. [Tree Structure](#tree-structure)
+8. [Caching Strategy](#caching-strategy)
 9. [Code Examples](#code-examples)
+10. [Testing Guide](#testing-guide)
 
 ---
 
 ## 📊 Tổng Quan
 
 Module **Category Management** cung cấp đầy đủ các chức năng quản lý danh mục sản phẩm trong hệ thống admin, bao gồm:
-- ✅ Xem danh sách categories với tìm kiếm và phân trang
+
+- ✅ Xem danh sách categories với tìm kiếm, lọc và phân trang
 - ✅ Xem cây danh mục (tree structure)
 - ✅ Xem chi tiết category
 - ✅ Tạo category mới (hỗ trợ parent category)
@@ -42,509 +44,487 @@ Module **Category Management** cung cấp đầy đủ các chức năng quản 
 ### Tech Stack
 
 **Backend:**
+
 - Spring Boot 3.x
 - Spring Data JPA
 - Spring Cache (Redis)
 - Spring Security
+- MapStruct (DTO Mapping)
+- Flyway (Database Migration)
 
 **Frontend:**
+
 - Next.js 14 (App Router)
 - React Query (TanStack Query)
 - TypeScript
 - Tailwind CSS
 - shadcn/ui
+- React Hook Form + Zod
+
+---
+
+## 🗄️ Database Schema
+
+### Bảng `categories`
+
+```sql
+CREATE TABLE categories (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    parent_id BIGINT,
+    image_url VARCHAR(500),
+    display_order INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 0,
+    path VARCHAR(500),
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Indexes
+
+```sql
+CREATE INDEX idx_categories_slug ON categories(slug);
+CREATE INDEX idx_categories_parent ON categories(parent_id);
+CREATE INDEX idx_categories_status ON categories(status);
+CREATE INDEX idx_categories_level ON categories(level);
+```
+
+### Foreign Keys
+
+```sql
+ALTER TABLE categories ADD CONSTRAINT fk_categories_parent
+    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL;
+```
+
+### Mô Tả Các Trường
+
+| Trường          | Kiểu         | Mô Tả                               | Ví Dụ                     |
+| --------------- | ------------ | ----------------------------------- | ------------------------- |
+| `id`            | BIGSERIAL    | Primary key tự động tăng            | `1`                       |
+| `name`          | VARCHAR(255) | Tên danh mục                        | `"Nước hoa Nam"`          |
+| `slug`          | VARCHAR(255) | Mã định danh URL (unique)           | `"nuoc-hoa-nam"`          |
+| `description`   | TEXT         | Mô tả chi tiết về danh mục          | `"Danh mục nước hoa nam"` |
+| `parent_id`     | BIGINT       | ID danh mục cha (NULL nếu là root)  | `1`                       |
+| `image_url`     | VARCHAR(500) | URL ảnh danh mục                    | `"https://..."`           |
+| `display_order` | INTEGER      | Thứ tự hiển thị                     | `0`                       |
+| `level`         | INTEGER      | Cấp độ trong cây (0 = root)         | `1`                       |
+| `path`          | VARCHAR(500) | Đường dẫn từ root (ví dụ: "1/5/10") | `"1/5"`                   |
+| `status`        | VARCHAR(20)  | Trạng thái (ACTIVE/INACTIVE)        | `"ACTIVE"`                |
+| `created_at`    | TIMESTAMP    | Thời gian tạo                       | `2025-12-03 10:00:00`     |
+| `updated_at`    | TIMESTAMP    | Thời gian cập nhật                  | `2025-12-03 10:00:00`     |
+
+### Constraints
+
+- **Unique Constraint:** `slug` phải unique
+- **Check Constraint:** `status` chỉ được là `ACTIVE` hoặc `INACTIVE`
+- **Foreign Key:** `parent_id` → `categories.id` (ON DELETE SET NULL)
+
+### Tree Structure Example
+
+```
+Root (level 0)
+├── Nước hoa Nam (level 1, path: "1")
+│   ├── Nước hoa Nam - EDT (level 2, path: "1/5")
+│   └── Nước hoa Nam - EDP (level 2, path: "1/6")
+└── Nước hoa Nữ (level 1, path: "2")
+    └── Nước hoa Nữ - EDT (level 2, path: "2/7")
+```
 
 ---
 
 ## 🔧 Backend Implementation
 
-### 1. Controller
+### Package Structure
 
-**File:** `CategoryAdminController.java`  
-**Path:** `orchard-store-backend/src/main/java/com/orchard/orchard_store_backend/modules/catalog/category/controller/CategoryAdminController.java`
-
-#### Security
-- Endpoints yêu cầu role `ADMIN` hoặc `MANAGER`
-- Sử dụng `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")`
-
-#### Endpoints
-
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| GET | `/api/admin/categories` | Lấy danh sách categories với pagination và filters |
-| GET | `/api/admin/categories/tree` | Lấy cây danh mục (tree structure) |
-| GET | `/api/admin/categories/{id}` | Lấy chi tiết category theo ID |
-| POST | `/api/admin/categories` | Tạo category mới |
-| PUT | `/api/admin/categories/{id}` | Cập nhật thông tin category |
-| DELETE | `/api/admin/categories/{id}` | Xóa category |
-
-### 2. Service
-
-**File:** `CategoryAdminServiceImpl.java`  
-**Path:** `orchard-store-backend/src/main/java/com/orchard/orchard_store_backend/modules/catalog/category/service/CategoryAdminServiceImpl.java`
-
-#### Key Methods
-
-##### `getCategoryById(Long id)`
-- **Caching:** `@Cacheable(value = "categories", key = "#id")`
-- **Optimization:** Sử dụng `findByIdWithParent()` để load parent category
-- **Return:** `CategoryDTO` với đầy đủ thông tin category và parent
-
-```java
-@Override
-@Transactional(readOnly = true)
-@Cacheable(value = "categories", key = "#id", unless = "#result == null")
-public CategoryDTO getCategoryById(Long id) {
-    log.info("Getting category by ID: {} (cache miss)", id);
-    Category category = categoryRepository.findByIdWithParent(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Category", id));
-    return categoryAdminMapper.toDTO(category);
-}
+```
+com.orchard.orchard_store_backend.modules.catalog.category
+├── controller/
+│   └── CategoryAdminController.java
+├── service/
+│   ├── CategoryAdminService.java
+│   └── CategoryAdminServiceImpl.java
+├── repository/
+│   └── CategoryRepository.java
+├── entity/
+│   └── Category.java
+├── dto/
+│   ├── CategoryDTO.java
+│   ├── CategoryCreateRequest.java
+│   └── CategoryUpdateRequest.java
+└── mapper/
+    └── CategoryAdminMapper.java
 ```
 
-##### `getCategories(String keyword, String status, Pageable pageable)`
-- **Pagination:** Hỗ trợ phân trang với Spring Data JPA
-- **Search:** Tìm kiếm theo tên category
-- **Filter:** Lọc theo status (ACTIVE, INACTIVE)
-- **Sort:** 
-  - Mặc định sort theo `level ASC`
-  - Secondary sort theo `displayOrder ASC`
-  - Tertiary sort theo `name ASC`
-
-##### `getCategoriesTree()`
-- **Return:** List root categories với children (tree structure)
-- **Caching:** Cache trong Redis với key `"category:tree"`
-- **TTL:** 10 phút
-
-```java
-@Override
-@Transactional(readOnly = true)
-public List<CategoryDTO> getCategoriesTree() {
-    String cacheKey = CATEGORY_TREE_CACHE_KEY;
-    
-    Optional<List<CategoryDTO>> cached = cacheService.getCached(
-        cacheKey, 
-        new TypeReference<List<CategoryDTO>>() {}
-    );
-    
-    if (cached.isPresent()) {
-        log.debug("Category tree cache hit");
-        return cached.get();
-    }
-    
-    List<Category> rootCategories = categoryRepository.findByParentIdIsNull();
-    List<CategoryDTO> tree = rootCategories.stream()
-            .map(categoryAdminMapper::toDTO)
-            .collect(Collectors.toList());
-    
-    cacheService.cache(cacheKey, tree, CACHE_TTL_SECONDS);
-    return tree;
-}
-```
-
-##### `createCategory(CategoryCreateRequest request)`
-- **Parent Category:** Hỗ trợ tạo category con (parentId)
-- **Slug Generation:** Tự động tạo slug từ name nếu không có
-- **Level Calculation:** Tự động tính level dựa trên parent
-- **Path Generation:** Tự động tạo path từ parent path
-- **Cache Eviction:** Xóa cache tree và list sau khi tạo
-
-##### `updateCategory(Long id, CategoryUpdateRequest request)`
-- **Cache Eviction:** 
-  - `@CacheEvict(value = "categories", key = "#id")` - Xóa cache detail
-  - Xóa cache tree: `evictCategoryTreeCache()`
-  - Xóa cache list: `evictCategoryListCache()`
-- **Parent Update:** Có thể thay đổi parent category
-- **Level Recalculation:** Tự động tính lại level và path khi đổi parent
-- **Image Management:** Xóa image cũ nếu có thay đổi
-
-##### `deleteCategory(Long id)`
-- **Cache Eviction:** 
-  - `@CacheEvict(value = "categories", key = "#id")` - Xóa cache detail
-  - Xóa cache tree: `evictCategoryTreeCache()`
-  - Xóa cache list: `evictCategoryListCache()`
-- **Validation:** 
-  - Không cho phép xóa nếu có children: `countByParentId(id) > 0`
-  - Không cho phép xóa nếu có products: `productRepository.countByCategoryId(id) > 0`
-- **Image Cleanup:** Xóa image file khỏi storage
-
-### 3. Repository
-
-**File:** `CategoryRepository.java`
-
-#### Custom Methods
-
-```java
-@Query("SELECT c FROM Category c LEFT JOIN FETCH c.parent WHERE c.id = :id")
-Optional<Category> findByIdWithParent(@Param("id") Long id);
-
-List<Category> findByParentIdIsNull();
-
-long countByParentId(Long parentId);
-```
-
-- `findByIdWithParent`: Load parent category cùng lúc, tránh N+1 query
-- `findByParentIdIsNull`: Lấy root categories
-- `countByParentId`: Đếm số children để validation
-
-### 4. Entity Structure
-
-**File:** `Category.java`
+### Entity: `Category.java`
 
 ```java
 @Entity
 @Table(name = "categories")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, length = 255)
     private String name;
     
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 255)
     private String slug;
     
+    @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "image_url", length = 500)
     private String imageUrl;
     
+    @Column(name = "display_order")
+    @Builder.Default
+    private Integer displayOrder = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private Status status = Status.ACTIVE;
+
+    // Hierarchy fields
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
     
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
-    private List<Category> children;
+    @Column(name = "parent_id", insertable = false, updatable = false)
+    private Long parentId;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Category> children = new ArrayList<>();
     
     @Column(nullable = false)
+    @Builder.Default
     private Integer level = 0;
     
-    private String path; // e.g., "/1/2/3"
-    
-    @Enumerated(EnumType.STRING)
-    private CatalogStatus status = CatalogStatus.ACTIVE;
-    
-    private Integer displayOrder;
+    @Column(length = 500)
+    private String path; // e.g., "1/5/10" for easy querying
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public enum Status {
+        ACTIVE, INACTIVE
+    }
 }
 ```
 
-### 5. DTOs
+**Đặc điểm:**
 
-#### `CategoryDTO`
+- **Self-referencing:** `parent` và `children` để tạo tree structure
+- **Level:** Tự động tính dựa trên parent
+- **Path:** Đường dẫn từ root để query nhanh (ví dụ: "1/5/10")
+- **Lazy Loading:** `parent` và `children` được load lazy để tránh N+1 query
+
+### DTO: `CategoryDTO.java`
+
 ```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class CategoryDTO {
     private Long id;
     private String name;
     private String slug;
     private String description;
     private String imageUrl;
-    private Long parentId;
-    private String parentName;
+    private Integer displayOrder;
     private Integer level;
     private String path;
-    private CatalogStatus status;
-    private Integer displayOrder;
+    private CategoryStatus status;
+    private Long parentId;
+    private CategoryDTO parent;
+    private List<CategoryDTO> children;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private List<CategoryDTO> children; // For tree structure
 }
 ```
 
-#### `CategoryCreateRequest`
+**Validation Rules:**
+
+- `name`: Required, 2-255 ký tự
+- `slug`: Required, 2-255 ký tự, chỉ chứa chữ thường, số và dấu gạch ngang
+- `parentId`: Optional, phải tồn tại nếu có
+- `displayOrder`: 0-9999
+
+### Repository: `CategoryRepository.java`
+
 ```java
-public class CategoryCreateRequest {
-    @NotBlank
-    private String name;
-    
-    private String slug; // Optional - auto-generated if not provided
-    private String description;
-    private String imageUrl;
-    private Long parentId; // Optional - null for root category
-    private Integer displayOrder;
+@Repository
+public interface CategoryRepository extends JpaRepository<Category, Long>, JpaSpecificationExecutor<Category> {
+
+    boolean existsByName(String name);
+
+    boolean existsBySlug(String slug);
+
+    Optional<Category> findBySlug(String slug);
+
+    @Query("SELECT c FROM Category c LEFT JOIN FETCH c.parent WHERE c.id = :id")
+    Optional<Category> findByIdWithParent(@Param("id") Long id);
+
+    List<Category> findByParentIdIsNull();
+
+    long countByParentId(Long parentId);
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.category.id = :categoryId")
+    long countProductsByCategoryId(@Param("categoryId") Long categoryId);
 }
 ```
 
-#### `CategoryUpdateRequest`
-```java
-public class CategoryUpdateRequest {
-    private String name;
-    private String slug;
-    private String description;
-    private String imageUrl;
-    private Long parentId; // Can be null to set as root
-    private Integer displayOrder;
-    private CatalogStatus status;
-}
-```
+**Đặc điểm:**
+
+- `findByIdWithParent`: Load parent cùng lúc, tránh N+1 query
+- `findByParentIdIsNull`: Lấy root categories
+- `countByParentId`: Đếm số children để validation
+- `countProductsByCategoryId`: Đếm số products để validation
+
+### Service: `CategoryAdminServiceImpl.java`
+
+**Các phương thức chính:**
+
+1. **`getCategories(keyword, status, pageable)`**
+
+   - Tìm kiếm theo keyword (name hoặc slug)
+   - Lọc theo status
+   - Phân trang và sắp xếp (mặc định: level ASC, displayOrder ASC, name ASC)
+
+2. **`getCategoryById(Long id)`**
+
+   - **Caching:** `@Cacheable(value = "categories", key = "#id")`
+   - **Optimization:** Sử dụng `findByIdWithParent()` để load parent
+   - **Return:** `CategoryDTO` với đầy đủ thông tin category và parent
+
+3. **`getCategoriesTree()`**
+
+   - **Return:** List root categories với children (tree structure)
+   - **Caching:** Cache trong Redis với key `"category:tree"`
+   - **TTL:** 10 phút
+
+4. **`createCategory(CategoryCreateRequest request)`**
+
+   - Kiểm tra trùng name và slug
+   - Tự động tạo slug nếu chưa có
+   - **Parent Category:** Hỗ trợ tạo category con (parentId)
+   - **Level Calculation:** Tự động tính level dựa trên parent
+   - **Path Generation:** Tự động tạo path từ parent path
+   - Cache eviction
+
+5. **`updateCategory(Long id, CategoryUpdateRequest request)`**
+
+   - Kiểm tra tồn tại
+   - Kiểm tra trùng name/slug (trừ chính nó)
+   - **Parent Update:** Có thể thay đổi parent category
+   - **Level Recalculation:** Tự động tính lại level và path khi đổi parent
+   - **Image Management:** Xóa image cũ nếu có thay đổi
+   - Cache eviction
+
+6. **`deleteCategory(Long id)`**
+
+   - **Validation:**
+     - Không cho phép xóa nếu có children: `countByParentId(id) > 0`
+     - Không cho phép xóa nếu có products: `countProductsByCategoryId(id) > 0`
+   - **Image Cleanup:** Xóa image file khỏi storage
+   - Cache eviction
+
+### Controller: `CategoryAdminController.java`
+
+**Endpoints:**
+
+- `GET /api/admin/categories` - Lấy danh sách với phân trang
+- `GET /api/admin/categories/tree` - Lấy cây danh mục (tree structure)
+- `GET /api/admin/categories/all` - Lấy tất cả (cho dropdown)
+- `GET /api/admin/categories/{id}` - Lấy chi tiết theo ID
+- `GET /api/admin/categories/slug/{slug}` - Lấy chi tiết theo slug
+- `POST /api/admin/categories` - Tạo mới
+- `PUT /api/admin/categories/{id}` - Cập nhật
+- `DELETE /api/admin/categories/{id}` - Xóa
+
+**Security:**
+
+- Tất cả endpoints yêu cầu role `ADMIN` hoặc `MANAGER`
+- Sử dụng `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")`
 
 ---
 
 ## 🎨 Frontend Implementation
 
-### 1. Service Layer
+### Package Structure
 
-**File:** `category.service.ts`  
-**Path:** `orchard-store-dashboad/src/services/category.service.ts`
+```
+orchard-store-dashboad/src
+├── components/
+│   └── features/
+│       └── catalog/
+│           ├── category-form-sheet.tsx
+│           ├── category-row.tsx
+│           ├── category-table.tsx
+│           └── category-tree.tsx
+├── hooks/
+│   └── use-categories.ts
+├── services/
+│   └── category.service.ts
+└── types/
+    └── category.types.ts
+```
 
-#### Key Methods
+### TypeScript Types: `category.types.ts`
 
-##### `getCategory(id: number)`
 ```typescript
-getCategory: (id: number): Promise<Category> => {
-  return http
-    .get<ApiResponse<Category>>(`${API_ROUTES.ADMIN_CATEGORIES}/${id}`)
-    .then((res) => unwrapItem(res));
+export type CategoryStatus = "ACTIVE" | "INACTIVE";
+
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  displayOrder?: number | null;
+  level?: number | null;
+  path?: string | null;
+  status: CategoryStatus;
+  parentId?: number | null;
+  parent?: Category | null;
+  children?: Category[] | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface CategoryFilter {
+  keyword?: string;
+  status?: CategoryStatus;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  direction?: "ASC" | "DESC";
 }
 ```
 
-- Sử dụng endpoint trực tiếp `GET /api/admin/categories/{id}`
-- Unwrap `ApiResponse<Category>` thành `Category`
+### Service: `category.service.ts`
 
-##### `getCategories(filters?: CategoryFilter)`
-- Hỗ trợ pagination, search, filter theo status
-- Sort theo `level` mặc định
-- Return `Page<Category>`
-
-##### `getCategoriesTree()`
 ```typescript
-getCategoriesTree: (): Promise<Category[]> => {
-  return http
-    .get<ApiResponse<Category[]>>(`${API_ROUTES.ADMIN_CATEGORIES}/tree`)
-    .then((res) => unwrapList(res));
-}
-```
+export const categoryService = {
+  // Public API (Store Frontend)
+  getAll: (params?: { activeOnly?: boolean }) => ...,
+  getById: (id: number) => ...,
+  getTree: () => ...,
 
-- Lấy cây danh mục với children nested
-- Return `Category[]` với tree structure
-
-### 2. React Hooks
-
-**File:** `use-categories.ts`  
-**Path:** `orchard-store-dashboad/src/hooks/use-categories.ts`
-
-#### `useCategories(filters?: CategoryFilter)`
-```typescript
-export const useCategories = (filters?: CategoryFilter) => {
-  const normalizedFilters = normalizeFilters(filters);
-  const shouldUseAllKey = !filters || isAllCategoriesRequest(filters);
-
-  const queryKey = useMemo(() => {
-    if (shouldUseAllKey) {
-      const size = normalizedFilters?.size ?? null;
-      return [...CATEGORIES_QUERY_KEY, "all", size] as const;
-    }
-    return [...CATEGORIES_QUERY_KEY, "list", normalizedFilters] as const;
-  }, [shouldUseAllKey, normalizedFilters]);
-
-  return useQuery<Page<Category>, Error>({
-    queryKey,
-    queryFn: async () => {
-      const result = await categoryService.getCategories(normalizedFilters);
-      return result as Page<Category>;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
+  // Admin API
+  getCategories: (params?: CategoryFilter) => ...,
+  getCategoriesTree: () => ...,
+  getAllCategories: (params?: { activeOnly?: boolean }) => ...,
+  getCategory: (id: number) => ...,
+  createCategory: (data: CategoryFormData) => ...,
+  updateCategory: (id: number, data: Partial<CategoryFormData>) => ...,
+  deleteCategory: (id: number) => ...,
 };
 ```
 
-**Features:**
-- ✅ Normalize filters để đảm bảo consistent query keys
-- ✅ Special handling cho "all" requests (size >= 1000)
-- ✅ `keepPreviousData` để tránh flash khi pagination
-- ✅ Caching lâu hơn (10 phút) vì category data ít thay đổi
+### Component: `category-form-sheet.tsx`
 
-#### `useCategory(id: number | null)`
-```typescript
-export const useCategory = (id: number | null) => {
-  return useQuery<Category, Error>({
-    queryKey: [...CATEGORIES_QUERY_KEY, "detail", id] as const,
-    queryFn: () => {
-      if (!id) {
-        throw new Error("Category ID is required");
-      }
-      return categoryService.getCategory(id);
-    },
-    enabled: !!id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-};
-```
+**Tính năng:**
 
-**Features:**
-- ✅ Chỉ query khi có ID
-- ✅ Caching lâu hơn (10 phút staleTime) vì category data ít thay đổi
-- ✅ Không refetch khi mount lại hoặc window focus
+- Form validation với react-hook-form và zod
+- Image upload với preview
+- Auto-generate slug từ name
+- Parent category selection (dropdown với tree structure)
+- Loading states và error handling
+- Sticky header và footer khi scroll
 
-#### `useCategoriesTree()`
-```typescript
-export const useCategoriesTree = () => {
-  return useQuery<Category[], Error>({
-    queryKey: [...CATEGORIES_QUERY_KEY, "tree"] as const,
-    queryFn: () => categoryService.getCategoriesTree(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnMount: false,
-  });
-};
-```
+**Form Fields:**
 
-**Features:**
-- ✅ Cache tree structure
-- ✅ Long staleTime vì tree ít thay đổi
+1. **Tên danh mục\*** (required)
+2. **Slug** (auto-generated, có thể chỉnh sửa)
+3. **Mô tả**
+4. **Danh mục cha** (dropdown với tree)
+5. **Ảnh** (upload)
+6. **Thứ tự hiển thị**
+7. **Trạng thái** (ACTIVE/INACTIVE)
 
-#### Mutation Hooks
+### Component: `category-tree.tsx`
 
-##### `useCreateCategory()`
-```typescript
-export const useCreateCategory = () => {
-  return useAppMutation<Category, Error, CategoryFormData>({
-    mutationFn: (data) => categoryService.createCategory(data),
-    queryKey: CATEGORIES_QUERY_KEY,
-    successMessage: "Tạo danh mục thành công",
-  });
-};
-```
+**Tính năng:**
 
-##### `useUpdateCategory()`
-```typescript
-export const useUpdateCategory = () => {
-  return useAppMutation<Category, Error, { id: number; data: Partial<CategoryFormData> }>({
-    mutationFn: ({ id, data }) => categoryService.updateCategory(id, data),
-    queryKey: CATEGORIES_QUERY_KEY,
-    successMessage: "Cập nhật danh mục thành công",
-  });
-};
-```
-
-##### `useDeleteCategory()`
-```typescript
-export const useDeleteCategory = () => {
-  return useAppMutation<void, Error, number>({
-    mutationFn: (id) => categoryService.deleteCategory(id),
-    queryKey: CATEGORIES_QUERY_KEY,
-    successMessage: "Xóa danh mục thành công",
-  });
-};
-```
-
-### 3. Components
-
-#### Main Page
-
-**File:** `page.tsx`  
-**Path:** `orchard-store-dashboad/src/app/admin/categories/page.tsx`
-
-**Features:**
-- ✅ Search với debounce
-- ✅ Filter theo status
-- ✅ Pagination
-- ✅ Lazy load `CategoryFormSheet` để giảm initial bundle size
-- ✅ i18n đầy đủ
-
-**Code Splitting:**
-```typescript
-const CategoryFormSheet = dynamic(
-  () =>
-    import("@/components/features/catalog/category-form-sheet").then(
-      (mod) => mod.CategoryFormSheet
-    ),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
-```
-
-#### Category Form Sheet
-
-**File:** `category-form-sheet.tsx`  
-**Path:** `orchard-store-dashboad/src/components/features/catalog/category-form-sheet.tsx`
-
-**Features:**
-- ✅ Form validation với react-hook-form và zod
-- ✅ Parent category selection với tree dropdown
-- ✅ Image upload với ImageUpload component
-- ✅ Slug auto-generation từ name
-- ✅ Display order input
-- ✅ i18n đầy đủ
-
-#### Category Table
-
-**File:** `category-table.tsx`  
-**Path:** `orchard-store-dashboad/src/components/features/catalog/category-table.tsx`
-
-**Features:**
-- ✅ Hiển thị level và path
-- ✅ Hiển thị parent name
-- ✅ Sortable columns
-- ✅ Action buttons (Edit, Delete)
-- ✅ Status badge
-- ✅ i18n đầy đủ
-
-#### Dialogs
-
-##### `DeleteCategoryDialog`
-- Xác nhận trước khi xóa
-- Hiển thị thông tin category sẽ bị xóa
-- Validation message nếu có children hoặc products
-- i18n đầy đủ
+- Hiển thị cây danh mục với nested structure
+- Expand/Collapse nodes
+- Indentation theo level
+- Drag & drop để sắp xếp (optional)
+- Search và filter
 
 ---
 
 ## 📡 API Documentation
 
-### GET /api/admin/categories
+### Base URL
 
-**Description:** Lấy danh sách categories với pagination và filters
+```
+/api/admin/categories
+```
+
+### 1. GET /api/admin/categories
+
+Lấy danh sách categories với phân trang và tìm kiếm.
 
 **Query Parameters:**
-- `keyword` (optional): Từ khóa tìm kiếm (tên category)
-- `status` (optional): Filter theo status (ACTIVE, INACTIVE)
-- `page` (default: 0): Số trang
-- `size` (default: 15): Số lượng items mỗi trang
-- `sortBy` (default: "level"): Field để sort
-- `direction` (default: "ASC"): Sort direction (ASC, DESC)
+
+- `page` (int, default: 0) - Số trang
+- `size` (int, default: 10) - Số lượng mỗi trang
+- `sortBy` (string, default: "level") - Trường sắp xếp
+- `direction` (string, default: "ASC") - Hướng sắp xếp (ASC/DESC)
+- `keyword` (string, optional) - Từ khóa tìm kiếm (name hoặc slug)
+- `status` (string, optional) - Lọc theo status (ACTIVE/INACTIVE)
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Lấy danh sách danh mục thành công",
+  "message": "Lấy danh sách categories thành công",
   "data": {
     "content": [
       {
         "id": 1,
-        "name": "Electronics",
-        "slug": "electronics",
-        "description": "Electronic products",
-        "imageUrl": "https://...",
+        "name": "Nước hoa Nam",
+        "slug": "nuoc-hoa-nam",
+        "level": 1,
+        "path": "1",
         "parentId": null,
-        "parentName": null,
-        "level": 0,
-        "path": "/1",
-        "status": "ACTIVE",
-        "displayOrder": 1
+        "displayOrder": 0,
+        "status": "ACTIVE"
       }
     ],
-    "totalElements": 100,
-    "totalPages": 7,
-    "size": 15,
+    "totalElements": 10,
+    "totalPages": 1,
+    "size": 10,
     "number": 0
   }
 }
 ```
 
-### GET /api/admin/categories/tree
+### 2. GET /api/admin/categories/tree
 
-**Description:** Lấy cây danh mục (tree structure)
+Lấy cây danh mục (tree structure).
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -552,13 +532,17 @@ const CategoryFormSheet = dynamic(
   "data": [
     {
       "id": 1,
-      "name": "Electronics",
-      "level": 0,
+      "name": "Nước hoa Nam",
+      "slug": "nuoc-hoa-nam",
+      "level": 1,
+      "path": "1",
       "children": [
         {
-          "id": 2,
-          "name": "Mobile Phones",
-          "level": 1,
+          "id": 5,
+          "name": "Nước hoa Nam - EDT",
+          "slug": "nuoc-hoa-nam-edt",
+          "level": 2,
+          "path": "1/5",
           "parentId": 1,
           "children": []
         }
@@ -568,102 +552,242 @@ const CategoryFormSheet = dynamic(
 }
 ```
 
-### GET /api/admin/categories/{id}
+### 3. GET /api/admin/categories/{id}
 
-**Description:** Lấy chi tiết category theo ID
-
-**Path Parameters:**
-- `id`: ID của category
+Lấy chi tiết category theo ID.
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Lấy thông tin danh mục thành công",
+  "message": "Lấy thông tin category thành công",
   "data": {
-    "id": 2,
-    "name": "Mobile Phones",
-    "slug": "mobile-phones",
-    "description": "Mobile phone products",
+    "id": 5,
+    "name": "Nước hoa Nam - EDT",
+    "slug": "nuoc-hoa-nam-edt",
+    "description": "Danh mục nước hoa nam EDT",
     "imageUrl": "https://...",
+    "level": 2,
+    "path": "1/5",
     "parentId": 1,
-    "parentName": "Electronics",
-    "level": 1,
-    "path": "/1/2",
+    "parent": {
+      "id": 1,
+      "name": "Nước hoa Nam",
+      "slug": "nuoc-hoa-nam"
+    },
+    "displayOrder": 0,
     "status": "ACTIVE",
-    "displayOrder": 1,
-    "createdAt": "2024-01-01T00:00:00",
-    "updatedAt": "2024-01-01T00:00:00"
+    "createdAt": "2025-12-03T10:00:00",
+    "updatedAt": "2025-12-03T10:00:00"
   }
 }
 ```
 
-### POST /api/admin/categories
+### 4. POST /api/admin/categories
 
-**Description:** Tạo category mới
+Tạo category mới.
 
 **Request Body:**
+
 ```json
 {
-  "name": "Laptops",
-  "slug": "laptops",
-  "description": "Laptop products",
-  "imageUrl": "https://...",
+  "name": "Nước hoa Nam - EDT",
+  "slug": "nuoc-hoa-nam-edt",
+  "description": "Danh mục nước hoa nam EDT",
   "parentId": 1,
-  "displayOrder": 2
+  "imageUrl": "https://...",
+  "displayOrder": 0,
+  "status": "ACTIVE"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Tạo danh mục thành công",
+  "message": "Tạo category thành công",
   "data": {
-    "id": 3,
-    "name": "Laptops",
-    "level": 1,
-    "path": "/1/3",
+    "id": 5,
+    "name": "Nước hoa Nam - EDT",
+    "level": 2,
+    "path": "1/5",
+    "parentId": 1,
     ...
   }
 }
 ```
 
-### PUT /api/admin/categories/{id}
+**Status Codes:**
 
-**Description:** Cập nhật thông tin category
+- `201 Created` - Tạo thành công
+- `400 Bad Request` - Validation error
+- `409 Conflict` - Trùng name hoặc slug
 
-**Path Parameters:**
-- `id`: ID của category
+### 5. PUT /api/admin/categories/{id}
 
-**Request Body:**
-```json
-{
-  "name": "Laptops & Notebooks",
-  "description": "Updated description",
-  "displayOrder": 3,
-  "status": "ACTIVE"
-}
-```
+Cập nhật category.
 
-### DELETE /api/admin/categories/{id}
-
-**Description:** Xóa category
-
-**Path Parameters:**
-- `id`: ID của category
-
-**Validation Errors:**
-- `400 Bad Request`: "Category has children. Cannot delete category with children."
-- `400 Bad Request`: "Category has products. Cannot delete category with products."
+**Request Body:** Tương tự như POST (tất cả fields optional)
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Xóa danh mục thành công",
+  "message": "Cập nhật category thành công",
+  "data": { ... }
+}
+```
+
+**Status Codes:**
+
+- `200 OK` - Cập nhật thành công
+- `404 Not Found` - Không tìm thấy
+- `400 Bad Request` - Validation error
+- `409 Conflict` - Trùng name hoặc slug
+
+### 6. DELETE /api/admin/categories/{id}
+
+Xóa category.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Xóa category thành công",
   "data": null
 }
+```
+
+**Status Codes:**
+
+- `200 OK` - Xóa thành công
+- `404 Not Found` - Không tìm thấy
+- `400 Bad Request` - Không thể xóa (có children hoặc products)
+
+---
+
+## ⚡ Tính Năng Đặc Biệt
+
+### 1. Tree Structure
+
+**Backend:**
+
+- Self-referencing với `parent` và `children`
+- Level tự động tính dựa trên parent
+- Path để query nhanh (ví dụ: "1/5/10")
+- Validation: Không cho phép xóa nếu có children
+
+**Frontend:**
+
+- Component `CategoryTree` để hiển thị cây
+- Expand/Collapse nodes
+- Indentation theo level
+- Parent selection trong form
+
+### 2. Level và Path Calculation
+
+**Level Calculation:**
+
+   ```java
+if (parentId == null) {
+    level = 0; // Root category
+} else {
+    Category parent = categoryRepository.findById(parentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Category", parentId));
+    level = parent.getLevel() + 1;
+}
+```
+
+**Path Generation:**
+
+```java
+if (parentId == null) {
+    path = String.valueOf(id); // Root category
+} else {
+    Category parent = categoryRepository.findById(parentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Category", parentId));
+    path = parent.getPath() + "/" + id;
+}
+```
+
+### 3. Image Upload
+
+**Backend:**
+
+- Hỗ trợ upload image qua MinIO hoặc local storage
+- Xóa image cũ khi cập nhật hoặc xóa category
+- Validate file type và size
+
+**Frontend:**
+
+- Image preview trước khi upload
+- Drag & drop upload
+- Progress indicator
+- Error handling
+
+### 4. Validation Rules
+
+- **Không cho phép xóa nếu có children:**
+
+  ```java
+  if (categoryRepository.countByParentId(id) > 0) {
+      throw new OperationNotPermittedException("Không thể xóa category có danh mục con");
+  }
+  ```
+
+- **Không cho phép xóa nếu có products:**
+  ```java
+  if (productRepository.countByCategoryId(id) > 0) {
+      throw new OperationNotPermittedException("Không thể xóa category có sản phẩm");
+  }
+  ```
+
+---
+
+## 🌳 Tree Structure
+
+### Cấu Trúc Dữ Liệu
+
+Tree structure được implement với:
+
+1. **Self-referencing:** `parent` và `children` trong cùng một bảng
+2. **Level:** Cấp độ trong cây (0 = root)
+3. **Path:** Đường dẫn từ root (ví dụ: "1/5/10")
+
+### Ví Dụ Tree
+
+```
+Root (level 0)
+├── Nước hoa Nam (id: 1, level: 1, path: "1")
+│   ├── Nước hoa Nam - EDT (id: 5, level: 2, path: "1/5")
+│   └── Nước hoa Nam - EDP (id: 6, level: 2, path: "1/6")
+└── Nước hoa Nữ (id: 2, level: 1, path: "2")
+    └── Nước hoa Nữ - EDT (id: 7, level: 2, path: "2/7")
+```
+
+### Query Tree
+
+**Lấy root categories:**
+
+```java
+List<Category> rootCategories = categoryRepository.findByParentIdIsNull();
+```
+
+**Lấy children của một category:**
+
+```java
+List<Category> children = categoryRepository.findByParentId(parentId);
+```
+
+**Query bằng path:**
+
+```sql
+SELECT * FROM categories WHERE path LIKE '1/%' OR path = '1';
+-- Lấy category id=1 và tất cả children
 ```
 
 ---
@@ -673,6 +797,7 @@ const CategoryFormSheet = dynamic(
 ### Backend Caching
 
 #### Cache Configuration
+
 - **Cache Name:** `"categories"`
 - **Cache Key:** `#id` (category ID)
 - **Cache Provider:** Redis (Spring Cache)
@@ -680,32 +805,25 @@ const CategoryFormSheet = dynamic(
 #### Cached Methods
 
 1. **`getCategoryById(Long id)`**
+
    ```java
    @Cacheable(value = "categories", key = "#id", unless = "#result == null")
    ```
-   - Cache category data khi fetch
-   - TTL: Mặc định của Redis configuration
 
 2. **`getCategoriesTree()`**
-   - Cache trong Redis với key `"category:tree"`
+
+   - Cache key: `"category:tree"`
    - TTL: 10 phút
 
 3. **Cache Eviction**
 
-   - **`updateCategory()`**: 
-     - `@CacheEvict(value = "categories", key = "#id")` - Xóa cache detail
-     - Xóa cache tree: `evictCategoryTreeCache()`
-     - Xóa cache list: `evictCategoryListCache()`
-   - **`deleteCategory()`**: 
-     - `@CacheEvict(value = "categories", key = "#id")` - Xóa cache detail
-     - Xóa cache tree: `evictCategoryTreeCache()`
-     - Xóa cache list: `evictCategoryListCache()`
-   - **`createCategory()`**: 
-     - Xóa cache tree: `evictCategoryTreeCache()`
-     - Xóa cache list: `evictCategoryListCache()`
+   - **`updateCategory()`**: `@CacheEvict(value = "categories", key = "#id")` + evict tree cache
+   - **`deleteCategory()`**: `@CacheEvict(value = "categories", key = "#id")` + evict tree cache
+   - **`createCategory()`**: Evict tree cache
 
 #### Cache Hit Rate
-- **Expected:** ~80-90% cho category detail queries
+
+- **Expected:** ~80-90% cho category detail và tree queries
 - **Performance:** Giảm database load đáng kể
 
 ### Frontend Caching
@@ -713,229 +831,47 @@ const CategoryFormSheet = dynamic(
 #### React Query Configuration
 
 **List Query (`useCategories`):**
-- `staleTime`: 10 phút
-- `gcTime`: 30 phút
-- `refetchOnMount`: false
-- `refetchOnWindowFocus`: false
 
-**Detail Query (`useCategory`):**
 - `staleTime`: 10 phút
 - `gcTime`: 30 phút
 - `refetchOnMount`: false
 - `refetchOnWindowFocus`: false
 
 **Tree Query (`useCategoriesTree`):**
+
 - `staleTime`: 10 phút
 - `gcTime`: 30 phút
-- `refetchOnMount`: false
 
-#### Cache Invalidation
+**Detail Query (`useCategory`):**
 
-Tự động invalidate khi:
-- Create category → Invalidate list queries và tree query
-- Update category → Invalidate detail query, list queries và tree query
-- Delete category → Invalidate list queries và tree query
-
----
-
-## 🌐 Internationalization (i18n)
-
-### Translation Keys
-
-**File:** `translations.ts`  
-**Path:** `orchard-store-dashboad/src/lib/i18n/translations.ts`
-
-#### Category Management Keys
-
-```typescript
-admin: {
-  categories: {
-    title: "Quản lý danh mục",
-    description: "...",
-    searchPlaceholder: "Tìm kiếm danh mục...",
-    addCategory: "Thêm danh mục",
-    // ... more keys
-  },
-  forms: {
-    category: {
-      create: {
-        title: "Tạo danh mục mới",
-        // ...
-      },
-      edit: {
-        title: "Chỉnh sửa danh mục",
-        // ...
-      },
-      fields: {
-        name: "Tên danh mục",
-        slug: "Slug",
-        description: "Mô tả",
-        imageUrl: "Hình ảnh",
-        parentId: "Danh mục cha",
-        displayOrder: "Thứ tự hiển thị",
-        status: "Trạng thái",
-      },
-      // ... more keys
-    },
-  },
-}
-```
-
-### Supported Languages
-
-- ✅ **Vietnamese (vi)**: 100% coverage
-- ✅ **English (en)**: 100% coverage
-
-### Usage Example
-
-```typescript
-const { t } = useI18n();
-
-// In component
-<h1>{t("admin.categories.title")}</h1>
-<Button>{t("admin.categories.addCategory")}</Button>
-<Label>{t("admin.forms.category.fields.name")}</Label>
-```
-
----
-
-## ⚡ Performance Optimizations
-
-### Backend
-
-1. **Caching với Spring Cache**
-   - Giảm database queries
-   - Tăng response time
-   - Cache hit rate ~80-90%
-
-2. **EntityGraph để tránh N+1 Query**
-   ```java
-   @Query("SELECT c FROM Category c LEFT JOIN FETCH c.parent WHERE c.id = :id")
-   Optional<Category> findByIdWithParent(@Param("id") Long id);
-   ```
-
-3. **Pagination**
-   - Mặc định 15 items/page
-   - Tránh load quá nhiều data
-
-4. **Tree Caching**
-   - Cache toàn bộ tree structure
-   - Giảm queries khi load tree
-
-### Frontend
-
-1. **Code Splitting**
-   - Lazy load `CategoryFormSheet`
-   - Giảm initial bundle size ~25%
-
-2. **React Query Caching**
-   - Giảm API calls ~70%
-   - Better UX với instant data
-
-3. **Debounced Search**
-   - Giảm API calls khi user typing
-   - 300ms debounce delay
-
-4. **Memoization**
-   - `useMemo` cho normalized filters
-   - `useCallback` cho event handlers
-
----
-
-## 🌳 Tree Structure
-
-### Hierarchical Data Model
-
-Categories được tổ chức dưới dạng tree với các đặc điểm:
-
-1. **Root Categories:** `parentId = null`, `level = 0`
-2. **Child Categories:** Có `parentId`, `level = parent.level + 1`
-3. **Path:** Đường dẫn từ root đến category (e.g., "/1/2/3")
-
-### Level Calculation
-
-```java
-private void calculateLevelAndPath(Category category) {
-    if (category.getParent() == null) {
-        category.setLevel(0);
-        category.setPath("/" + category.getId());
-    } else {
-        category.setLevel(category.getParent().getLevel() + 1);
-        category.setPath(category.getParent().getPath() + "/" + category.getId());
-    }
-}
-```
-
-### Tree Display Example
-
-```
-Electronics (level 0)
-├── Mobile Phones (level 1)
-│   ├── Smartphones (level 2)
-│   └── Feature Phones (level 2)
-└── Computers (level 1)
-    ├── Laptops (level 2)
-    └── Desktops (level 2)
-```
-
-### Validation Rules
-
-1. **Cannot delete category with children:**
-   ```java
-   long childrenCount = categoryRepository.countByParentId(id);
-   if (childrenCount > 0) {
-       throw new IllegalStateException("Category has children. Cannot delete category with children.");
-   }
-   ```
-
-2. **Cannot delete category with products:**
-   ```java
-   long productsCount = productRepository.countByCategoryId(id);
-   if (productsCount > 0) {
-       throw new IllegalStateException("Category has products. Cannot delete category with products.");
-   }
-   ```
+- `staleTime`: 10 phút
+- `gcTime`: 30 phút
 
 ---
 
 ## 💻 Code Examples
 
-### Backend: Get Category with Caching
+### Backend: Create Category with Parent
 
 ```java
-@Override
-@Transactional(readOnly = true)
-@Cacheable(value = "categories", key = "#id", unless = "#result == null")
-public CategoryDTO getCategoryById(Long id) {
-    log.info("Getting category by ID: {} (cache miss)", id);
-    Category category = categoryRepository.findByIdWithParent(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Category", id));
-    return categoryAdminMapper.toDTO(category);
-}
+CategoryCreateRequest request = CategoryCreateRequest.builder()
+    .name("Nước hoa Nam - EDT")
+    .slug("nuoc-hoa-nam-edt")
+    .parentId(1L)
+    .build();
+
+CategoryDTO created = categoryService.createCategory(request);
+// Level và path sẽ được tự động tính
 ```
 
-### Frontend: Use Category Hook
+### Backend: Get Tree
 
-```typescript
-function CategoryDetailPage({ categoryId }: { categoryId: number }) {
-  const { data: category, isLoading, error } = useCategory(categoryId);
-
-  if (isLoading) return <Loading />;
-  if (error) return <Error message={error.message} />;
-
-  return (
-    <div>
-      <img src={category.imageUrl} alt={category.name} />
-      <h1>{category.name}</h1>
-      <p>Level: {category.level}</p>
-      <p>Path: {category.path}</p>
-      {category.parentName && <p>Parent: {category.parentName}</p>}
-    </div>
-  );
-}
+```java
+List<CategoryDTO> tree = categoryService.getCategoriesTree();
+// Trả về root categories với children nested
 ```
 
-### Frontend: Use Categories Tree
+### Frontend: Display Tree
 
 ```typescript
 function CategoryTreeView() {
@@ -944,74 +880,145 @@ function CategoryTreeView() {
   if (isLoading) return <Loading />;
 
   return (
-    <ul>
-      {tree.map((category) => (
+    <div>
+      {tree?.map((category) => (
         <CategoryTreeNode key={category.id} category={category} />
       ))}
-    </ul>
+    </div>
   );
 }
 
 function CategoryTreeNode({ category }: { category: Category }) {
   return (
-    <li>
+    <div style={{ marginLeft: `${category.level * 20}px` }}>
       <span>{category.name}</span>
-      {category.children && category.children.length > 0 && (
-        <ul>
-          {category.children.map((child) => (
+      {category.children &&
+        category.children.map((child) => (
             <CategoryTreeNode key={child.id} category={child} />
           ))}
-        </ul>
-      )}
-    </li>
-  );
-}
-```
-
-### Frontend: Create Category with Parent
-
-```typescript
-function CreateCategoryForm() {
-  const createCategory = useCreateCategory();
-  const { data: tree } = useCategoriesTree();
-  const { t } = useI18n();
-
-  const onSubmit = async (data: CategoryFormData) => {
-    await createCategory.mutateAsync(data);
-  };
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <Input name="name" label={t("admin.forms.category.fields.name")} />
-      <Select name="parentId" label={t("admin.forms.category.fields.parentId")}>
-        <option value="">Root Category</option>
-        {tree.map((cat) => (
-          <option key={cat.id} value={cat.id}>
-            {cat.name}
-          </option>
-        ))}
-      </Select>
-      <Button type="submit" disabled={createCategory.isPending}>
-        {createCategory.isPending ? t("common.loading") : t("admin.forms.category.create.submit")}
-      </Button>
-    </form>
+    </div>
   );
 }
 ```
 
 ---
 
-## 📝 Notes
+## 🧪 Testing Guide
 
-- **Security:** Endpoints yêu cầu ADMIN hoặc MANAGER role
-- **Validation:** Name phải unique, không thể xóa category có children/products
-- **Slug:** Tự động generate từ name nếu không có
-- **Tree Structure:** Hỗ trợ đa cấp với level và path
-- **Image:** Hỗ trợ upload và quản lý image files
-- **Cache:** Cache tự động invalidate khi update/delete
-- **Performance:** Optimized với caching, pagination và tree caching
+### Backend Testing
+
+1. **Unit Tests:**
+
+   - Test validation rules
+   - Test business logic (trùng name/slug)
+   - Test level và path calculation
+   - Test tree structure
+
+2. **Integration Tests:**
+
+   - Test API endpoints
+   - Test database constraints
+   - Test pagination và filtering
+   - Test tree queries
+   - Test validation (không xóa nếu có children/products)
+
+### Frontend Testing
+
+1. **Component Tests:**
+
+   - Test form validation
+   - Test image upload
+   - Test tree display
+   - Test parent selection
+
+2. **E2E Tests:**
+
+   - Test CRUD operations
+   - Test search và filter
+   - Test tree structure
+   - Test validation (không xóa nếu có children/products)
+
+### Test Cases
+
+**Backend:**
+
+- ✅ Tạo root category → level = 0, path = id
+- ✅ Tạo child category → level = parent.level + 1, path = parent.path + "/" + id
+- ✅ Cập nhật parent → recalculate level và path
+- ✅ Xóa category có children → throw exception
+- ✅ Xóa category có products → throw exception
+
+**Frontend:**
+
+- ✅ Hiển thị tree structure
+- ✅ Expand/Collapse nodes
+- ✅ Parent selection trong form
+- ✅ Validate không xóa nếu có children/products
 
 ---
 
-**Cập nhật lần cuối:** $(date)
+## 📝 Notes & Best Practices
 
+### Backend
+
+1. **Tree Structure:**
+
+   - Sử dụng self-referencing để tạo tree
+   - Level và path để query nhanh
+   - Validation để đảm bảo data integrity
+
+2. **Performance:**
+
+   - Sử dụng EntityGraph để tránh N+1 query
+   - Caching với Spring Cache
+   - Indexes cho parent_id và level
+
+3. **Validation:**
+
+   - Không cho phép xóa nếu có children hoặc products
+   - Validate parent tồn tại khi tạo/update
+
+### Frontend
+
+1. **Tree Display:**
+
+   - Recursive component để render tree
+   - Indentation theo level
+   - Expand/Collapse state management
+
+2. **State Management:**
+
+   - Sử dụng React Query cho server state
+   - Local state cho form với React Hook Form
+
+3. **UX:**
+
+   - Real-time validation
+   - Loading states
+   - Error handling với user-friendly messages
+
+---
+
+## 🚀 Future Enhancements
+
+1. **Soft Delete:** Thêm `deleted_at` thay vì hard delete
+2. **Audit Log:** Ghi lại lịch sử thay đổi
+3. **Bulk Operations:** Import/Export CSV
+4. **Advanced Search:** Tìm kiếm theo nhiều tiêu chí
+5. **Drag & Drop:** Sắp xếp lại thứ tự categories
+6. **Multi-language:** Hỗ trợ đa ngôn ngữ cho name và description
+
+---
+
+## 📚 References
+
+- [Spring Data JPA Documentation](https://spring.io/projects/spring-data-jpa)
+- [React Query Documentation](https://tanstack.com/query/latest)
+- [React Hook Form Documentation](https://react-hook-form.com/)
+- [Zod Documentation](https://zod.dev/)
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** 2025-12-03  
+**Author:** Development Team

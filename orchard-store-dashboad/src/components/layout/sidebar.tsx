@@ -32,6 +32,9 @@ export function Sidebar({
             | "admin.menu.dashboard"
             | "admin.menu.brands"
             | "admin.menu.categories"
+            | "admin.menu.concentrations"
+            | "admin.menu.attributes"
+            | "admin.menu.warehouses"
             | "admin.menu.users"
         ) || item.label,
     }));

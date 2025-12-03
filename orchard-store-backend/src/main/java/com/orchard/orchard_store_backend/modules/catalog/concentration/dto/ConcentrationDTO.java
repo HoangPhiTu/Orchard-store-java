@@ -28,6 +28,28 @@ public class ConcentrationDTO {
     @Size(max = 5000, message = "Mô tả không được vượt quá 5000 ký tự")
     private String description;
 
+    @Size(max = 20, message = "Tên viết tắt không được vượt quá 20 ký tự")
+    private String acronym;
+
+    /**
+     * Display name kết hợp name và acronym
+     * Format: {name} ({acronym})
+     * Ví dụ: "Eau de Toilette (EDT)"
+     * Nếu acronym rỗng hoặc giống name -> chỉ trả về name
+     */
+    private String displayName;
+
+    @Min(value = 0, message = "Tỷ lệ tinh dầu tối thiểu phải >= 0")
+    @Max(value = 100, message = "Tỷ lệ tinh dầu tối thiểu phải <= 100")
+    private Integer minOilPercentage;
+
+    @Min(value = 0, message = "Tỷ lệ tinh dầu tối đa phải >= 0")
+    @Max(value = 100, message = "Tỷ lệ tinh dầu tối đa phải <= 100")
+    private Integer maxOilPercentage;
+
+    @Size(max = 100, message = "Độ lưu hương không được vượt quá 100 ký tự")
+    private String longevity;
+
     @Min(value = 1, message = "Mức độ phải >= 1")
     @Max(value = 10, message = "Mức độ phải <= 10")
     private Integer intensityLevel;
