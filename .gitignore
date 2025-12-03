@@ -20,16 +20,25 @@ Thumbs.db
 *.swo
 *~
 
-# Environment
-# .env
-# .env.local
-# .env*.local
-# Đã comment để cho phép commit các file .env lên GitHub (theo yêu cầu)
+# Environment - BẢO VỆ FILE NHẠY CẢM (KHÔNG COMMIT LÊN PUBLIC REPO)
+.env
+.env.local
+.env*.local
+.env.production
+.env.development
 
-# Application Properties (chứa credentials)
-# orchard-store-backend/src/main/resources/application.properties
-# !orchard-store-backend/src/main/resources/application.properties.example
-# Đã comment để cho phép commit application.properties lên GitHub (theo yêu cầu)
+# Application Properties (chứa credentials - KHÔNG COMMIT LÊN PUBLIC REPO)
+orchard-store-backend/src/main/resources/application.properties
+!orchard-store-backend/src/main/resources/application.properties.example
+orchard-store-dashboad/.env.local
+orchard-store-dashboad/.env
+orchard-storefront/.env.local
+orchard-storefront/.env
+
+# Database backups với credentials
+**/backup.sql
+**/*backup*.sql
+**/*dump*.sql
 
 # Dependencies
 node_modules/
@@ -53,3 +62,11 @@ dist/
 **/__tests__/
 **/__mocks__/
 
+
+**/*Tests.java
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/__tests__/
+**/__mocks__/
