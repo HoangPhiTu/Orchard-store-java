@@ -104,6 +104,7 @@ export interface Translations {
       categories: string;
       concentrations: string;
       attributes: string;
+      products: string;
       warehouses: string;
       users: string;
     };
@@ -228,6 +229,19 @@ export interface Translations {
       noAttributes: string;
       deleteConfirmTitle: string;
       deleteConfirmMessage: string;
+    };
+    products: {
+      productManagement: string;
+      manageProducts: string;
+      addProduct: string;
+      searchProducts: string;
+      productName: string;
+      brand: string;
+      category: string;
+      price: string;
+      status: string;
+      loadingProducts: string;
+      noProductsFound: string;
     };
     profile: {
       profile: string;
@@ -360,6 +374,7 @@ export interface Translations {
         domainDescription: string;
         perfumeTab: string;
         cosmeticsTab: string;
+        commonTab: string;
         attributeNamePlaceholder: string;
         attributeNameDescription: string;
         attributeTypeDescription: string;
@@ -530,6 +545,7 @@ export const translations: Record<Locale, Translations> = {
         categories: "Danh mục",
         concentrations: "Nồng độ",
         attributes: "Thuộc tính",
+        products: "Sản phẩm",
         warehouses: "Kho hàng",
         users: "Người dùng",
       },
@@ -657,6 +673,19 @@ export const translations: Record<Locale, Translations> = {
         deleteConfirmTitle: "Xóa thuộc tính",
         deleteConfirmMessage:
           "Bạn có chắc chắn muốn xóa thuộc tính '{name}'? Hành động này không thể hoàn tác.",
+      },
+      products: {
+        productManagement: "Quản lý sản phẩm",
+        manageProducts: "Quản lý tất cả sản phẩm trong hệ thống.",
+        addProduct: "Thêm sản phẩm",
+        searchProducts: "Tìm kiếm sản phẩm...",
+        productName: "Tên sản phẩm",
+        brand: "Thương hiệu",
+        category: "Danh mục",
+        price: "Giá",
+        status: "Trạng thái",
+        loadingProducts: "Đang tải sản phẩm...",
+        noProductsFound: "Không tìm thấy sản phẩm",
       },
       profile: {
         profile: "Hồ sơ",
@@ -800,6 +829,7 @@ export const translations: Record<Locale, Translations> = {
             "Chọn nhóm sản phẩm mà thuộc tính này áp dụng. Ví dụ: Thuộc tính mô tả mùi hương nước hoa hay đặc tính của mỹ phẩm.",
           perfumeTab: "Nước hoa",
           cosmeticsTab: "Mỹ phẩm",
+          commonTab: "Dùng chung",
           attributeNamePlaceholder: "Ví dụ: Màu sắc, Dung tích, Nhóm hương",
           attributeNameDescription:
             "Tên mà Admin và khách hàng sẽ nhìn thấy, ví dụ: Màu sắc, Dung tích, Nhóm hương, Loại da, Vấn đề da...",
@@ -977,6 +1007,7 @@ export const translations: Record<Locale, Translations> = {
         categories: "Categories",
         concentrations: "Concentrations",
         attributes: "Attributes",
+        products: "Products",
         warehouses: "Warehouses",
         users: "Users",
       },
@@ -1103,6 +1134,19 @@ export const translations: Record<Locale, Translations> = {
         deleteConfirmTitle: "Delete Attribute",
         deleteConfirmMessage:
           "Are you sure you want to delete attribute '{name}'? This action cannot be undone.",
+      },
+      products: {
+        productManagement: "Product Management",
+        manageProducts: "Manage all products in the system.",
+        addProduct: "Add Product",
+        searchProducts: "Search products...",
+        productName: "Product Name",
+        brand: "Brand",
+        category: "Category",
+        price: "Price",
+        status: "Status",
+        loadingProducts: "Loading products...",
+        noProductsFound: "No products found",
       },
       profile: {
         profile: "Profile",
@@ -1253,6 +1297,7 @@ export const translations: Record<Locale, Translations> = {
             "Choose which product group this attribute belongs to. For example, fragrance attributes for Perfume or skin-related attributes for Cosmetics.",
           perfumeTab: "Perfume",
           cosmeticsTab: "Cosmetics",
+          commonTab: "Common",
           attributeNamePlaceholder: "Example: Color, Volume, Fragrance family",
           attributeNameDescription:
             "Name shown to Admin and customers, e.g. Color, Volume, Fragrance family, Skin type, Skin concern...",

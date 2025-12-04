@@ -10,6 +10,15 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * @deprecated Legacy module – đã được thay thế bởi Attribute System với attribute 'nong_do' (Nồng độ)
+ * trong bảng 'attribute_types' + 'attribute_options'.
+ *
+ * Lộ trình:
+ * - Giai đoạn hiện tại: chỉ còn dùng cho dữ liệu cũ (nếu có). Không dùng cho feature mới.
+ * - Giai đoạn sau: migrate dữ liệu nồng độ sang product attributes, sau đó drop bảng 'concentrations'.
+ */
+@Deprecated
 @Entity
 @Table(name = "concentrations")
 @Data

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ProductAttribute } from "./attribute.types";
 
 export type CatalogStatus = "ACTIVE" | "INACTIVE";
 
@@ -31,6 +32,22 @@ export interface Category {
   createdAt?: string | null; // ISO date string
   updatedAt?: string | null; // ISO date string
   children?: Category[];
+}
+
+export interface CategoryAttribute {
+  id?: number;
+  categoryId: number;
+  attributeId: number;
+  attributeName?: string;
+  attributeKey?: string;
+  required?: boolean;
+  displayOrder?: number;
+  groupName?: string;
+}
+
+export interface AttributeGroup {
+  groupName: string;
+  attributes: ProductAttribute[];
 }
 
 export interface BrandQueryParams {
@@ -192,9 +209,9 @@ const categoryFormSchemaBase = z.object({
 
 export const categoryFormSchema = categoryFormSchemaBase;
 
-export const createCategoryFormSchema = (
-  options?: { currentCategoryId?: number | null }
-) =>
+export const createCategoryFormSchema = (options?: {
+  currentCategoryId?: number | null;
+}) =>
   categoryFormSchemaBase.superRefine((data, ctx) => {
     if (
       options?.currentCategoryId &&

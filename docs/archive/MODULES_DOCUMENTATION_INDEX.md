@@ -105,20 +105,18 @@ Tài liệu này cung cấp index cho tất cả các module documentation trong
 
 ---
 
-### 4. 🎯 [Attribute Management Documentation](./ATTRIBUTE_MANAGEMENT_DOCUMENTATION.md)
+### 4. 🎯 [Attribute Management Documentation](./ATTRIBUTE_DOCUMENTATION_INDEX.md)
 
 **Mô tả:** Module quản lý thuộc tính sản phẩm trong hệ thống admin
 
-**Nội dung chính:**
+**📚 Xem [Attribute Documentation Index](./ATTRIBUTE_DOCUMENTATION_INDEX.md) để có overview đầy đủ về tất cả tài liệu liên quan đến Attribute.**
 
-- ✅ Backend Implementation (Controller, Service, Repository, DTOs)
-- ✅ Frontend Implementation (Services, Hooks, Components)
-- ✅ API Documentation (đầy đủ endpoints)
-- ✅ Nested Update (Master-Detail)
-- ✅ Dynamic Field Array với useFieldArray
-- ✅ Auto-generate attributeKey
-- ✅ Color Picker Preview
-- ✅ Code Examples
+**Tài liệu chính:**
+
+- 📖 [Attribute Management Documentation](./ATTRIBUTE_MANAGEMENT_DOCUMENTATION.md) - Documentation đầy đủ về Attribute Module
+- 🔍 [Dynamic Product Form Analysis](./ATTRIBUTE_DYNAMIC_FORM_ANALYSIS.md) - Phân tích và giải pháp cho Dynamic Product Form
+- 📋 [Dynamic Product Form Implementation Plan](./DYNAMIC_PRODUCT_FORM_IMPLEMENTATION_PLAN.md) - Kế hoạch triển khai chi tiết
+- 📈 [Implementation Status](./ATTRIBUTE_CATEGORY_IMPLEMENTATION_STATUS.md) - Trạng thái implementation hiện tại
 
 **Key Features:**
 
@@ -128,11 +126,14 @@ Tài liệu này cung cấp index cho tất cả các module documentation trong
 - Dynamic field array với useFieldArray
 - Auto-generate attributeKey từ attributeName
 - Color picker preview cho hexColor
+- Domain-based attributes (PERFUME, COSMETICS, COMMON)
+- Category-Attribute Binding (Many-to-Many)
+- Attribute Grouping (group_name)
 - Validation với Zod schema
 - Constraint checking (kiểm tra ràng buộc trước khi xóa)
 - Hỗ trợ nhiều loại attribute type (SELECT, MULTISELECT, RANGE, BOOLEAN, TEXT)
 
-**File:** `ATTRIBUTE_MANAGEMENT_DOCUMENTATION.md`
+**File:** `ATTRIBUTE_DOCUMENTATION_INDEX.md` (Index) → `ATTRIBUTE_MANAGEMENT_DOCUMENTATION.md` (Main doc)
 
 ---
 

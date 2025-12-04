@@ -48,6 +48,12 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Flyway for database migrations (db/migration/Vxx__*.sql) -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+
 		<!-- Hypersistence Utils for Hibernate 6.3 - JSONB Support -->
 		<dependency>
 			<groupId>io.hypersistence</groupId>

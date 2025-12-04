@@ -33,6 +33,7 @@ Module **Category Management** cung cấp đầy đủ các chức năng quản 
 - ✅ Xóa category (với validation)
 - ✅ Upload image category
 - ✅ Quản lý display order
+- ✅ Cấu hình thuộc tính (Attribute Configuration) - Gán attributes vào category
 
 ### Đặc Điểm Nổi Bật
 
@@ -40,6 +41,7 @@ Module **Category Management** cung cấp đầy đủ các chức năng quản 
 - 📊 **Hierarchical Display:** Hiển thị cây danh mục với level và path
 - 🔒 **Validation:** Không cho phép xóa category có children hoặc products
 - 🎨 **Image Upload:** Hỗ trợ upload image cho category
+- 🔗 **Attribute Configuration:** Gán và quản lý attributes cho category với metadata (required, displayOrder, groupName)
 
 ### Tech Stack
 
@@ -172,19 +174,19 @@ public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @Column(nullable = false, length = 255)
     private String name;
-    
+
     @Column(nullable = false, unique = true, length = 255)
     private String slug;
-    
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "image_url", length = 500)
     private String imageUrl;
-    
+
     @Column(name = "display_order")
     @Builder.Default
     private Integer displayOrder = 0;
@@ -198,18 +200,18 @@ public class Category {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
-    
+
     @Column(name = "parent_id", insertable = false, updatable = false)
     private Long parentId;
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Category> children = new ArrayList<>();
-    
+
     @Column(nullable = false)
     @Builder.Default
     private Integer level = 0;
-    
+
     @Column(length = 500)
     private String path; // e.g., "1/5/10" for easy querying
 
@@ -692,13 +694,13 @@ Xóa category.
 
 **Level Calculation:**
 
-   ```java
+```java
 if (parentId == null) {
-    level = 0; // Root category
+ level = 0; // Root category
 } else {
-    Category parent = categoryRepository.findById(parentId)
-            .orElseThrow(() -> new ResourceNotFoundException("Category", parentId));
-    level = parent.getLevel() + 1;
+ Category parent = categoryRepository.findById(parentId)
+         .orElseThrow(() -> new ResourceNotFoundException("Category", parentId));
+ level = parent.getLevel() + 1;
 }
 ```
 
@@ -894,8 +896,8 @@ function CategoryTreeNode({ category }: { category: Category }) {
       <span>{category.name}</span>
       {category.children &&
         category.children.map((child) => (
-            <CategoryTreeNode key={child.id} category={child} />
-          ))}
+          <CategoryTreeNode key={child.id} category={child} />
+        ))}
     </div>
   );
 }
@@ -996,6 +998,70 @@ function CategoryTreeNode({ category }: { category: Category }) {
    - Real-time validation
    - Loading states
    - Error handling với user-friendly messages
+
+---
+
+## 🔗 Attribute Configuration
+
+### Tổng Quan
+
+Category Management hỗ trợ cấu hình attributes cho từng category thông qua tab "Cấu hình thuộc tính" trong CategoryFormSheet. Điều này cho phép:
+
+- Gán attributes vào category (Many-to-Many relationship)
+- Cấu hình metadata cho từng attribute trong category:
+  - `required`: Attribute có bắt buộc khi tạo sản phẩm không
+  - `displayOrder`: Thứ tự hiển thị của attribute
+  - `groupName`: Tên nhóm để group attributes khi hiển thị trong Product Form
+
+### Frontend Implementation
+
+**Component:** `CategoryAttributesSection`
+
+**Location:** `orchard-store-dashboad/src/components/features/catalog/category-attributes-section.tsx`
+
+**Features:**
+
+- ✅ Hiển thị danh sách attributes đã gán
+- ✅ Gán attribute mới vào category (Command/Combobox với search)
+- ✅ Filter attributes theo domain (PERFUME, COSMETICS, COMMON)
+- ✅ Chỉnh sửa metadata (required, displayOrder, groupName)
+- ✅ Xóa attribute khỏi category
+
+**Integration:**
+
+- Tích hợp vào `CategoryFormSheet` với Tabs:
+  - Tab "Thông tin cơ bản": Form thông tin category
+  - Tab "Cấu hình thuộc tính": Quản lý attributes (chỉ enable khi đang edit category)
+
+**Hooks:**
+
+- `useCategoryAttributes(categoryId)` - Query attributes của category
+- `useAssignCategoryAttribute()` - Gán attribute vào category
+- `useRemoveCategoryAttribute()` - Xóa attribute khỏi category
+- `useUpdateCategoryAttribute()` - Cập nhật metadata
+
+**Service:**
+
+- `categoryAttributeService.getCategoryAttributes(categoryId)`
+- `categoryAttributeService.assignAttribute(data)`
+- `categoryAttributeService.removeAttribute(categoryId, attributeId)`
+- `categoryAttributeService.updateAttributeMetadata(categoryId, attributeId, data)`
+
+### Backend API
+
+**Endpoints:**
+
+- `GET /api/admin/category-attributes/{categoryId}` - Lấy attributes của category
+- `POST /api/admin/category-attributes` - Gán attribute vào category
+- `PUT /api/admin/category-attributes/{categoryId}/{attributeId}` - Cập nhật metadata
+- `DELETE /api/admin/category-attributes/{categoryId}/{attributeId}` - Xóa binding
+- `GET /api/admin/category-attributes/{categoryId}/for-product` - Lấy attributes cho Product Form (grouped, chỉ Product Attributes) ⚠️ **PENDING**
+
+**Xem thêm:**
+
+- [Attribute Management Documentation](./ATTRIBUTE_MANAGEMENT_DOCUMENTATION.md) - Chi tiết về Attribute Module
+- [Dynamic Product Form Analysis](./ATTRIBUTE_DYNAMIC_FORM_ANALYSIS.md) - Phân tích và giải pháp cho Dynamic Product Form
+- [Dynamic Product Form Implementation Plan](./DYNAMIC_PRODUCT_FORM_IMPLEMENTATION_PLAN.md) - Kế hoạch triển khai
 
 ---
 

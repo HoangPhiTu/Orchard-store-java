@@ -144,6 +144,7 @@ public class ProductCreateRequestDTO {
         private Boolean isDefault;
         private String status;
         private Integer displayOrder;
+        private String imageUrl;
     }
 }
 

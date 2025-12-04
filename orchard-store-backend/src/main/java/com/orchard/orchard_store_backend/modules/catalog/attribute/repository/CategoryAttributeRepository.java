@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface CategoryAttributeRepository extends JpaRepository<CategoryAttribute, Long> {
     List<CategoryAttribute> findByCategoryId(Long categoryId);
+    List<CategoryAttribute> findByCategoryIdIn(List<Long> categoryIds);
     boolean existsByCategoryIdAndAttributeId(Long categoryId, Long attributeId);
     Optional<CategoryAttribute> findByCategoryIdAndAttributeId(Long categoryId, Long attributeId);
     void deleteByCategoryIdAndAttributeId(Long categoryId, Long attributeId);

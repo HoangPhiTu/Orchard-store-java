@@ -1,4 +1,13 @@
-import { LayoutDashboard, Tag, Layers3, Users, Droplets, Settings, Warehouse } from "lucide-react";
+import {
+  LayoutDashboard,
+  Tag,
+  Layers3,
+  Users,
+  Droplets,
+  Settings,
+  Warehouse,
+  Package,
+} from "lucide-react";
 
 // Base menu structure - labels will be translated in components using i18n
 export const ADMIN_MENU = [
@@ -26,6 +35,12 @@ export const ADMIN_MENU = [
     href: "/admin/attributes",
     icon: Settings,
     key: "attributes",
+  },
+  {
+    label: "Products",
+    href: "/admin/products",
+    icon: Package,
+    key: "products",
   },
   {
     label: "Warehouses",

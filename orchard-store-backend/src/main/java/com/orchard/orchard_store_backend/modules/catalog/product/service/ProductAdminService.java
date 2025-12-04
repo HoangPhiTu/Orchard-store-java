@@ -396,6 +396,22 @@ public class ProductAdminService {
     }
 
     /**
+     * Lấy chi tiết Product theo ID (bao gồm variants, images, seoUrls).
+     * 
+     * @param productId ID của Product cần lấy
+     * @return ProductDetailDTO với đầy đủ thông tin
+     * @throws ResourceNotFoundException Nếu Product không tồn tại
+     */
+    public ProductDetailDTO getProductDetail(Long productId) {
+        log.info("Lấy chi tiết Product ID: {}", productId);
+
+        Product product = productRepository.findByIdWithDetails(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", productId));
+
+        return productMapper.toDetailDTO(product);
+    }
+
+    /**
      * Xóa mềm Product (đổi status sang ARCHIVED).
      * 
      * @param productId ID của Product cần xóa

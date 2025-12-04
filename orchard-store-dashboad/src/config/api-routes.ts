@@ -16,6 +16,7 @@ export const API_ROUTES = {
   CONCENTRATIONS: "/api/concentrations",
   ADMIN_CONCENTRATIONS: "/api/admin/concentrations",
   ATTRIBUTES: "/api/admin/attributes",
+  CATEGORY_ATTRIBUTES: "/api/admin/category-attributes",
   WAREHOUSES: "/api/admin/warehouses",
   USERS: "/api/admin/users",
   ROLES: "/api/admin/roles",

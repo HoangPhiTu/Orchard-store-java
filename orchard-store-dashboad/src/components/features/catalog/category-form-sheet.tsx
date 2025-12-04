@@ -50,6 +50,8 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/hooks/use-i18n";
 import { toast } from "sonner";
 import type { Page } from "@/types/user.types";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CategoryAttributesSection } from "./category-attributes-section";
 
 interface CategoryFormSheetProps {
   open: boolean;
@@ -121,6 +123,12 @@ export function CategoryFormSheet({
   const isEditing = Boolean(category);
   const [isParentSelectOpen, setIsParentSelectOpen] = useState(false);
   const [parentSearch, setParentSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"basic" | "attributes">("basic");
+  // ✅ State riêng để track categoryId cho CategoryAttributesSection
+  // Khởi tạo từ cả prop category và categoryData (nếu đã có)
+  const [attributesCategoryId, setAttributesCategoryId] = useState<number | undefined>(() => {
+    return category?.id ?? undefined;
+  });
   // Use state instead of ref for better React integration and to avoid race conditions
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   
@@ -244,6 +252,14 @@ export function CategoryFormSheet({
     () => createCategoryFormSchema({ currentCategoryId: category?.id }),
     [category?.id]
   );
+
+  // ✅ Update attributesCategoryId khi category hoặc categoryData thay đổi
+  useEffect(() => {
+    const newId = category?.id ?? categoryData?.id;
+    if (newId && newId > 0) {
+      setAttributesCategoryId(newId);
+    }
+  }, [category?.id, categoryData?.id]);
   const schemaResolver = useMemo(
     () => zodResolver(categorySchema),
     [categorySchema]
@@ -433,6 +449,7 @@ export function CategoryFormSheet({
     if (!open) {
       startTransition(() => {
         setIsSlugManuallyEdited(false);
+        setActiveTab("basic"); // Reset tab về "basic" khi đóng form
       });
     } else if (isEditing) {
       // When editing, assume slug was manually set initially
@@ -619,6 +636,21 @@ export function CategoryFormSheet({
         
         // ✅ Sync cache để table update realtime
         syncCategoryCaches(createdCategory);
+        
+        // ✅ Cập nhật categoryData để CategoryAttributesSection có thể sử dụng categoryId
+        // ✅ Đảm bảo createdCategory có id trước khi set
+        if (createdCategory?.id) {
+          // ✅ Update categoryData và attributesCategoryId cùng lúc
+          setCategoryData(createdCategory);
+          setAttributesCategoryId(createdCategory.id);
+          
+          // ✅ Chuyển sang tab "attributes" sau khi tạo category thành công
+          // ✅ Sử dụng setTimeout với delay nhỏ để đảm bảo state đã được update
+          setTimeout(() => {
+            setActiveTab("attributes");
+          }, 100);
+        }
+        
         onCategoryMutated?.(createdCategory, "create");
         // ✅ Tree cần refresh để hiển thị node mới
         queryClient.invalidateQueries({
@@ -626,13 +658,8 @@ export function CategoryFormSheet({
         });
       }
     },
-    onClose: () => {
-      onOpenChange(false);
-      form.reset(DEFAULT_VALUES);
-      setCategoryState({});
-      defaultCategoryStateRef.current = {};
-      lastSyncedImageUrlRef.current = {};
-    },
+    // ✅ KHÔNG truyền onClose để giữ form mở sau khi tạo thành công
+    // Form sẽ chỉ đóng khi user click Cancel hoặc đóng thủ công
     successMessage: t("admin.forms.category.createCategorySuccess"),
   });
 
@@ -743,6 +770,11 @@ export function CategoryFormSheet({
             reason: "removed",
           });
         }
+
+        // ✅ Chuyển sang tab "attributes" sau khi cập nhật category thành công (nếu đang ở tab "basic")
+        if (activeTab === "basic") {
+          setActiveTab("attributes");
+        }
       }
 
       // ✅ Không invalidate toàn bộ - syncCategoryCaches đã cập nhật list/detail cache
@@ -804,6 +836,15 @@ export function CategoryFormSheet({
             </SheetHeader>
 
             <SheetBody className="flex-1">
+              <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "basic" | "attributes")} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="basic">Thông tin cơ bản</TabsTrigger>
+                  <TabsTrigger value="attributes" disabled={!(isEditing || categoryData?.id)}>
+                    Cấu hình thuộc tính
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="basic" className="mt-4">
               <div className="space-y-6 py-4">
                 {/* Image - Đặt lên đầu */}
                 <FormField
@@ -1100,6 +1141,14 @@ export function CategoryFormSheet({
                   </FormField>
                 </div>
               </div>
+                </TabsContent>
+
+                <TabsContent value="attributes" className="mt-4">
+                  <CategoryAttributesSection 
+                    categoryId={attributesCategoryId} 
+                  />
+                </TabsContent>
+              </Tabs>
             </SheetBody>
 
             <SheetFooter>

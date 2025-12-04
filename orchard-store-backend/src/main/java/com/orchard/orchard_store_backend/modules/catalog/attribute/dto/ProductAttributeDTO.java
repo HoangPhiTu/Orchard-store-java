@@ -35,5 +35,10 @@ public class ProductAttributeDTO {
     private String domain;
     private String status;
     private List<AttributeValueDTO> values;
+    /**
+     * Tên nhóm để group attributes khi hiển thị trong Product Form
+     * Nếu NULL, sẽ group theo domain
+     */
+    private String groupName;
 }
 

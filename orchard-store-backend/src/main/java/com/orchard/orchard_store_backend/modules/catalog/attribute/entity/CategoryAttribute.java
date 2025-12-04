@@ -37,5 +37,8 @@ public class CategoryAttribute {
     @Column(name = "display_order")
     @Builder.Default
     private Integer displayOrder = 0;
+
+    @Column(name = "group_name", length = 100)
+    private String groupName;
 }
 

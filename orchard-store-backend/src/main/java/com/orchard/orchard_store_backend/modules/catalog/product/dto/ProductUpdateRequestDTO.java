@@ -80,6 +80,7 @@ public class ProductUpdateRequestDTO {
         private Boolean isDefault;
         private String status;
         private Integer displayOrder;
+        private String imageUrl;
     }
 }
 

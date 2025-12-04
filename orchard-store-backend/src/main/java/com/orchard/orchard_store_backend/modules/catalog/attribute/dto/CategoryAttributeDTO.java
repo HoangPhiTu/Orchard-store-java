@@ -17,5 +17,6 @@ public class CategoryAttributeDTO {
     private String attributeKey;
     private Boolean required;
     private Integer displayOrder;
+    private String groupName;
 }
 

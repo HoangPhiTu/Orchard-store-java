@@ -4,18 +4,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.orchard.orchard_store_backend.dto.ApiResponse;
 import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductCreateRequestDTO;
 import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductDetailDTO;
+import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductDTO;
 import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductImageDTO;
 import com.orchard.orchard_store_backend.modules.catalog.product.dto.ProductUpdateRequestDTO;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ImageUploadService;
 import com.orchard.orchard_store_backend.modules.catalog.product.service.ProductAdminService;
+import com.orchard.orchard_store_backend.modules.catalog.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.validation.Valid;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,13 +46,94 @@ import java.util.List;
 public class ProductAdminController {
 
     private final ProductAdminService productAdminService;
+    private final ProductService productService;
     private final ImageUploadService imageUploadService;
     private final ObjectMapper objectMapper;
 
     /**
-     * Tạo mới Product với đầy đủ thông tin.
+     * Lấy danh sách products cho Admin với pagination & sort.
+     * (Hiện tại lọc theo keyword/status/brand/category chưa được áp dụng đầy đủ,
+     *  nhưng vẫn nhận params để giữ tương thích với frontend.)
+     *
+     * Endpoint: GET /api/admin/products?page=0&size=15&sortBy=name&direction=ASC
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<Page<ProductDTO>>> getProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int size,
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "ASC") String direction,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) Long categoryId
+    ) {
+        Sort sort = direction.equalsIgnoreCase("DESC")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<ProductDTO> products = productService.getAllProducts(pageable);
+        return ResponseEntity.ok(
+                ApiResponse.success("Lấy danh sách sản phẩm thành công", products)
+        );
+    }
+
+    /**
+     * Tạo mới Product với đầy đủ thông tin (JSON).
      * 
      * Endpoint: POST /api/admin/products
+     * 
+     * Content-Type: application/json
+     * 
+     * Features:
+     * - Tự động generate slug từ tên
+     * - Validate SKU unique
+     * - Sync attributes vào EAV và JSONB
+     * - Transactional (rollback nếu có lỗi)
+     * 
+     * @param requestDTO ProductCreateRequestDTO
+     * @return ApiResponse<ProductDetailDTO>
+     */
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<ProductDetailDTO>> createProduct(
+            @Valid @RequestBody ProductCreateRequestDTO requestDTO
+    ) {
+        try {
+            // Tạo Product
+            ProductDetailDTO createdProduct = productAdminService.createProduct(requestDTO);
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.created("Tạo sản phẩm thành công", createdProduct));
+
+        } catch (jakarta.validation.ConstraintViolationException e) {
+            log.error("Lỗi validation khi tạo Product", e);
+            StringBuilder errorMsg = new StringBuilder("Dữ liệu không hợp lệ: ");
+            e.getConstraintViolations().forEach(violation -> {
+                errorMsg.append(violation.getPropertyPath()).append(" - ").append(violation.getMessage()).append("; ");
+            });
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), errorMsg.toString()));
+        } catch (com.orchard.orchard_store_backend.exception.ResourceNotFoundException e) {
+            log.error("Resource không tìm thấy khi tạo Product", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), e.getMessage()));
+        } catch (com.orchard.orchard_store_backend.exception.ResourceAlreadyExistsException e) {
+            log.error("Resource đã tồn tại khi tạo Product", e);
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error(HttpStatus.CONFLICT.value(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("Lỗi khi tạo Product", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), 
+                            "Lỗi hệ thống khi tạo sản phẩm: " + (e.getMessage() != null ? e.getMessage() : "Vui lòng thử lại sau")));
+        }
+    }
+
+    /**
+     * Tạo mới Product với đầy đủ thông tin (Multipart với ảnh).
+     * 
+     * Endpoint: POST /api/admin/products/with-images
      * 
      * Content-Type: multipart/form-data
      * 
@@ -66,8 +154,8 @@ public class ProductAdminController {
      * @param images Danh sách ảnh chi tiết (optional)
      * @return ApiResponse<ProductDetailDTO>
      */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<ProductDetailDTO>> createProduct(
+    @PostMapping(value = "/with-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<ProductDetailDTO>> createProductWithImages(
             @RequestPart("product") String productJson,
             @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
@@ -129,11 +217,57 @@ public class ProductAdminController {
     }
 
     /**
-     * Cập nhật Product.
+     * Cập nhật Product (JSON).
      * 
      * Endpoint: PUT /api/admin/products/{id}
      * 
-     * Content-Type: multipart/form-data (nếu có ảnh) hoặc application/json
+     * Content-Type: application/json
+     * 
+     * @param id ID của Product cần update
+     * @param requestDTO ProductUpdateRequestDTO
+     * @return ApiResponse<ProductDetailDTO>
+     */
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<ProductDetailDTO>> updateProduct(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductUpdateRequestDTO requestDTO
+    ) {
+        try {
+            // Update Product
+            ProductDetailDTO updatedProduct = productAdminService.updateProduct(id, requestDTO);
+
+            return ResponseEntity.ok(ApiResponse.success("Cập nhật sản phẩm thành công", updatedProduct));
+
+        } catch (jakarta.validation.ConstraintViolationException e) {
+            log.error("Lỗi validation khi cập nhật Product ID: {}", id, e);
+            StringBuilder errorMsg = new StringBuilder("Dữ liệu không hợp lệ: ");
+            e.getConstraintViolations().forEach(violation -> {
+                errorMsg.append(violation.getPropertyPath()).append(" - ").append(violation.getMessage()).append("; ");
+            });
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), errorMsg.toString()));
+        } catch (com.orchard.orchard_store_backend.exception.ResourceNotFoundException e) {
+            log.error("Resource không tìm thấy khi cập nhật Product ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), e.getMessage()));
+        } catch (com.orchard.orchard_store_backend.exception.ResourceAlreadyExistsException e) {
+            log.error("Resource đã tồn tại khi cập nhật Product ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error(HttpStatus.CONFLICT.value(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("Lỗi khi cập nhật Product ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), 
+                            "Lỗi hệ thống khi cập nhật sản phẩm: " + (e.getMessage() != null ? e.getMessage() : "Vui lòng thử lại sau")));
+        }
+    }
+
+    /**
+     * Cập nhật Product với ảnh (Multipart).
+     * 
+     * Endpoint: PUT /api/admin/products/{id}/with-images
+     * 
+     * Content-Type: multipart/form-data
      * 
      * @param id ID của Product cần update
      * @param productJson JSON string của ProductUpdateRequestDTO
@@ -141,8 +275,8 @@ public class ProductAdminController {
      * @param images Danh sách ảnh chi tiết mới (optional)
      * @return ApiResponse<ProductDetailDTO>
      */
-    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<ProductDetailDTO>> updateProduct(
+    @PutMapping(value = "/{id}/with-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<ProductDetailDTO>> updateProductWithImages(
             @PathVariable Long id,
             @RequestPart("product") String productJson,
             @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail,
@@ -198,6 +332,26 @@ public class ProductAdminController {
             log.error("Lỗi khi cập nhật Product ID: {}", id, e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Lỗi khi cập nhật sản phẩm: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Lấy chi tiết Product theo ID (bao gồm variants, images).
+     * 
+     * Endpoint: GET /api/admin/products/{id}
+     * 
+     * @param id ID của Product cần lấy
+     * @return ApiResponse<ProductDetailDTO>
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProductDetailDTO>> getProductDetail(@PathVariable Long id) {
+        try {
+            ProductDetailDTO product = productAdminService.getProductDetail(id);
+            return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết sản phẩm thành công", product));
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy chi tiết Product ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Không tìm thấy sản phẩm: " + e.getMessage()));
         }
     }
 

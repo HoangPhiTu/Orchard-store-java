@@ -126,5 +126,12 @@ public class ProductVariantDTO {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /**
+     * Ảnh riêng cho từng variant (dùng cho Mỹ phẩm / Swatch màu).
+     * Nếu null, FE có thể fallback về ảnh chính của Product.
+     */
+    @Size(max = 500, message = "URL ảnh biến thể không được vượt quá 500 ký tự")
+    private String imageUrl;
 }
 

@@ -19,7 +19,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { useImageManagement } from "@/hooks/use-image-management";
 import { useAttribute } from "@/hooks/use-attributes";
@@ -47,7 +53,6 @@ interface AttributeFormSheetProps {
 const DEFAULT_VALUES: AttributeFormData = {
   attributeKey: "",
   attributeName: "",
-  attributeNameEn: undefined,
   attributeType: "SELECT",
   dataType: "STRING",
   filterable: true,
@@ -55,12 +60,8 @@ const DEFAULT_VALUES: AttributeFormData = {
   required: false,
   variantSpecific: false,
   displayOrder: 0,
-  iconClass: undefined,
-  colorCode: undefined,
-  validationRules: undefined,
-  description: undefined,
-  helpText: undefined,
   unit: undefined,
+  domain: "COMMON",
   status: "ACTIVE",
   values: [],
 };
@@ -115,40 +116,28 @@ export function AttributeFormSheet({
       form.reset({
         attributeKey: attributeData.attributeKey ?? "",
         attributeName: attributeData.attributeName ?? "",
-        attributeNameEn: attributeData.attributeNameEn ?? undefined,
         attributeType: attributeData.attributeType ?? "SELECT",
-        dataType: attributeData.dataType ?? "STRING", // Mặc định
-        filterable: attributeData.filterable ?? true, // Mặc định
-        searchable: attributeData.searchable ?? false, // Mặc định
-        required: attributeData.required ?? false, // Mặc định
+        dataType: attributeData.dataType ?? "STRING",
+        filterable: attributeData.filterable ?? true,
+        searchable: attributeData.searchable ?? false,
+        required: attributeData.required ?? false,
         variantSpecific: attributeData.variantSpecific ?? false,
-        displayOrder: attributeData.displayOrder ?? 0, // Mặc định
-        iconClass: attributeData.iconClass ?? undefined,
-        colorCode: attributeData.colorCode ?? undefined,
-        validationRules: attributeData.validationRules ?? undefined,
-        description: attributeData.description ?? undefined,
-        helpText: attributeData.helpText ?? undefined,
+        displayOrder: attributeData.displayOrder ?? 0,
         unit: attributeData.unit ?? undefined,
         domain: attributeData.domain ?? domain,
-        status: attributeData.status ?? "ACTIVE", // Mặc định
+        status: attributeData.status ?? "ACTIVE",
         values: (attributeData.values ?? []).map((v) => ({
           id: v.id ?? undefined,
           value: v.value,
           displayValue: v.displayValue,
-          displayValueEn: v.displayValueEn ?? undefined,
-          colorCode: v.colorCode ?? undefined,
           imageUrl: v.imageUrl ?? undefined,
           hexColor: v.hexColor ?? undefined,
-          description: v.description ?? undefined,
           displayOrder: v.displayOrder ?? undefined,
           isDefault: v.isDefault ?? undefined,
-          searchKeywords: v.searchKeywords ?? undefined,
         })),
       });
       setKeyManuallyEdited(!!attributeData.attributeKey);
-      setActiveDomain(
-        (attributeData.domain as typeof activeDomain) || domain
-      );
+      setActiveDomain((attributeData.domain as typeof activeDomain) || domain);
     } else if (!isEditing) {
       form.reset(DEFAULT_VALUES);
       setKeyManuallyEdited(false);
@@ -252,7 +241,9 @@ export function AttributeFormSheet({
         }
       }
       // Tự động set displayOrder theo index
-      const currentDisplayOrder = form.getValues(`values.${index}.displayOrder`);
+      const currentDisplayOrder = form.getValues(
+        `values.${index}.displayOrder`
+      );
       if (currentDisplayOrder !== index) {
         form.setValue(`values.${index}.displayOrder`, index, {
           shouldValidate: false,
@@ -305,10 +296,12 @@ export function AttributeFormSheet({
       // Đặc biệt: Đảm bảo value cho mỗi attribute value được set từ displayValue
       const processedValues = (data.values || []).map((val, index) => {
         // Tự động generate value từ displayValue nếu chưa có
-        const value = val.value || (val.displayValue ? generateAttributeKey(val.displayValue) : "");
+        const value =
+          val.value ||
+          (val.displayValue ? generateAttributeKey(val.displayValue) : "");
         // Đảm bảo displayOrder được set theo index
         const displayOrder = val.displayOrder ?? index;
-        
+
         return {
           ...val,
           value: value || val.displayValue || "", // Fallback về displayValue nếu generateAttributeKey trả về rỗng
@@ -317,23 +310,20 @@ export function AttributeFormSheet({
       });
 
       const submitData: AttributeFormData = {
-        ...data,
-        // Tự động điền attributeKey nếu chưa có
         attributeKey:
-          data.attributeKey || (nameValue ? generateAttributeKey(nameValue) : ""),
-        // Mặc định dataType = 'STRING'
+          data.attributeKey ||
+          (nameValue ? generateAttributeKey(nameValue) : ""),
+        attributeName: data.attributeName,
+        attributeType: data.attributeType,
         dataType: data.dataType || "STRING",
-        // Mặc định displayOrder = 0
-        displayOrder: data.displayOrder ?? 0,
-        // Mặc định status = 'ACTIVE'
-        status: data.status || "ACTIVE",
-        // Mặc định filterable = true
         filterable: data.filterable ?? true,
-        // Mặc định searchable = false
         searchable: data.searchable ?? false,
-        // Mặc định required = false
         required: data.required ?? false,
-        // Xử lý values với value và displayOrder đã được set
+        variantSpecific: data.variantSpecific ?? false,
+        displayOrder: data.displayOrder ?? 0,
+        unit: data.unit || undefined,
+        domain: data.domain || "COMMON",
+        status: data.status || "ACTIVE",
         values: processedValues.length > 0 ? processedValues : undefined,
       };
 
@@ -363,14 +353,10 @@ export function AttributeFormSheet({
     append({
       value: "",
       displayValue: "",
-      displayValueEn: undefined,
-      colorCode: undefined,
       imageUrl: undefined,
       hexColor: undefined,
-      description: undefined,
-      displayOrder: newIndex, // Set ngay từ đầu
+      displayOrder: newIndex,
       isDefault: false,
-      searchKeywords: undefined,
     });
   };
 
@@ -403,49 +389,13 @@ export function AttributeFormSheet({
 
             <SheetBody className="flex-1">
               <div className="space-y-6 py-4">
-                {/* Tabs: Chọn domain Thuộc tính (Nước hoa / Mỹ phẩm) */}
-                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/10 px-4 py-3">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium text-foreground">
-                      {t("admin.forms.attribute.domainLabel")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("admin.forms.attribute.domainDescription")}
-                    </p>
-                  </div>
-                  <Tabs
-                    value={activeDomain}
-                    onValueChange={(val) => {
-                      const next = val as "PERFUME" | "COSMETICS" | "COMMON";
-                      setActiveDomain(next);
-                      form.setValue("domain", next, { shouldValidate: false });
-                    }}
-                    className="ml-4"
-                  >
-                    <TabsList className="grid grid-cols-2">
-                      <TabsTrigger
-                        value="PERFUME"
-                        className="text-xs font-semibold transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:ring-2 data-[state=active]:ring-primary/20 data-[state=active]:ring-offset-1 data-[state=active]:scale-[1.02] data-[state=inactive]:hover:bg-muted/60"
-                      >
-                        {t("admin.forms.attribute.perfumeTab")}
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="COSMETICS"
-                        className="text-xs font-semibold transition-all duration-200 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:ring-2 data-[state=active]:ring-primary/20 data-[state=active]:ring-offset-1 data-[state=active]:scale-[1.02] data-[state=inactive]:hover:bg-muted/60"
-                      >
-                        {t("admin.forms.attribute.cosmeticsTab")}
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-
-                {/* Basic Attribute Fields - Smart Form: Chỉ hiển thị các trường cần thiết */}
-                <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
-                  <h3 className="text-sm font-semibold text-foreground">
+                {/* Section 1: Thông tin cơ bản - Các trường quan trọng nhất */}
+                <div className="space-y-4 rounded-lg border border-border bg-card p-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">
                     {t("admin.forms.attribute.basicInfo")}
                   </h3>
 
-                  {/* Trường 1: Tên thuộc tính (Required) */}
+                  {/* Trường 1: Tên thuộc tính (Required - Quan trọng nhất) */}
                   <FormField
                     label={t("admin.attributes.attributeName")}
                     htmlFor="attributeName"
@@ -465,6 +415,7 @@ export function AttributeFormSheet({
                             "admin.forms.attribute.attributeNamePlaceholder"
                           )}
                           disabled={isSubmitting}
+                          className="font-medium"
                         />
                       )}
                     />
@@ -478,34 +429,79 @@ export function AttributeFormSheet({
                     error={form.formState.errors.attributeType}
                     description={
                       variantSpecific
-                        ? t(
-                            "admin.forms.attribute.variantSpecificDescription"
-                          )
+                        ? t("admin.forms.attribute.variantSpecificDescription")
                         : t("admin.forms.attribute.attributeTypeDescription")
                     }
                   >
-                      <Controller
-                        name="attributeType"
-                        control={form.control}
-                        render={({ field }) => (
-                          <select
-                            {...field}
-                            disabled={isSubmitting || variantSpecific === true}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {/* Sắp xếp theo độ phổ biến: Select (Default), Multi-Select, Boolean, Text */}
-                            <option value="SELECT">Select</option>
-                            <option value="MULTISELECT">Multi-Select</option>
-                            <option value="BOOLEAN">Boolean</option>
-                            <option value="TEXT">Text</option>
-                            {/* Range đã được ẩn vì không phù hợp với ngành nước hoa */}
-                            {/* <option value="RANGE">Range</option> */}
-                          </select>
-                        )}
-                      />
+                    <Controller
+                      name="attributeType"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          disabled={isSubmitting || variantSpecific === true}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn loại thuộc tính" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="SELECT">Select</SelectItem>
+                            <SelectItem value="MULTISELECT">
+                              Multi-Select
+                            </SelectItem>
+                            <SelectItem value="BOOLEAN">Boolean</SelectItem>
+                            <SelectItem value="TEXT">Text</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                   </FormField>
 
-                  {/* Trường 3: Đơn vị tính (Optional) */}
+                  {/* Trường 3: Thuộc nhóm sản phẩm (Quan trọng) */}
+                  <FormField
+                    label={t("admin.forms.attribute.domainLabel")}
+                    htmlFor="domain"
+                    error={form.formState.errors.domain}
+                    description={t("admin.forms.attribute.domainDescription")}
+                  >
+                    <Controller
+                      name="domain"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || "COMMON"}
+                          onValueChange={(value) => {
+                            const next = value as
+                              | "PERFUME"
+                              | "COSMETICS"
+                              | "COMMON";
+                            field.onChange(next);
+                            setActiveDomain(next);
+                          }}
+                          disabled={isSubmitting}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn nhóm sản phẩm" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PERFUME">
+                              {t("admin.forms.attribute.perfumeTab")}
+                            </SelectItem>
+                            <SelectItem value="COSMETICS">
+                              {t("admin.forms.attribute.cosmeticsTab")}
+                            </SelectItem>
+                            <SelectItem value="COMMON">
+                              {t("admin.forms.attribute.commonTab") ||
+                                "Dùng chung"}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </FormField>
+
+                  {/* Trường 4: Đơn vị tính (Optional nhưng quan trọng) */}
                   <FormField
                     label={t("admin.forms.attribute.unitLabel")}
                     htmlFor="unit"
@@ -518,22 +514,29 @@ export function AttributeFormSheet({
                       render={({ field }) => (
                         <Input
                           {...field}
-                           placeholder="ml, g, %"
+                          placeholder="ml, g, %"
                           maxLength={50}
                           disabled={isSubmitting}
                         />
                       )}
                     />
                   </FormField>
+                </div>
+
+                {/* Section 2: Cấu hình nâng cao */}
+                <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">
+                    Cấu hình nâng cao
+                  </h3>
 
                   {/* Switch: Dùng cho biến thể */}
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/10 p-4">
-                    <div className="space-y-0.5">
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-background p-4">
+                    <div className="space-y-0.5 flex-1">
                       <label className="text-sm font-medium text-foreground">
-                         {t("admin.forms.attribute.variantSpecificLabel")}
+                        {t("admin.forms.attribute.variantSpecificLabel")}
                       </label>
                       <p className="text-xs text-muted-foreground">
-                         {t("admin.forms.attribute.variantSpecificDescription")}
+                        {t("admin.forms.attribute.variantSpecificDescription")}
                       </p>
                     </div>
                     <Controller
@@ -574,7 +577,7 @@ export function AttributeFormSheet({
                 <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-foreground">
-                       {t("admin.forms.attribute.valuesTitle")}
+                      {t("admin.forms.attribute.valuesTitle")}
                     </h3>
                     <Button
                       type="button"
@@ -584,31 +587,20 @@ export function AttributeFormSheet({
                       disabled={isSubmitting}
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                       {t("admin.forms.attribute.addValue")}
+                      {t("admin.forms.attribute.addValue")}
                     </Button>
                   </div>
 
                   {fields.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border bg-muted/10 p-8 text-center">
                       <p className="text-sm text-muted-foreground">
-                         {t("admin.forms.attribute.noValues")}
+                        {t("admin.forms.attribute.noValues")}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {/* Simple Row List */}
                       {fields.map((field, index) => {
-                        const displayValue = form.watch(
-                          `values.${index}.displayValue`
-                        );
-                        const hasColorOrImage =
-                          form.watch(`values.${index}.hexColor`) ||
-                          form.watch(`values.${index}.imageUrl`);
-                        const showColorImageFields =
-                          (attributeType === "SELECT" ||
-                            attributeType === "MULTISELECT") &&
-                          hasColorOrImage;
-
                         return (
                           <div
                             key={field.id}
@@ -625,24 +617,39 @@ export function AttributeFormSheet({
                                     <div className="flex items-center gap-2">
                                       <Input
                                         {...field}
-                                         placeholder={t(
-                                           "admin.forms.attribute.valuePlaceholder"
-                                         )}
+                                        placeholder={t(
+                                          "admin.forms.attribute.valuePlaceholder"
+                                        )}
                                         disabled={isSubmitting}
                                         className="h-9 text-sm"
                                         onChange={(e) => {
                                           field.onChange(e);
                                           // Tự động update value ngay lập tức khi displayValue thay đổi
-                                          const newDisplayValue = e.target.value;
-                                          if (newDisplayValue && newDisplayValue.trim() !== "") {
-                                            const generatedValue = generateAttributeKey(newDisplayValue);
-                                            form.setValue(`values.${index}.value`, generatedValue, {
-                                              shouldValidate: true,
-                                            });
+                                          const newDisplayValue =
+                                            e.target.value;
+                                          if (
+                                            newDisplayValue &&
+                                            newDisplayValue.trim() !== ""
+                                          ) {
+                                            const generatedValue =
+                                              generateAttributeKey(
+                                                newDisplayValue
+                                              );
+                                            form.setValue(
+                                              `values.${index}.value`,
+                                              generatedValue,
+                                              {
+                                                shouldValidate: true,
+                                              }
+                                            );
                                           } else {
-                                            form.setValue(`values.${index}.value`, "", {
-                                              shouldValidate: true,
-                                            });
+                                            form.setValue(
+                                              `values.${index}.value`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              }
+                                            );
                                           }
                                         }}
                                       />
@@ -663,7 +670,7 @@ export function AttributeFormSheet({
                                     }
                                   </p>
                                 )}
-                                {/* Hidden: value (tự động copy từ displayValue) - Cần register để form biết field này tồn tại */}
+                                {/* Hidden: value (tự động copy từ displayValue) */}
                                 <Controller
                                   name={`values.${index}.value`}
                                   control={form.control}
@@ -684,7 +691,7 @@ export function AttributeFormSheet({
                               {/* Mặc định */}
                               <div className="flex items-center gap-2 shrink-0">
                                 <label className="text-xs text-muted-foreground whitespace-nowrap">
-                                   {t("admin.forms.attribute.defaultLabel")}
+                                  {t("admin.forms.attribute.defaultLabel")}
                                 </label>
                                 <Controller
                                   name={`values.${index}.isDefault`}
@@ -804,15 +811,15 @@ export function AttributeFormSheet({
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
-                 {t("admin.forms.common.cancel")}
+                {t("admin.forms.common.cancel")}
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                 {isEditing
-                   ? t("admin.forms.common.save")
-                   : t("admin.forms.common.save")}
+                {isEditing
+                  ? t("admin.forms.common.save")
+                  : t("admin.forms.common.save")}
               </Button>
             </SheetFooter>
           </form>

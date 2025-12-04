@@ -93,10 +93,15 @@ public class GlobalExceptionHandler {
                         (existing, replacement) -> existing // Nếu có nhiều lỗi cùng field, giữ lỗi đầu tiên
                 ));
         
+        // Tạo message cụ thể từ field errors đầu tiên thay vì message chung chung
+        String firstErrorMessage = fieldErrors.values().stream()
+                .findFirst()
+                .orElse("Dữ liệu không hợp lệ");
+        
         errorResponse.put("timestamp", LocalDateTime.now());
         errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
         errorResponse.put("error", "Validation Failed");
-        errorResponse.put("message", "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại các trường sau:");
+        errorResponse.put("message", firstErrorMessage); // Message cụ thể từ field đầu tiên
         errorResponse.put("errors", fieldErrors); // Chi tiết lỗi theo từng field
         errorResponse.put("path", "/api");
         

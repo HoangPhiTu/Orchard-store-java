@@ -34,6 +34,7 @@ export function Sidebar({
             | "admin.menu.categories"
             | "admin.menu.concentrations"
             | "admin.menu.attributes"
+            | "admin.menu.products"
             | "admin.menu.warehouses"
             | "admin.menu.users"
         ) || item.label,

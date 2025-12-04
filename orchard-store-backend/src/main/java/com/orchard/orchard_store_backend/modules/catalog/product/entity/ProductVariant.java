@@ -139,6 +139,16 @@ public class ProductVariant {
     @Column(name = "meta_description", columnDefinition = "TEXT")
     private String metaDescription;
 
+    /**
+     * Ảnh riêng cho từng biến thể (đặc biệt hữu ích cho Mỹ phẩm / Swatch màu).
+     *
+     * Tạm thời không map với cột trong DB để tránh lỗi khi cột chưa tồn tại
+     * (JDBC error: column image_url does not exist). FE có thể lấy ảnh từ
+     * danh sách `images` hoặc fallback về ảnh chính của Product.
+     */
+    @Transient
+    private String imageUrl;
+
     @Column(name = "available_from")
     @Builder.Default
     private LocalDateTime availableFrom = LocalDateTime.now();

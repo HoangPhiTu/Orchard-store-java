@@ -35,6 +35,7 @@ interface HandleErrorOptions<T extends FieldValues> {
   setError?: UseFormSetError<T>;
   showToast?: boolean; // Default: true - hiển thị toast cho lỗi không có field
   formFieldPrefix?: string; // Prefix cho form fields (ví dụ: "address.")
+  onFirstErrorField?: (fieldName: string) => void; // Callback khi có lỗi validation đầu tiên
 }
 
 // ===== VALIDATION MESSAGE MAPPING =====
@@ -294,6 +295,13 @@ function extractErrorMessage(error: AxiosError<unknown>): string {
   const response = error.response?.data;
 
   if (!response || typeof response !== "object") {
+    // Log full response for debugging
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[handleApiError] Full error response:",
+        error.response?.data
+      );
+    }
     return "";
   }
 
@@ -309,11 +317,19 @@ function extractErrorMessage(error: AxiosError<unknown>): string {
     return typedResponse.error;
   }
 
+  // Log full response for debugging if no message found
+  if (process.env.NODE_ENV === "development") {
+    console.error(
+      "[handleApiError] No message found in response:",
+      typedResponse
+    );
+  }
+
   return "";
 }
 
 /**
- * Extract validation errors từ 422 response
+ * Extract validation errors từ 422/400 response
  */
 function extractValidationErrors(
   error: AxiosError<unknown>
@@ -321,6 +337,13 @@ function extractValidationErrors(
   const response = error.response?.data;
 
   if (!response || typeof response !== "object") {
+    // Log full response for debugging
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[extractValidationErrors] Full error response:",
+        error.response?.data
+      );
+    }
     return null;
   }
 
@@ -332,7 +355,20 @@ function extractValidationErrors(
     typeof typedResponse.errors === "object" &&
     typedResponse.errors !== null
   ) {
-    return typedResponse.errors as Record<string, string>;
+    const errors = typedResponse.errors as Record<string, string>;
+    // Log validation errors for debugging
+    if (process.env.NODE_ENV === "development") {
+      console.error("[extractValidationErrors] Validation errors:", errors);
+    }
+    return errors;
+  }
+
+  // Log full response for debugging if no errors field found
+  if (process.env.NODE_ENV === "development") {
+    console.error(
+      "[extractValidationErrors] No errors field found in response:",
+      typedResponse
+    );
   }
 
   return null;
@@ -419,22 +455,31 @@ function getConflictMessage(field: string, originalMessage?: string): string {
   // Kiểm tra context-specific messages từ originalMessage
   if (originalMessage) {
     const messageLower = originalMessage.toLowerCase();
-    
+
     // Brand name context
-    if (field === "name" && (messageLower.includes("brand") || messageLower.includes("thương hiệu"))) {
+    if (
+      field === "name" &&
+      (messageLower.includes("brand") || messageLower.includes("thương hiệu"))
+    ) {
       return "Tên thương hiệu này đã tồn tại";
     }
-    
+
     // Category name context
-    if (field === "name" && (messageLower.includes("category") || messageLower.includes("danh mục"))) {
+    if (
+      field === "name" &&
+      (messageLower.includes("category") || messageLower.includes("danh mục"))
+    ) {
       return "Tên danh mục này đã tồn tại";
     }
-    
+
     // Product name context
-    if (field === "name" && (messageLower.includes("product") || messageLower.includes("sản phẩm"))) {
+    if (
+      field === "name" &&
+      (messageLower.includes("product") || messageLower.includes("sản phẩm"))
+    ) {
       return "Tên sản phẩm này đã tồn tại";
     }
-    
+
     // Nếu có originalMessage và nó đã là tiếng Việt, giữ nguyên
     const hasVietnameseChars =
       /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
@@ -478,7 +523,12 @@ export function handleApiError<T extends FieldValues>(
   error: AxiosError<unknown>,
   options: HandleErrorOptions<T> = {}
 ): void {
-  const { setError, showToast = true, formFieldPrefix = "" } = options;
+  const {
+    setError,
+    showToast = true,
+    formFieldPrefix = "",
+    onFirstErrorField,
+  } = options;
 
   const status = error.response?.status;
   const errorMessage = extractErrorMessage(error);
@@ -491,23 +541,68 @@ export function handleApiError<T extends FieldValues>(
     if (validationErrors && setError) {
       // Có validation errors với field cụ thể
       let hasSetError = false;
+      let firstErrorField: string | null = null;
 
       for (const [field, message] of Object.entries(validationErrors)) {
         const translatedMessage = translateValidationMessage(message);
-        const fieldName = (formFieldPrefix + field) as Path<T>;
 
-        setError(fieldName, {
-          type: "manual",
-          message: translatedMessage,
-        });
+        // Map variants[index].variantName errors to variants array level
+        // vì frontend không có field variantName riêng, nó được generate từ attributes
+        let mappedField = field;
+        if (field.match(/^variants\[\d+\]\.variantName$/)) {
+          // Map to variants array level error
+          mappedField = "variants";
+        }
 
-        hasSetError = true;
+        const fieldName = (formFieldPrefix + mappedField) as Path<T>;
+
+        try {
+          setError(fieldName, {
+            type: "manual",
+            message: translatedMessage,
+          });
+
+          // Lưu field đầu tiên có lỗi (dùng mappedField để scroll đúng)
+          if (!firstErrorField) {
+            firstErrorField = mappedField;
+          }
+
+          hasSetError = true;
+        } catch (setErrorException) {
+          // Nếu setError fail (ví dụ: field không tồn tại), log và tiếp tục
+          console.error(
+            `[handleApiError] Failed to set error on field "${fieldName}":`,
+            setErrorException
+          );
+        }
       }
 
-      // Đã set error vào form -> không cần toast
+      // Gọi callback với field đầu tiên có lỗi để scroll/focus
+      if (hasSetError && firstErrorField && onFirstErrorField) {
+        try {
+          onFirstErrorField(firstErrorField);
+        } catch (callbackError) {
+          console.error(
+            "[handleApiError] Error in onFirstErrorField callback:",
+            callbackError
+          );
+        }
+      }
+
+      // Đã set error vào form -> vẫn hiển thị toast với message tổng hợp nếu có
       if (hasSetError) {
+        // Hiển thị toast với message từ backend nếu có
+        if (showToast && errorMessage) {
+          toast.error(errorMessage);
+        }
         return;
       }
+    }
+
+    // Nếu không có validation errors cụ thể nhưng có errorMessage, hiển thị toast
+    if (!validationErrors && errorMessage && showToast) {
+      toast.error(errorMessage);
+      return;
     }
   }
 
@@ -571,7 +666,7 @@ export function handleApiError<T extends FieldValues>(
           type: "manual",
           message: conflictMessage,
         });
-        
+
         // ✅ Vẫn hiển thị toast để user biết có lỗi (ngay cả khi đã map vào form)
         // Điều này đảm bảo user luôn thấy thông báo lỗi
         if (showToast) {
@@ -579,7 +674,10 @@ export function handleApiError<T extends FieldValues>(
         }
       } catch (setErrorException) {
         // Nếu setError fail (ví dụ: field không tồn tại), vẫn hiển thị toast
-        console.error("[handleApiError] Failed to set error on form field:", setErrorException);
+        console.error(
+          "[handleApiError] Failed to set error on form field:",
+          setErrorException
+        );
         if (showToast) {
           toast.error(conflictMessage || errorMessage || "Đã có lỗi xảy ra");
         }

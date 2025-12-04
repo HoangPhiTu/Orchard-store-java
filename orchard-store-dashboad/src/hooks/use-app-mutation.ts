@@ -172,6 +172,18 @@ interface UseAppMutationOptions<
    * formFieldPrefix: 'address.'
    */
   formFieldPrefix?: string;
+
+  /**
+   * Callback được gọi khi có lỗi validation đầu tiên
+   * Dùng để scroll/focus vào field có lỗi hoặc chuyển tab
+   *
+   * @example
+   * onFirstErrorField: (fieldName) => {
+   *   // Scroll to field
+   *   document.getElementById(fieldName)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+   * }
+   */
+  onFirstErrorField?: (fieldName: string) => void;
 }
 
 // ===== MAIN HOOK =====
@@ -344,10 +356,12 @@ export function useAppMutation<
         // - Dịch lỗi sang Tiếng Việt
         // - Gán lỗi vào form fields (nếu có setError)
         // - Hiển thị toast (nếu shouldShowToast = true)
+        // - Gọi onFirstErrorField callback để scroll/focus vào field có lỗi
         handleApiError(error as AxiosError, {
           setError: formSetError,
           showToast: shouldShowToast,
           formFieldPrefix,
+          onFirstErrorField: options.onFirstErrorField,
         });
 
         // 3. KHÔNG gọi onClose() khi có lỗi

@@ -54,6 +54,11 @@ export interface ProductAttribute {
   values?: AttributeValue[] | null;
   createdAt?: string | null; // ISO date string
   updatedAt?: string | null; // ISO date string
+  /**
+   * Tên nhóm để group attributes khi hiển thị trong Product Form
+   * Nếu NULL, sẽ group theo domain
+   */
+  groupName?: string | null;
 }
 
 export interface AttributeFilter {
